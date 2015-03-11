@@ -37,6 +37,16 @@ class Vkdatabase:
             print("Somerthing wrong with the query")
             print(SQL)
             print ("Psql gives the error: {}".format(e.pgerror))
+    #Query with a non-dictionary cursor that returns only one value {{{3
+    def OneResultQuery(self, SQL,valuetuple=("empty",)):
+        try:
+            self.cur.execute(SQL, valuetuple)
+            result = self.cur.fetchall()
+            return result[0]
+        except psycopg2.Error as e:
+            print("Somerthing wrong with the query")
+            print(SQL)
+            print ("Psql gives the error: {}".format(e.pgerror))
 
 class mydatabase:
     """Establish a connection to database and create two cursors for use"""
@@ -66,6 +76,16 @@ class mydatabase:
         try:
             self.cur.execute(SQL, valuetuple)
             return self.cur.fetchall()
+        except psycopg2.Error as e:
+            print("Somerthing wrong with the query")
+            print(SQL)
+            print ("Psql gives the error: {}".format(e.pgerror))
+    #Query with a non-dictionary cursor that returns only one value {{{3
+    def OneResultQuery(self, SQL,valuetuple=("empty",)):
+        try:
+            self.cur.execute(SQL, valuetuple)
+            result = self.cur.fetchall()
+            return result[0]
         except psycopg2.Error as e:
             print("Somerthing wrong with the query")
             print(SQL)
