@@ -30,6 +30,11 @@ class ConstQuery:
 #ConstQuery{{{2
     """Some often used queries can be saved as instances of this class"""
     # What is the language table used in the queries
+    independentByLemma2 ="""SELECT lemmaQ.align_id FROM 
+                            (SELECT * FROM {0} WHERE lemma = %s) as lemmaQ, {0}
+                                WHERE {0}.tokenid = lemmaQ.head AND 
+                                {0}.sentence_id = lemmaQ.sentence_id AND
+                                {0}.deprel='ROOT'""".format('fi_conll')
     independentByLemma ="""SELECT lemmaQ.id, lemmaQ.align_id, lemmaQ.text_id, lemmaQ.sentence_id FROM 
                             (SELECT * FROM {0} WHERE lemma = %s) as lemmaQ, {0}
                                 WHERE {0}.tokenid = lemmaQ.head AND 
@@ -72,6 +77,34 @@ class Search:
             counter += 1
             self.matches.append(Match(row['id'],row['align_id'],row['text_id']))
         print('Found {} occurences'.format(counter))
+    #3}}}
+    def FindByQuery2(self, sqlq, sqlvalue):
+    #FindByToken {{{3
+        """Locates elements using user-defined queries"""
+        sql_cols = "tokenid, form, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id"
+        #Fetch everything from the align units that  are retrieved by the user-defined query
+        sqlq = "SELECT {0} FROM {1} WHERE align_id in ({2}) order by align_id, id".format(sql_cols, Db.searched_table, sqlq)
+        # Notice that the %s matchin the sqlvalue here must be defined in the query!
+        wordrows = Db.con.dictquery(sqlq,(sqlvalue,))
+        #create a dict of sentence objects
+        context = {}
+        for wordrow in wordrows:
+            if wordrow['sentence_id'] not in context:
+                #If this sentence id not yet in the dict of sentences, add it
+                if context:
+                    dict
+                    #If this is not the first word of the first sentence:
+                    for word in context[-1]
+                    FindMatchInSentence(context[-1], searhedvalue,)
+                    pass
+                context[wordrow['sentence_id']] = Sentence(wordrow['sentence_id'])
+            # Add all the information about the current word as a Word object to the sentence
+            self.context[wordrow['sentence_id']].words.append(Word(wordrow,matched_id))
+            #Add the current word to the list of words in the current sentence
+            #context[wordrow['sentence_id']].words.append(Word(wordrow,matched_id))
+        #print('Found {} occurences'.format(counter))
+        # Create match objects from the found tokens 
+            #self.matches.append(Match(row['id'],row['align_id'],row['text_id']))
     #3}}}
     #2}}}
 
@@ -180,8 +213,9 @@ def main():
     Db.searched_table = 'fi_conll'
     newsearch = Search()
     ConstQuery.independentByLemma += 'LIMIT 10'
-    newsearch.FindByQuery(ConstQuery.independentByLemma,'jo')
-    newsearch.matches[1].monoConcordance()
+    #newsearch.FindByQuery(ConstQuery.independentByLemma,'jo')
+    newsearch.FindByQuery2(ConstQuery.independentByLemma2,'jo')
+    #newsearch.matches[1].monoConcordance()
     ##for s_id, sentence in newsearch.matches[1].context:
     #    print (sentence)
     #searchedelement.FetchParallelConcordance()
