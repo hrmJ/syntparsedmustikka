@@ -26,28 +26,54 @@ class Db:
     con = mydatabase('syntparfin','juho')
 #2}}}
 
+class ConstQuery:
+#ConstQuery{{{2
+    """Some often used queries can be saved as instances of this class"""
+    # What is the language table used in the queries
+    independentByLemma ="""SELECT lemmaQ.id, lemmaQ.align_id, lemmaQ.text_id, lemmaQ.sentence_id FROM 
+                            (SELECT * FROM {0} WHERE lemma = %s) as lemmaQ, {0}
+                                WHERE {0}.tokenid = lemmaQ.head AND 
+                                {0}.sentence_id = lemmaQ.sentence_id AND
+                                {0}.deprel='ROOT'""".format('fi_conll')
+#2}}}
+
 class Search:
-#Search {{{2
+    #Search {{{2
     """This is the very
     basic class that is used to retrieve data from the corpus"""
     all_searches = []
     def __init__(self):
         self.matches = []
         #Save the search object to a list of all conducted searches during the session
-        all_searches.append(self)
+        Search.all_searches.append(self)
 
     def FindByToken(self, searchedvalue):
-#FindByToken {{{3
+    #FindByToken {{{3
         """ Locates the searched elements from the database  by the token of
         one word and collects the ids of the searched tokens"""
         #Collect ids from all the elements that match the search criterion 
         sql = "SELECT id, align_id, text_id, sentence_id FROM {} WHERE form = %s".format(Db.searched_table)
         rows = Db.con.dictquery(sql,(searchedvalue,))
         # Create match objects from the found tokens 
+        counter=0
         for row in rows:
+            counter += 1
+            #self.matches.append(Match(row['id'],row['align_id'],row['text_id']))
+        print('Found {} occurences'.format(counter))
+    #3}}}
+    def FindByQuery(self, sqlq, sqlvalue):
+    #FindByToken {{{3
+        """Locates elements using user-defined queries"""
+        #Collect ids from all the elements that match the search criterion 
+        rows = Db.con.dictquery(sqlq,(sqlvalue,))
+        # Create match objects from the found tokens 
+        counter=0
+        for row in rows:
+            counter += 1
             self.matches.append(Match(row['id'],row['align_id'],row['text_id']))
-#3}}}
-#2}}}
+        print('Found {} occurences'.format(counter))
+    #3}}}
+    #2}}}
 
 class Match:
 #Match {{{2
@@ -92,14 +118,14 @@ class Sentence:
         #buildPrintString{{{3
         """Constructs a printable sentence"""
         self.printstring = ''
+        isqmark = False
         for idx, word in enumerate(self.words):
             spacechar = ' '
-            isqmark = False
             try:
                 #if previous tag is a word:
                 if self.words[idx-1].pos != 'Punct' and self.words[idx-1].token not in string.punctuation:
-                    #...and this tag is a punctuation mark
-                    if word.token in string.punctuation:
+                    #...and this tag is a punctuation mark. Notice that exception is made for hyphens, since in mustikka they are often used as dashes
+                    if word.token in string.punctuation and word.token != '-':
                         #..don't insert whitespace
                         spacechar = ''
                         #except if this is the first quotation mark
@@ -109,6 +135,12 @@ class Sentence:
                         elif word.token == '\"' and isqmark:
                             isqmark = False
                             spacechar = ''
+                #if previous tag was not a word
+                elif self.words[idx-1].form in string.punctuation:
+                    #...and this tag is a punctuation mark
+                    if (self.word.token in string.punctuation and self.word.token != '-' and self.word.token != '\"') or isqmark:
+                        #..don't insert whitespace
+                        spacechar = ''
             except:
                 pass
             #if this is the first element in the context
@@ -135,6 +167,7 @@ class Word:
         if row["id"] ==  matched_id:
             self.ismatch = True
         else:
+            self.ismatch = False
 
 #}}}2
             
@@ -146,9 +179,10 @@ def main():
     #Set the language that is being searched
     Db.searched_table = 'fi_conll'
     newsearch = Search()
-    newsearch.FindByToken('oli')
+    ConstQuery.independentByLemma += 'LIMIT 10'
+    newsearch.FindByQuery(ConstQuery.independentByLemma,'jo')
     newsearch.matches[1].monoConcordance()
-    #for s_id, sentence in newsearch.matches[1].context:
+    ##for s_id, sentence in newsearch.matches[1].context:
     #    print (sentence)
     #searchedelement.FetchParallelConcordance()
 #1}}}

@@ -29,6 +29,7 @@ def main():
     tablename = 'text_ids'
     con.insertquery("INSERT INTO {} (title) values(%s)".format(tablename), (text_title,))
     text_id = con.nondictquery("SELECT max(id) FROM {}".format(tablename),("",))
+    text_id = text_id[0]
     #initialize a counter to be shown to the user
     i=0
     #Loop through the lines

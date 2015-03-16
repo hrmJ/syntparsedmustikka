@@ -12,22 +12,23 @@ from lxml import etree
 def main():
     try:
         sourcefile = sys.argv[1]
-        language = sys.argv[2]
+        languages = sys.argv[2:]
     except:
-        print('Usage: {} <path to source tmx> <language>'.format(sys.argv[0]))
+        print('Usage: {} <path to source tmx> <language> ... <language n>'.format(sys.argv[0]))
         sys.exit(0)
     with codecs.open(sourcefile, encoding="utf-8") as f:
         xmlstring = f.read()
     #Create an lxml etree object of the string
     root = etree.fromstring(xmlstring)
-    xpathq = "//tuv[@xml:lang='{}']//seg".format(language)
-    segs = root.xpath(xpathq)
-    preparedinput = ""
-    for seg in segs:
-        preparedinput += "\n#\n" + seg.text
-    f = open('preparedoutput.txt', 'w')
-    f.write(preparedinput.strip())
-    f.close()
+    for language in languages:
+        xpathq = "//tuv[@xml:lang='{}']//seg".format(language)
+        segs = root.xpath(xpathq)
+        preparedinput = ""
+        for seg in segs:
+            preparedinput += "\n#\n" + seg.text
+        f = open('{}_{}.prepared'.format(sourcefile,language), 'w')
+        f.write(preparedinput.strip())
+        f.close()
 #1}}}
 #Start the script{{{1
 if __name__ == "__main__":
