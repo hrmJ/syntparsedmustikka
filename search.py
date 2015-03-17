@@ -6,6 +6,7 @@ import codecs
 #other
 import csv
 import sys
+from collections import defaultdict
 #xml parsing
 from lxml import etree
 #string operations
@@ -48,7 +49,8 @@ class Search:
     basic class that is used to retrieve data from the corpus"""
     all_searches = []
     def __init__(self):
-        self.matches = []
+    # The matches will be saved as lists in a dict with align_ids as keys.
+        self.matches = defaultdict(list)
         #Save the search object to a list of all conducted searches during the session
         Search.all_searches.append(self)
 
@@ -79,7 +81,7 @@ class Search:
         print('Found {} occurences'.format(counter))
     #3}}}
     def FindByQuery2(self, sqlq, sqlvalue):
-    #FindByToken {{{3
+    #FindByQuery2 {{{3
         """Locates elements using user-defined queries"""
         sql_cols = "tokenid, form, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id"
         #Fetch everything from the align units that  are retrieved by the user-defined query
@@ -87,50 +89,62 @@ class Search:
         # Notice that the %s matchin the sqlvalue here must be defined in the query!
         wordrows = Db.con.dictquery(sqlq,(sqlvalue,))
         #create a dict of sentence objects
-        context = {}
+        context = dict()
+        #create a dict of align segments
+        aligns = dict()
+    #currentalign = {'sentences':list(),'id':0}
+    #HOW ABOUT H*THE LAST ALIGNMENT UNIT!
         for wordrow in wordrows:
-            if wordrow['sentence_id'] not in context:
-                #If this sentence id not yet in the dict of sentences, add it
-                if context:
-                    dict
+            if wordrow['align_id'] not in aligns:
+                if aligns:
                     #If this is not the first word of the first sentence:
-                    for word in context[-1]
-                    FindMatchInSentence(context[-1], searhedvalue,)
-                    pass
-                context[wordrow['sentence_id']] = Sentence(wordrow['sentence_id'])
+                    #..that means that there has already been at least one sentence
+                    # .. and we'll first process that sentence
+                    for whead, word in aligns[previous_align][previous_sentence].words.items():
+                        if  word.lemma == sqlvalue and (aligns[previous_align][previous_sentence].words[word.head].deprel == 'ROOT'):
+                            #the word that is the actual word match is recorded as an attribute of the sentence object with a tokenid as its value
+                            aligns[previous_align][previous_sentence].matchids.append(word.tokenid)
+                    #now, let's process the whole previous align segment (with one or more sentences)
+                    #WARNING the keys should probably be converted to INTS
+                    for sentence_id in sorted(aligns[previous_align].keys()):
+                        #for all the sentences in the previous align unit that included a match or matches
+                        for matchid in aligns[previous_align][sentence_id].matchids:
+                            self.matches[previous_align].append(Match(aligns[previous_align],matchid))
+                            print(aligns[previous_align].keys())
+                aligns[wordrow['align_id']] = dict()
+                previous_align = wordrow['align_id']
+            if wordrow['sentence_id'] not in aligns[wordrow['align_id']]:
+                #If this sentence id not yet in the dict of sentences, add it
+                if aligns and aligns[previous_align]:
+                    #If this is not the first word of the first sentence:
+                    #how about if this is the last sentence? ORDER OF THIS WORD DICT!!
+                    for whead, word in aligns[wordrow['align_id']][previous_sentence].words.items():
+                        if  word.lemma == sqlvalue and (aligns[wordrow['align_id']][previous_sentence].words[word.head].deprel == 'ROOT'):
+                            #the word that is the actual word match is recorded as an attribute of the sentence object with a tokenid as its value
+                            aligns[wordrow['align_id']][previous_sentence].matchids.append(word.tokenid)
+                            #self.matches[word.align_id].append(Match())
+                            #if the word's lemma matches the searched one and the word's head is the ROOT or ..
+                            # Add this sentence to this align unit
+                aligns[wordrow['align_id']][wordrow['sentence_id']] = Sentence(wordrow['sentence_id'])
+                previous_sentence = wordrow['sentence_id']
             # Add all the information about the current word as a Word object to the sentence
-            self.context[wordrow['sentence_id']].words.append(Word(wordrow,matched_id))
-            #Add the current word to the list of words in the current sentence
-            #context[wordrow['sentence_id']].words.append(Word(wordrow,matched_id))
-        #print('Found {} occurences'.format(counter))
-        # Create match objects from the found tokens 
-            #self.matches.append(Match(row['id'],row['align_id'],row['text_id']))
+            aligns[wordrow['align_id']][wordrow['sentence_id']].words[wordrow['tokenid']] = Word(wordrow)
     #3}}}
     #2}}}
 
 class Match:
 #Match {{{2
     # A list containing the ids of all the matches found
-    def __init__(self,matched_id,align_id,text_id):
+    def __init__(self,alignsegment,matchid):
         #Build up the words, sentences and contexts {{{3
-        self.align_id = align_id
-        self.text_id = text_id
-        sql_cols = "tokenid, form, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id"
-        sql = "SELECT {} FROM {} WHERE align_id = %s order by id".format(sql_cols, Db.searched_table)
-        #fetch the whole context from the db
-        wordrows = Db.con.dictquery(sql,(align_id,))
-        #create a dict of sentence objects
-        self.context = {}
-        for wordrow in wordrows:
-            if wordrow['sentence_id'] not in self.context:
-                #If this sentence id not yet in the dict of sentences, add it
-                self.context[wordrow['sentence_id']] = Sentence(wordrow['sentence_id'])
-            #Add the current word to the list of words in the current sentence
-            self.context[wordrow['sentence_id']].words.append(Word(wordrow,matched_id))
+        #self.text_id = text_id
+	#DEAL WITH MATCHID
+        self.context = alignsegment
         #3}}}
 
     def monoConcordance(self):
         # COllect the context {{{3
+    #WARNING! the keys should probably be converted to ints
         for sentence_id in sorted(self.context.keys()):
             self.context[sentence_id].buildPrintString()
             #Print out (just for testing)
@@ -144,8 +158,10 @@ class Sentence:
     """a sentence"""
     def __init__(self,sentence_id):
         self.sentence_id = sentence_id
-        #initialize a list of words
-        self.words = []
+        #initialize a dict of words. The word's ids in the sentence will be used as keys
+        self.words = dict()
+        #By default, the sentence's matchids attribute is an empty list = no matches in this sentence
+        self.matchids = list()
 
     def buildPrintString(self):
         #buildPrintString{{{3
@@ -186,7 +202,7 @@ class Sentence:
 class Word:
 #Word{{{2
     """A word object containing all the morhpological and syntactic information"""
-    def __init__(self,row,matched_id):
+    def __init__(self,row):
         #Initialize all properties according to information from the database
         self.token = row["form"]
         self.lemma = row["lemma"]
@@ -197,10 +213,6 @@ class Word:
         self.tokenid = row["tokenid"] 
         #The general id in the db conll table
         self.dbid =  row["id"]
-        if row["id"] ==  matched_id:
-            self.ismatch = True
-        else:
-            self.ismatch = False
 
 #}}}2
             
@@ -215,6 +227,9 @@ def main():
     ConstQuery.independentByLemma += 'LIMIT 10'
     #newsearch.FindByQuery(ConstQuery.independentByLemma,'jo')
     newsearch.FindByQuery2(ConstQuery.independentByLemma2,'jo')
+    for m in newsearch.matches:
+        print(m)
+    #print(newsearch.matches[1])
     #newsearch.matches[1].monoConcordance()
     ##for s_id, sentence in newsearch.matches[1].context:
     #    print (sentence)
