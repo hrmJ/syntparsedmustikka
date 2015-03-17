@@ -110,7 +110,6 @@ class Search:
                         #for all the sentences in the previous align unit that included a match or matches
                         for matchid in aligns[previous_align][sentence_id].matchids:
                             self.matches[previous_align].append(Match(aligns[previous_align],matchid))
-                            print(aligns[previous_align].keys())
                 aligns[wordrow['align_id']] = dict()
                 previous_align = wordrow['align_id']
             if wordrow['sentence_id'] not in aligns[wordrow['align_id']]:
@@ -168,11 +167,13 @@ class Sentence:
         """Constructs a printable sentence"""
         self.printstring = ''
         isqmark = False
-        for idx, word in enumerate(self.words):
+        for idx in sorted(self.words.keys()):
             spacechar = ' '
+            word = self.words[idx]
+            idx = int(idx)
             try:
                 #if previous tag is a word:
-                if self.words[idx-1].pos != 'Punct' and self.words[idx-1].token not in string.punctuation:
+                if self.words[str(idx-1)].pos != 'Punct' and self.words[str(idx-1)].token not in string.punctuation:
                     #...and this tag is a punctuation mark. Notice that exception is made for hyphens, since in mustikka they are often used as dashes
                     if word.token in string.punctuation and word.token != '-':
                         #..don't insert whitespace
@@ -185,7 +186,7 @@ class Sentence:
                             isqmark = False
                             spacechar = ''
                 #if previous tag was not a word
-                elif self.words[idx-1].form in string.punctuation:
+                elif self.words[str(idx-1)].form in string.punctuation:
                     #...and this tag is a punctuation mark
                     if (self.word.token in string.punctuation and self.word.token != '-' and self.word.token != '\"') or isqmark:
                         #..don't insert whitespace
@@ -227,8 +228,13 @@ def main():
     ConstQuery.independentByLemma += 'LIMIT 10'
     #newsearch.FindByQuery(ConstQuery.independentByLemma,'jo')
     newsearch.FindByQuery2(ConstQuery.independentByLemma2,'jo')
-    for m in newsearch.matches:
-        print(m)
+    for key, matches in newsearch.matches.items():
+        for match in matches:
+            match.monoConcordance()
+            sys.exit(0)
+      #  for thismatch in match:
+      #      thismatch.monoConcordance()
+      #      sys.exit(0)
     #print(newsearch.matches[1])
     #newsearch.matches[1].monoConcordance()
     ##for s_id, sentence in newsearch.matches[1].context:
