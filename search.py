@@ -35,12 +35,12 @@ class ConstQuery:
                             (SELECT * FROM {0} WHERE lemma = %s) as lemmaQ, {0}
                                 WHERE {0}.tokenid = lemmaQ.head AND 
                                 {0}.sentence_id = lemmaQ.sentence_id AND
-                                {0}.deprel='ROOT'""".format('fi_conll')
+                                {0}.deprel='ROOT'""".format('ru_conll')
     independentByLemma ="""SELECT lemmaQ.id, lemmaQ.align_id, lemmaQ.text_id, lemmaQ.sentence_id FROM 
                             (SELECT * FROM {0} WHERE lemma = %s) as lemmaQ, {0}
                                 WHERE {0}.tokenid = lemmaQ.head AND 
                                 {0}.sentence_id = lemmaQ.sentence_id AND
-                                {0}.deprel='ROOT'""".format('fi_conll')
+                                {0}.deprel='ROOT'""".format('ru_conll')
 #2}}}
 
 class Search:
@@ -223,23 +223,14 @@ class Word:
 #Main module{{{1
 def main():
     #Set the language that is being searched
-    Db.searched_table = 'fi_conll'
+    #Db.searched_table = 'fi_conll'
+    Db.searched_table = 'ru_conll'
     newsearch = Search()
-    ConstQuery.independentByLemma += 'LIMIT 10'
-    #newsearch.FindByQuery(ConstQuery.independentByLemma,'jo')
-    newsearch.FindByQuery2(ConstQuery.independentByLemma2,'jo')
+    newsearch.FindByQuery2(ConstQuery.independentByLemma2,'уже')
     for key, matches in newsearch.matches.items():
         for match in matches:
             match.monoConcordance()
             sys.exit(0)
-      #  for thismatch in match:
-      #      thismatch.monoConcordance()
-      #      sys.exit(0)
-    #print(newsearch.matches[1])
-    #newsearch.matches[1].monoConcordance()
-    ##for s_id, sentence in newsearch.matches[1].context:
-    #    print (sentence)
-    #searchedelement.FetchParallelConcordance()
 #1}}}
 #Start the script
 #Start the script{{{1
