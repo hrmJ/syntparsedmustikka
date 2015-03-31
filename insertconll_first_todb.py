@@ -12,13 +12,13 @@ from dbmodule import mydatabase
 #1}}}
 #Main module{{{1
 def main():
-    #Connect to the database
-    con = mydatabase('syntparfin','juho')
     try:
         conllinputfile = sys.argv[1]
         text_title = sys.argv[2]
+        sl_dbname = sys.argv[3]
+        sl_dbtablename = sys.argv[4]
     except:
-        print('Usage: {} <path to finnish conll formatted text> <text title>'.format(sys.argv[0]))
+        print('Usage: {} <path to conll formatted text file> <text title> <database name> <source language database table name>'.format(sys.argv[0]))
         sys.exit(0)
     conllinputfile = sys.argv[1]
     text_title = sys.argv[2]
@@ -27,6 +27,9 @@ def main():
         conllinput = list(csv.reader(f, delimiter='\t', quotechar = '\x07'))
     #create a new text id:
     tablename = 'text_ids'
+    #Connect to the database
+    con = mydatabase('syntparrus','juho')
+    #Insert text metadata
     con.insertquery("INSERT INTO {} (title) values(%s)".format(tablename), (text_title,))
     text_id = con.nondictquery("SELECT max(id) FROM {}".format(tablename),("",))
     text_id = text_id[0]
@@ -52,15 +55,17 @@ def main():
             align_id = align_id[0]
         #if an ordinary token was encountered:
         else:
-            tablename = 'fi_conll'
-            sql = "INSERT INTO {} (tokenid, form, lemma, pos, feat, head, deprel, sentence_id, align_id, text_id) VALUES  ( %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(tablename)
-            tokendata = (token[0], token[1], token[2], token[4], token[6], token[8], token[10], sentence_id, align_id, text_id)
+            tablename = sl_dbtablename
+            if sl_dbtablename == 'ru_conll':
+                sql = "INSERT INTO {} (tokenid, form, lemma, pos, feat, head, deprel, sentence_id, align_id, text_id) VALUES  ( %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(tablename)
+                tokendata = (token[0], token[1], token[2], token[4], token[5], token[6], token[7], sentence_id, align_id, text_id)
+            elif sl_dbtablename == 'fi_conll':
+                sql = "INSERT INTO {} (tokenid, form, lemma, pos, feat, head, deprel, sentence_id, align_id, text_id) VALUES  ( %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(tablename)
+                tokendata = (token[0], token[1], token[2], token[4], token[6], token[8], token[10], sentence_id, align_id, text_id)
             #insert the token
             con.insertquery(sql, tokendata)
             #Give some information on progress
-            donepr = round(i / len(conllinput),1)
-            sys.stdout.write("\r%d%%" % donepr)
-            sys.stdout.flush()
+            print('{}/{}'.format(i,len(conllinput)), end='\r')
 #1}}}
 #Start the script{{{1
 if __name__ == "__main__":
