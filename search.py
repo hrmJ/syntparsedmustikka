@@ -135,26 +135,25 @@ class Search:
 
     def pickFromAlign_ids(self, wordrows):
         """Process the data from database query"""
-        #create a dict of sentence objects
-        context = dict()
         #create a dict of align segments
         aligns = dict()
         for wordrow in wordrows:
+            #If the first word of a new align unit is being processed
             if wordrow['align_id'] not in aligns:
                 if aligns:
-                    #---------------------------------------------------------------
                     #If this is not the first word of the first sentence:
-                    #    ...that means that there has already been at least one sentence
-                    #         ...and we'll first process that sentence
+                    #...that means that there has already been at least one sentence
+                    #...and we'll first process that sentence
                     #---------------------------------------------------------------
-                    for whead, word in aligns[previous_align][previous_sentence].words.items():
-                        #This is where the actual test is: --------------------------
+                    #1. Process the last sentence of the previous align unit, because it has not yet been processed
+                    # The sentence is processed word by word
+                    for wkey, word in aligns[previous_align][previous_sentence].words.items():
+                        #This is where the actual test is:
                         if self.evaluateWordrow(word):  
                         #------------------------------------------------------------
-                            #  the word that is the actual word match is recorded
-                            #  as an attribute of the sentence object
-                            #  with a tokenid as its value
+                            #if the evaluation function returns true
                             aligns[previous_align][previous_sentence].matchids.append(word.tokenid)
+                            # add the processed word's id to the list of matched words in the sentence
                     #  now, let's process the whole previous align segment 
                     #  (with one or more sentences)
                     #-----------------------------------------------------------------
@@ -165,12 +164,13 @@ class Search:
                             self.matches[previous_align].append(Match(aligns[previous_align],matchid,sentence_id))
                 aligns[wordrow['align_id']] = dict()
                 previous_align = wordrow['align_id']
+            #If the first word of a new sentence is being processed
             if wordrow['sentence_id'] not in aligns[wordrow['align_id']]:
                 #If this sentence id not yet in the dict of sentences, add it
                 if aligns and aligns[previous_align]:
                     #If this is not the first word of the first sentence:
                     #how about if this is the last sentence? ORDER OF THIS WORD DICT!!
-                    for whead, word in aligns[wordrow['align_id']][previous_sentence].words.items():
+                    for wkey, word in aligns[wordrow['align_id']][previous_sentence].words.items():
                         #This is where the actual test is: --------------------------
                         if  self.evaluateWordrow(word):
                         #------------------------------------------------------------
@@ -183,6 +183,8 @@ class Search:
                 previous_sentence = wordrow['sentence_id']
             # Add all the information about the current word as a Word object to the sentence
             aligns[wordrow['align_id']][wordrow['sentence_id']].words[wordrow['tokenid']] = Word(wordrow)
+
+    def processWordsOfSentence(self,
 
     def evaluateWordrow(self, word):
         'Test a word (in a sentence) according to criteria'
@@ -258,7 +260,6 @@ class Sentence:
             self.printstring += spacechar + word.token
 
 class Word:
-
     """A word object containing all the morhpological and syntactic information"""
     def __init__(self,row):
         #Initialize all properties according to information from the database
