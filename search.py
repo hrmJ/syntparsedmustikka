@@ -14,6 +14,7 @@ import string
 import re
 #local modules
 from dbmodule import mydatabase
+from menus import Menu, multimenu, yesnomenu 
 #1}}}
 #classes
 #classes{{{1
@@ -226,7 +227,33 @@ class Word:
 
 #Main module
 #Main module{{{1
+def commandlinemenu():
+    #Set the language that is being searched
+    #Db.searched_table = 'fi_conll'
+    #Create the menus that will be used:
+    cmMenu = multimenu({'q':'quit','l':'select language'})
+    langMenu = multimenu({'f':'finnish','r':'russian'})
+    langMenu.question = 'Select language: '
+    selectedlang = 'none'
+    while True:
+        cmMenu.question = 'Welcome\n\n' + '-'*20 + '\n\nSelected options: \n\n Language:{} {}'.format(selectedlang,'\n'*2 + '-'*20 + '\n'*2)
+        cmMenu.prompt_valid()
+        #Show language if selected:
+        if cmMenu.answer == 'q':
+            break
+        elif cmMenu.answer == 'l':
+            #Language menu
+            langMenu.prompt_valid()
+            if langMenu.answer == 'f':
+                Db.searched_table = 'ru_conll'
+                selectedlang = 'fi'
+            elif langMenu.answer == 'r':
+                Db.searched_table = 'fi_conll'
+                selectedlang = 'ru'
+
 def main():
+    commandlinemenu()
+    sys.exit(0)
     #Set the language that is being searched
     #Db.searched_table = 'fi_conll'
     Db.searched_table = 'ru_conll'
