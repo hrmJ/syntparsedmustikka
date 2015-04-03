@@ -36,6 +36,7 @@ class ConstQuery:
                                 WHERE {0}.tokenid = lemmaQ.head AND 
                                 {0}.sentence_id = lemmaQ.sentence_id AND
                                 {0}.deprel='ROOT'""".format('ru_conll')
+
     independentByLemma ="""SELECT lemmaQ.id, lemmaQ.align_id, lemmaQ.text_id, lemmaQ.sentence_id FROM 
                             (SELECT * FROM {0} WHERE lemma = %s) as lemmaQ, {0}
                                 WHERE {0}.tokenid = lemmaQ.head AND 
@@ -101,6 +102,7 @@ class Search:
                     #..that means that there has already been at least one sentence
                     # .. and we'll first process that sentence
                     for whead, word in aligns[previous_align][previous_sentence].words.items():
+                        #This is where the actual test is: >>>>>>>>>>>>>>>>
                         if  word.lemma == sqlvalue and (aligns[previous_align][previous_sentence].words[word.head].deprel == 'ROOT'):
                             #the word that is the actual word match is recorded as an attribute of the sentence object with a tokenid as its value
                             aligns[previous_align][previous_sentence].matchids.append(word.tokenid)
@@ -109,7 +111,7 @@ class Search:
                     for sentence_id in sorted(aligns[previous_align].keys()):
                         #for all the sentences in the previous align unit that included a match or matches
                         for matchid in aligns[previous_align][sentence_id].matchids:
-                            self.matches[previous_align].append(Match(aligns[previous_align],matchid))
+                            self.matches[previous_align].append(Match(aligns[previous_align],matchid,sentence_id))
                 aligns[wordrow['align_id']] = dict()
                 previous_align = wordrow['align_id']
             if wordrow['sentence_id'] not in aligns[wordrow['align_id']]:
@@ -134,11 +136,13 @@ class Search:
 class Match:
 #Match {{{2
     # A list containing the ids of all the matches found
-    def __init__(self,alignsegment,matchid):
+    def __init__(self,alignsegment,matchid,sentence_id):
         #Build up the words, sentences and contexts {{{3
         #self.text_id = text_id
 	#DEAL WITH MATCHID
+        #Get the sentence where the match is
         self.context = alignsegment
+        self.matchedsentence = alignsegment[sentence_id]
         #3}}}
 
     def monoConcordance(self):
@@ -202,6 +206,7 @@ class Sentence:
 
 class Word:
 #Word{{{2
+
     """A word object containing all the morhpological and syntactic information"""
     def __init__(self,row):
         #Initialize all properties according to information from the database
@@ -229,7 +234,9 @@ def main():
     newsearch.FindByQuery2(ConstQuery.independentByLemma2,'уже')
     for key, matches in newsearch.matches.items():
         for match in matches:
-            match.monoConcordance()
+            #match.monoConcordance()
+            match.matchedsentence.buildPrintString()
+            print(match.matchedsentence.printstring)
             sys.exit(0)
 #1}}}
 #Start the script
