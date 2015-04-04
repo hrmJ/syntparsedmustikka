@@ -1,35 +1,25 @@
 #! /usr/bin/env python
 #Import modules
-#Import modules{{{1
-#For unicode support:
 import codecs
-#other
 import csv
 import sys
 from collections import defaultdict
-#xml parsing
 from lxml import etree
-#string operations
 import string
 import re
 #local modules
 from dbmodule import mydatabase
 from menus import Menu, multimenu, yesnomenu 
-#1}}}
 #classes
-#classes{{{1
 class Db:
-#db{{{2
     """ A class to include some shared properties for the search and
     the match classes"""
     # What is the language table used in the queries
     searched_table = ''
     #a connection to db
     con = mydatabase('syntparfin','juho')
-#2}}}
 
 class ConstQuery:
-#ConstQuery{{{2
     """Some often used queries can be saved as instances of this class"""
     # What is the language table used in the queries
     independentByLemma2 ="""SELECT lemmaQ.align_id FROM 
@@ -43,10 +33,8 @@ class ConstQuery:
                                 WHERE {0}.tokenid = lemmaQ.head AND 
                                 {0}.sentence_id = lemmaQ.sentence_id AND
                                 {0}.deprel='ROOT'""".format('ru_conll')
-#2}}}
 
 class Search:
-    #Search {{{2
     """This is the very
     basic class that is used to retrieve data from the corpus"""
     all_searches = []
@@ -55,13 +43,16 @@ class Search:
         self.matches = defaultdict(list)
         #Save the search object to a list of all conducted searches during the session
         Search.all_searches.append(self)
+        # save an id for the search for this session
+        self.searchid = id(self)
+        #Ask a name for the search (make this optional?)
+        self.name = input('Give a name for this search:\n\n>')
 
     def FindByToken(self, searchedvalue):
-    #FindByToken {{{3
         """ Locates the searched elements from the database  by the token of
         one word and collects the ids of the searched tokens"""
         #Collect ids from all the elements that match the search criterion 
-        sql = "SELECT id, align_id, text_id, sentence_id FROM {} WHERE form = %s".format(Db.searched_table)
+        sql = "SELECT id, align_id, text_id, sentence_id FROM {} WHERE token = %s".format(Db.searched_table)
         rows = Db.con.dictquery(sql,(searchedvalue,))
         # Create match objects from the found tokens 
         counter=0
@@ -69,9 +60,8 @@ class Search:
             counter += 1
             #self.matches.append(Match(row['id'],row['align_id'],row['text_id']))
         print('Found {} occurences'.format(counter))
-    #3}}}
+
     def FindByQuery(self, sqlq, sqlvalue):
-    #FindByToken {{{3
         """Locates elements using user-defined queries"""
         #Collect ids from all the elements that match the search criterion 
         rows = Db.con.dictquery(sqlq,(sqlvalue,))
@@ -81,11 +71,10 @@ class Search:
             counter += 1
             self.matches.append(Match(row['id'],row['align_id'],row['text_id']))
         print('Found {} occurences'.format(counter))
-    #3}}}
+
     def FindByQuery2(self, sqlq, sqlvalue):
-    #FindByQuery2 {{{3
         """Locates elements using user-defined queries"""
-        sql_cols = "tokenid, form, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id"
+        sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id"
         #Fetch everything from the align units that  are retrieved by the user-defined query
         sqlq = "SELECT {0} FROM {1} WHERE align_id in ({2}) order by align_id, id".format(sql_cols, Db.searched_table, sqlq)
         # Notice that the %s matchin the sqlvalue here must be defined in the query!
@@ -95,7 +84,7 @@ class Search:
         #create a dict of align segments
         aligns = dict()
     #currentalign = {'sentences':list(),'id':0}
-    #HOW ABOUT H*THE LAST ALIGNMENT UNIT!
+    #Todo: HOW ABOUT THE LAST ALIGNMENT UNIT!
         for wordrow in wordrows:
             if wordrow['align_id'] not in aligns:
                 if aligns:
@@ -131,34 +120,100 @@ class Search:
                 previous_sentence = wordrow['sentence_id']
             # Add all the information about the current word as a Word object to the sentence
             aligns[wordrow['align_id']][wordrow['sentence_id']].words[wordrow['tokenid']] = Word(wordrow)
-    #3}}}
-    #2}}}
+
+
+    def find(self):
+        """Query the database according to instructions from the use
+        The search.subquery attribute can be any query that selects a group of align_ids
+        From the syntpar...databases
+        """
+        sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id"
+        sqlq = "SELECT {0} FROM {1} WHERE align_id in ({2}) order by align_id, id".format(sql_cols, Db.searched_table, self.subquery)
+        wordrows = Db.con.dictquery(sqlq,self.subqueryvalues)
+        self.pickFromAlign_ids(wordrows)
+
+
+    def pickFromAlign_ids(self, wordrows):
+        """Process the data from database query"""
+        #create a dict of sentence objects
+        context = dict()
+        #create a dict of align segments
+        aligns = dict()
+        for wordrow in wordrows:
+            if wordrow['align_id'] not in aligns:
+                if aligns:
+                    #---------------------------------------------------------------
+                    #If this is not the first word of the first sentence:
+                    #    ...that means that there has already been at least one sentence
+                    #         ...and we'll first process that sentence
+                    #---------------------------------------------------------------
+                    for whead, word in aligns[previous_align][previous_sentence].words.items():
+                        #This is where the actual test is: --------------------------
+                        if self.evaluateWordrow(word):  
+                        #------------------------------------------------------------
+                            #  the word that is the actual word match is recorded
+                            #  as an attribute of the sentence object
+                            #  with a tokenid as its value
+                            aligns[previous_align][previous_sentence].matchids.append(word.tokenid)
+                    #  now, let's process the whole previous align segment 
+                    #  (with one or more sentences)
+                    #-----------------------------------------------------------------
+                    #WARNING the keys should probably be converted to INTS
+                    for sentence_id in sorted(aligns[previous_align].keys()):
+                        #for all the sentences in the previous align unit that included a match or matches
+                        for matchid in aligns[previous_align][sentence_id].matchids:
+                            self.matches[previous_align].append(Match(aligns[previous_align],matchid,sentence_id))
+                aligns[wordrow['align_id']] = dict()
+                previous_align = wordrow['align_id']
+            if wordrow['sentence_id'] not in aligns[wordrow['align_id']]:
+                #If this sentence id not yet in the dict of sentences, add it
+                if aligns and aligns[previous_align]:
+                    #If this is not the first word of the first sentence:
+                    #how about if this is the last sentence? ORDER OF THIS WORD DICT!!
+                    for whead, word in aligns[wordrow['align_id']][previous_sentence].words.items():
+                        #This is where the actual test is: --------------------------
+                        if  self.evaluateWordrow(word):
+                        #------------------------------------------------------------
+                            #the word that is the actual word match is recorded as an attribute of the sentence object with a tokenid as its value
+                            aligns[wordrow['align_id']][previous_sentence].matchids.append(word.tokenid)
+                            #self.matches[word.align_id].append(Match())
+                            #if the word's lemma matches the searched one and the word's head is the ROOT or ..
+                            # Add this sentence to this align unit
+                aligns[wordrow['align_id']][wordrow['sentence_id']] = Sentence(wordrow['sentence_id'])
+                previous_sentence = wordrow['sentence_id']
+            # Add all the information about the current word as a Word object to the sentence
+            aligns[wordrow['align_id']][wordrow['sentence_id']].words[wordrow['tokenid']] = Word(wordrow)
+
+    def evaluateWordrow(self, word):
+        'Test a word (in a sentence) according to criteria'
+        #if word.lemma == sqlvalue and (aligns[previous_align][previous_sentence].words[word.head].deprel == 'ROOT'):
+        #if word.lemma == sqlvalue and (aligns[wordrow['align_id']][previous_sentence].words[word.head].deprel == 'ROOT'):
+        #if word.lemma == sqlvalue and (aligns[previousalign][previous_sentence].words[word.head].deprel == 'ROOT'):
+        #if word.lemma == sqlvalue and (aligns[thisalign    ][previous_sentence].words[word.head].deprel == 'ROOT'):
+        if getattr(word, self.lemmas_or_tokens) != self.searchstring:
+            #if the lemma or the token isn't what's being looked for, quit as a non-match
+            return False
+        #if all tests passed, return True
+        return True
 
 class Match:
-#Match {{{2
     # A list containing the ids of all the matches found
     def __init__(self,alignsegment,matchid,sentence_id):
-        #Build up the words, sentences and contexts {{{3
         #self.text_id = text_id
 	#DEAL WITH MATCHID
         #Get the sentence where the match is
         self.context = alignsegment
         self.matchedsentence = alignsegment[sentence_id]
-        #3}}}
 
     def monoConcordance(self):
-        # COllect the context {{{3
     #WARNING! the keys should probably be converted to ints
         for sentence_id in sorted(self.context.keys()):
             self.context[sentence_id].buildPrintString()
             #Print out (just for testing)
             print("Sentence id {}:\n\t{}".format(sentence_id,self.context[sentence_id].printstring))
 
-        #}}}3
-#}}}2
 
 class Sentence:
-#Sentence{{{2
     """a sentence"""
     def __init__(self,sentence_id):
         self.sentence_id = sentence_id
@@ -168,7 +223,6 @@ class Sentence:
         self.matchids = list()
 
     def buildPrintString(self):
-        #buildPrintString{{{3
         """Constructs a printable sentence"""
         self.printstring = ''
         isqmark = False
@@ -191,7 +245,7 @@ class Sentence:
                             isqmark = False
                             spacechar = ''
                 #if previous tag was not a word
-                elif self.words[str(idx-1)].form in string.punctuation:
+                elif self.words[str(idx-1)].token in string.punctuation:
                     #...and this tag is a punctuation mark
                     if (self.word.token in string.punctuation and self.word.token != '-' and self.word.token != '\"') or isqmark:
                         #..don't insert whitespace
@@ -202,16 +256,13 @@ class Sentence:
             if idx == 0:
                 spacechar = ''
             self.printstring += spacechar + word.token
-        #}}}3
-#}}}2
 
 class Word:
-#Word{{{2
 
     """A word object containing all the morhpological and syntactic information"""
     def __init__(self,row):
         #Initialize all properties according to information from the database
-        self.token = row["form"]
+        self.token = row["token"]
         self.lemma = row["lemma"]
         self.pos = row["pos"]
         self.feat = row["feat"]
@@ -221,39 +272,10 @@ class Word:
         #The general id in the db conll table
         self.dbid =  row["id"]
 
-#}}}2
-            
-#1}}}
 
 #Main module
-#Main module{{{1
-def commandlinemenu():
-    #Set the language that is being searched
-    #Db.searched_table = 'fi_conll'
-    #Create the menus that will be used:
-    cmMenu = multimenu({'q':'quit','l':'select language'})
-    langMenu = multimenu({'f':'finnish','r':'russian'})
-    langMenu.question = 'Select language: '
-    selectedlang = 'none'
-    while True:
-        cmMenu.question = 'Welcome\n\n' + '-'*20 + '\n\nSelected options: \n\n Language:{} {}'.format(selectedlang,'\n'*2 + '-'*20 + '\n'*2)
-        cmMenu.prompt_valid()
-        #Show language if selected:
-        if cmMenu.answer == 'q':
-            break
-        elif cmMenu.answer == 'l':
-            #Language menu
-            langMenu.prompt_valid()
-            if langMenu.answer == 'f':
-                Db.searched_table = 'ru_conll'
-                selectedlang = 'fi'
-            elif langMenu.answer == 'r':
-                Db.searched_table = 'fi_conll'
-                selectedlang = 'ru'
 
 def main():
-    commandlinemenu()
-    sys.exit(0)
     #Set the language that is being searched
     #Db.searched_table = 'fi_conll'
     Db.searched_table = 'ru_conll'
@@ -265,9 +287,6 @@ def main():
             match.matchedsentence.buildPrintString()
             print(match.matchedsentence.printstring)
             sys.exit(0)
-#1}}}
 #Start the script
-#Start the script{{{1
 if __name__ == "__main__":
     main()
-#1}}}
