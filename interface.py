@@ -16,12 +16,13 @@ from search import Search, Match, Sentence, Word, ConstQuery, Db
 class MainMenu:
     """This class include all
     the comand line menu options and actions"""
-    mainanswers =  {'q':'quit','l':'select language', 'm':'Monoconcordance'}
+    mainanswers =  {'q':'quit','l':'select language', 'm':'Monoconcordance', 'd':'select database'}
 
     def __init__(self):
         self.menu = multimenu(MainMenu.mainanswers)
         # Selectable options:
         self.selectedlang = 'none'
+        self.selecteddb = 'none'
         #Control the program flow
         self.run = True
 
@@ -32,7 +33,8 @@ class MainMenu:
         #Build the selected options
         self.menu.question = 'Welcome\n\n' + '-'*20 + \
                           '''\n\nSelected options: 
-                             \n\nLanguage:{} {}'''.format(self.selectedlang,'\n'*2 + '-'*20 + '\n'*2)
+                             \n\nDatabase: {}\nLanguage:{} {}
+                             '''.format(self.selecteddb,self.selectedlang,'\n'*2 + '-'*20 + '\n'*2)
         self.menu.validanswers = MainMenu.mainanswers
         self.menu.prompt_valid()
         self.MenuChooser(self.menu.answer)
@@ -49,6 +51,15 @@ class MainMenu:
         elif self.menu.answer == 'r':
             Db.searched_table = 'ru_conll'
             self.selectedlang = 'ru'
+
+
+    def choosedb(self):
+        self.menu.question = 'Select database: '
+        self.menu.validanswers = {'1':'syntparfin','2':'syntparrus','3':'tbcorpfi','4':'tbcorpru'}
+        self.menu.prompt_valid()
+        Db.con = mydatabase(self.menu.validanswers[self.menu.answer],'juho')
+        self.selecteddb = self.menu.validanswers[self.menu.answer]
+
 
     def monoconc(self):
         #Initialize the search object
@@ -93,6 +104,8 @@ class MainMenu:
                     print('{}:\n\n{}\n\n'.format(printed,match.matchedsentence.printstring))
         else:
             print('Sorry, nothing found.')
+            print(thisSearch.subquery)
+            print(thisSearch.subqueryvalues)
         input('Press enter to continue.')
 
 
@@ -104,6 +117,8 @@ class MainMenu:
             self.chooselang()
         elif answer == 'm':
             self.monoconc()
+        elif answer == 'd':
+            self.choosedb()
 
 #Start the menu
 
