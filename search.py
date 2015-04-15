@@ -47,6 +47,7 @@ class Search:
         self.searchid = id(self)
         #Ask a name for the search (make this optional?)
         self.name = input('Give a name for this search:\n\n>')
+        self.searchtype = 'none'
 
     def FindByToken(self, searchedvalue):
         """ Locates the searched elements from the database  by the token of
@@ -121,17 +122,16 @@ class Search:
             # Add all the information about the current word as a Word object to the sentence
             aligns[wordrow['align_id']][wordrow['sentence_id']].words[wordrow['tokenid']] = Word(wordrow)
 
-
     def find(self):
-        """Query the database according to instructions from the use
+        """Query the database according to instructions from the user
         The search.subquery attribute can be any query that selects a group of align_ids
         From the syntpar...databases
         """
         sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id"
         sqlq = "SELECT {0} FROM {1} WHERE align_id in ({2}) order by align_id, id".format(sql_cols, Db.searched_table, self.subquery)
         wordrows = Db.con.dictquery(sqlq,self.subqueryvalues)
+        print('Analyzing...')
         self.pickFromAlign_ids(wordrows)
-
 
     def pickFromAlign_ids(self, wordrows):
         """Process the data from database query
@@ -171,7 +171,7 @@ class Search:
         # The sentence is processed word by word
         for wkey, word in self.aligns[alignkey][sentencekey].words.items():
             #This is where the actual test is:
-            if self.evaluateWordrow(word):  
+            if self.evaluateWordrow(word,self.aligns[alignkey][sentencekey]):  
             #------------------------------------------------------------
                 #if the evaluation function returns true
                 self.aligns[alignkey][sentencekey].matchids.append(word.tokenid)
@@ -185,16 +185,30 @@ class Search:
                 self.matches[alignkey].append(Match(self.aligns[alignkey],matchid,sentence_id))
 
 
-    def evaluateWordrow(self, word):
+    def evaluateWordrow(self, word,sentence):
         'Test a word (in a sentence) according to criteria'
-        #if word.lemma == sqlvalue and (aligns[previous_align][previous_sentence].words[word.head].deprel == 'ROOT'):
-        #if word.lemma == sqlvalue and (aligns[wordrow['align_id']][previous_sentence].words[word.head].deprel == 'ROOT'):
-        #if word.lemma == sqlvalue and (aligns[previousalign][previous_sentence].words[word.head].deprel == 'ROOT'):
-        #if word.lemma == sqlvalue and (aligns[thisalign    ][previous_sentence].words[word.head].deprel == 'ROOT'):
-        if getattr(word, self.lemmas_or_tokens) != self.searchstring:
-            #if the lemma or the token isn't what's being looked for, quit as a non-match
-            return False
-        #if all tests passed, return True
+        if self.searchtype == 'phd':
+            #If this lemma is not listed in the list of search words
+            if not self.posvalues[word.lemma]:
+                return False
+            #if this pos is not listed as a possible one for the lemma
+            if word.pos not in self.posvalues[word.lemma]:
+                return False
+            #if this word's deprel not listed
+            if word.deprel not in ('advmod','nommod','dobj','adpos'):
+                return False
+            #if the word's head's deprel not listed
+            if sentence.words[word.head].deprel not in ('ROOT','advcl','cop','aux'):
+                return False
+        else:
+            #if word.lemma == sqlvalue and (aligns[previous_align][previous_sentence].words[word.head].deprel == 'ROOT'):
+            #if word.lemma == sqlvalue and (aligns[wordrow['align_id']][previous_sentence].words[word.head].deprel == 'ROOT'):
+            #if word.lemma == sqlvalue and (aligns[previousalign][previous_sentence].words[word.head].deprel == 'ROOT'):
+            #if word.lemma == sqlvalue and (aligns[thisalign    ][previous_sentence].words[word.head].deprel == 'ROOT'):
+            if getattr(word, self.lemmas_or_tokens) != self.searchstring:
+                #if the lemma or the token isn't what's being looked for, quit as a non-match
+                return False
+            #if all tests passed, return True
         return True
 
 class Match:
@@ -259,7 +273,11 @@ class Sentence:
             except:
                 #if this is the first word
                 spacechar = ''
-            self.printstring += spacechar + word.token
+            #if this word is a match:
+            if word.tokenid in self.matchids:
+                self.printstring += spacechar + '*' + word.token  + '*'
+            else:
+                self.printstring += spacechar + word.token
 
 class Word:
     """A word object containing all the morhpological and syntactic information"""

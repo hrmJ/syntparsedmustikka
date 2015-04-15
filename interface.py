@@ -12,11 +12,12 @@ import os
 from dbmodule import mydatabase
 from menus import Menu, multimenu, yesnomenu 
 from search import Search, Match, Sentence, Word, ConstQuery, Db 
+from phdqueries import FinnishTime
 
 class MainMenu:
     """This class include all
     the comand line menu options and actions"""
-    mainanswers =  {'q':'quit','l':'select language', 'm':'Monoconcordance', 'd':'select database'}
+    mainanswers =  {'q':'quit','l':'select language', 'm':'Monoconcordance', 'd':'select database','p':'phdquery'}
 
     def __init__(self):
         self.menu = multimenu(MainMenu.mainanswers)
@@ -84,13 +85,39 @@ class MainMenu:
         #The query values must be a tuple
         thisSearch.subqueryvalues=(thisSearch.searchstring,)
         thisSearch.find()
-        #Must be dependent of:
-        #independentByLemma2 ="""SELECT lemmaQ.align_id FROM 
-        #                        (SELECT * FROM {0} WHERE lemma = %s) as lemmaQ, {0}
-        #                            WHERE {0}.tokenid = lemmaQ.head AND 
-        #                            {0}.sentence_id = lemmaQ.sentence_id AND
-        #                            {0}.deprel='ROOT'""".format('ru_conll')
         #Print the results:
+        printResults(thisSearch)
+        input('Press enter to continue.')
+
+    def phd(self):
+        #Initialize the search object
+        thisSearch = Search()
+        print('Please wait, building the subquery.')
+        FinnishTimeQuery = FinnishTime()
+        thisSearch.subquery = FinnishTimeQuery.subq
+        thisSearch.searchtype = 'phd'
+        thisSearch.posvalues = FinnishTimeQuery.qwords
+        #The query values must be a tuple
+        thisSearch.subqueryvalues=()
+        print('Starting the actual query.')
+        thisSearch.find()
+        printResults(thisSearch)
+        input('Press enter to continue.')
+
+    def MenuChooser(self,answer):
+        if answer == 'q':
+            self.run = False
+            pass
+        elif answer == 'l':
+            self.chooselang()
+        elif answer == 'm':
+            self.monoconc()
+        elif answer == 'd':
+            self.choosedb()
+        elif answer == 'p':
+            self.phd()
+
+def printResults(thisSearch):
         if len(thisSearch.matches) >0:
             limit = input('Found {} occurences, how many should I print?'.format(len(thisSearch.matches)))
             printed = 0
@@ -106,19 +133,6 @@ class MainMenu:
             print('Sorry, nothing found.')
             print(thisSearch.subquery)
             print(thisSearch.subqueryvalues)
-        input('Press enter to continue.')
-
-
-    def MenuChooser(self,answer):
-        if answer == 'q':
-            self.run = False
-            pass
-        elif answer == 'l':
-            self.chooselang()
-        elif answer == 'm':
-            self.monoconc()
-        elif answer == 'd':
-            self.choosedb()
 
 #Start the menu
 
