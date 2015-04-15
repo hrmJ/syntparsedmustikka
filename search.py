@@ -230,11 +230,11 @@ class Sentence:
         for idx in sorted(self.words.keys()):
             spacechar = ' '
             word = self.words[idx]
-            idx = int(idx)
             try:
+                previous_word = self.words[idx-1]
                 #if previous tag is a word:
-                if self.words[str(idx-1)].pos != 'Punct' and self.words[str(idx-1)].token not in string.punctuation:
-                    #...and this tag is a punctuation mark. Notice that exception is made for hyphens, since in mustikka they are often used as dashes
+                if previous_word.pos != 'Punct' and previous_word.token not in string.punctuation:
+                    #...and the current tag is a punctuation mark. Notice that exception is made for hyphens, since in mustikka they are often used as dashes
                     if word.token in string.punctuation and word.token != '-':
                         #..don't insert whitespace
                         spacechar = ''
@@ -246,15 +246,18 @@ class Sentence:
                             isqmark = False
                             spacechar = ''
                 #if previous tag was not a word
-                elif self.words[str(idx-1)].token in string.punctuation:
+                elif previous_word.token in string.punctuation:
                     #...and this tag is a punctuation mark
-                    if (self.word.token in string.punctuation and self.word.token != '-' and self.word.token != '\"') or isqmark:
+                    if (word.token in string.punctuation and word.token != '-' and word.token != '\"') or isqmark:
                         #..don't insert whitespace
                         spacechar = ''
+                    if previous_word.token == '\"':
+                        spacechar = ''
+                        isqmark = True
+                    else:
+                        spacechar = ' '
             except:
-                pass
-            #if this is the first element in the context
-            if idx == 0:
+                #if this is the first word
                 spacechar = ''
             self.printstring += spacechar + word.token
 
