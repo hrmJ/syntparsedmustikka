@@ -134,24 +134,19 @@ class Search:
 
 
     def pickFromAlign_ids(self, wordrows):
-        """Process the data from database query"""
-        #create a dict of align segments
+        """Process the data from database query
+        This is done word by word."""
         self.aligns = dict()
         for wordrow in wordrows:
             #If the first word of a new align unit is being processed
             if wordrow['align_id'] not in self.aligns:
                 #If this is not the first word of the first sentence:
                 if self.aligns:
-                    #Process the last sentence of the previous align unit, because it has not yet been processed
+                    #Check for matching words in the last sentence of the previous align unit
                     self.processWordsOfSentence(previous_align,previous_sentence)
-                    #-----------------------------------------------------------------
-                    #WARNING the keys should probably be converted to INTS
-                    #Process all the sentences in the previous align unit that included a match or matches
-                    for sentence_id in sorted(self.aligns[previous_align].keys()):
-                        #Process all the matches in the sentence that contained one or more matches
-                        for matchid in self.aligns[previous_align][sentence_id].matchids:
-                            self.matches[previous_align].append(Match(self.aligns[previous_align],matchid,sentence_id))
-                #regardless of whether this is the first align unit or some other
+                    #Process all the sentences in the previous align unit to collect the matches
+                    self.ProcessSentencesOfAlign(previous_align)
+                #Initialize the new align unit of wich this is the first word
                 self.aligns[wordrow['align_id']] = dict()
                 previous_align = wordrow['align_id']
             #If the first word of a new sentence is being processed
@@ -159,20 +154,16 @@ class Search:
                 #If this sentence id not yet in the dict of sentences, add it
                 if self.aligns and self.aligns[previous_align]:
                     #If this is not the first word of the first sentence:
-                    #how about if this is the last sentence? ORDER OF THIS WORD DICT!!
                     #Process the previous sentence of this align unit
+                    #ORDER OF THIS WORD DICT!!
                     self.processWordsOfSentence(wordrow['align_id'],previous_sentence)
                 # Add this sentence to this align unit
                 self.aligns[wordrow['align_id']][wordrow['sentence_id']] = Sentence(wordrow['sentence_id'])
                 previous_sentence = wordrow['sentence_id']
             # Add all the information about the current word as a Word object to the sentence
             self.aligns[wordrow['align_id']][wordrow['sentence_id']].words[wordrow['tokenid']] = Word(wordrow)
-        #Loop ends -------------------------------------------------------------------------------------------
-        #Process all the sentences in the last align unit that included a match or matches
-        for sentence_id in sorted(self.aligns[previous_align].keys()):
-            #Process all the matches in the sentence that contained one or more matches
-            for matchid in self.aligns[previous_align][sentence_id].matchids:
-                self.matches[previous_align].append(Match(self.aligns[previous_align],matchid,sentence_id))
+        #Finally, process all the sentences in the last align unit that included a match or matches
+        self.ProcessSentencesOfAlign(previous_align)
 
     def processWordsOfSentence(self,alignkey,sentencekey):
         """ Process every word of a sentence and chek if a search condition is met.
@@ -184,6 +175,15 @@ class Search:
             #------------------------------------------------------------
                 #if the evaluation function returns true
                 self.aligns[alignkey][sentencekey].matchids.append(word.tokenid)
+
+    def ProcessSentencesOfAlign(self, alignkey):
+        """WARNING the keys should probably be converted to INTS
+           Process all the sentences in the previous align unit and check for matches matches"""
+        for sentence_id in sorted(self.aligns[alignkey].keys()):
+            #Process all the matches in the sentence that contained one or more matches
+            for matchid in self.aligns[alignkey][sentence_id].matchids:
+                self.matches[alignkey].append(Match(self.aligns[alignkey],matchid,sentence_id))
+
 
     def evaluateWordrow(self, word):
         'Test a word (in a sentence) according to criteria'
