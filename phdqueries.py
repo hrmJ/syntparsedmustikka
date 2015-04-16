@@ -57,3 +57,22 @@ class FinnishTime:
         self.subq = FinnishTimeWordsSubQ
         self.qwords = qwords
 
+def BuildGroupString(match,attribute):
+    """This methods constructs strings that 
+    can be used in statistical analysis. The created strings represent 
+    the nuclei that are dependent on the same head as the matched nucleus"""
+    groupmembers = dict()
+    for tokenid, word in match.matchedsentence.words.items():
+        # Pick all the word objects that have the same head and that are not punctuation marks
+        if word.head == match.matchedword.head and word.token not in string.punctuation:
+            if tokenid == match.matchedword.tokenid:
+                groupmembers[tokenid] = "<{}>".format(getattr(word,attribute))
+            else:
+                groupmembers[tokenid] = getattr(word,attribute)
+    # Build a string from the attributes
+    for gmkey in sorted(groupmembers.keys()):
+        try:
+            groupstring += "|" + groupmembers[gmkey]
+        except:
+            groupstring = groupmembers[gmkey]
+    return groupstring
