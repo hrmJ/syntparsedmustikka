@@ -47,80 +47,9 @@ class Search:
         self.searchid = id(self)
         #Ask a name for the search (make this optional?)
         self.name = input('Give a name for this search:\n\n>')
+        if not self.name:
+            self.name = 'unnamed_{}'.format(len(Search.all_searches))
         self.searchtype = 'none'
-
-    def FindByToken(self, searchedvalue):
-        """ Locates the searched elements from the database  by the token of
-        one word and collects the ids of the searched tokens"""
-        #Collect ids from all the elements that match the search criterion 
-        sql = "SELECT id, align_id, text_id, sentence_id FROM {} WHERE token = %s".format(Db.searched_table)
-        rows = Db.con.dictquery(sql,(searchedvalue,))
-        # Create match objects from the found tokens 
-        counter=0
-        for row in rows:
-            counter += 1
-            #self.matches.append(Match(row['id'],row['align_id'],row['text_id']))
-        print('Found {} occurences'.format(counter))
-
-    def FindByQuery(self, sqlq, sqlvalue):
-        """Locates elements using user-defined queries"""
-        #Collect ids from all the elements that match the search criterion 
-        rows = Db.con.dictquery(sqlq,(sqlvalue,))
-        # Create match objects from the found tokens 
-        counter=0
-        for row in rows:
-            counter += 1
-            self.matches.append(Match(row['id'],row['align_id'],row['text_id']))
-        print('Found {} occurences'.format(counter))
-
-    def FindByQuery2(self, sqlq, sqlvalue):
-        """Locates elements using user-defined queries"""
-        sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id"
-        #Fetch everything from the align units that  are retrieved by the user-defined query
-        sqlq = "SELECT {0} FROM {1} WHERE align_id in ({2}) order by align_id, id".format(sql_cols, Db.searched_table, sqlq)
-        # Notice that the %s matchin the sqlvalue here must be defined in the query!
-        wordrows = Db.con.dictquery(sqlq,(sqlvalue,))
-        #create a dict of sentence objects
-        context = dict()
-        #create a dict of align segments
-        aligns = dict()
-    #currentalign = {'sentences':list(),'id':0}
-    #Todo: HOW ABOUT THE LAST ALIGNMENT UNIT!
-        for wordrow in wordrows:
-            if wordrow['align_id'] not in aligns:
-                if aligns:
-                    #If this is not the first word of the first sentence:
-                    #..that means that there has already been at least one sentence
-                    # .. and we'll first process that sentence
-                    for whead, word in aligns[previous_align][previous_sentence].words.items():
-                        #This is where the actual test is: >>>>>>>>>>>>>>>>
-                        if  word.lemma == sqlvalue and (aligns[previous_align][previous_sentence].words[word.head].deprel == 'ROOT'):
-                            #the word that is the actual word match is recorded as an attribute of the sentence object with a tokenid as its value
-                            aligns[previous_align][previous_sentence].matchids.append(word.tokenid)
-                    #now, let's process the whole previous align segment (with one or more sentences)
-                    #WARNING the keys should probably be converted to INTS
-                    for sentence_id in sorted(aligns[previous_align].keys()):
-                        #for all the sentences in the previous align unit that included a match or matches
-                        for matchid in aligns[previous_align][sentence_id].matchids:
-                            self.matches[previous_align].append(Match(aligns[previous_align],matchid,sentence_id))
-                aligns[wordrow['align_id']] = dict()
-                previous_align = wordrow['align_id']
-            if wordrow['sentence_id'] not in aligns[wordrow['align_id']]:
-                #If this sentence id not yet in the dict of sentences, add it
-                if aligns and aligns[previous_align]:
-                    #If this is not the first word of the first sentence:
-                    #how about if this is the last sentence? ORDER OF THIS WORD DICT!!
-                    for whead, word in aligns[wordrow['align_id']][previous_sentence].words.items():
-                        if  word.lemma == sqlvalue and (aligns[wordrow['align_id']][previous_sentence].words[word.head].deprel == 'ROOT'):
-                            #the word that is the actual word match is recorded as an attribute of the sentence object with a tokenid as its value
-                            aligns[wordrow['align_id']][previous_sentence].matchids.append(word.tokenid)
-                            #self.matches[word.align_id].append(Match())
-                            #if the word's lemma matches the searched one and the word's head is the ROOT or ..
-                            # Add this sentence to this align unit
-                aligns[wordrow['align_id']][wordrow['sentence_id']] = Sentence(wordrow['sentence_id'])
-                previous_sentence = wordrow['sentence_id']
-            # Add all the information about the current word as a Word object to the sentence
-            aligns[wordrow['align_id']][wordrow['sentence_id']].words[wordrow['tokenid']] = Word(wordrow)
 
     def find(self):
         """Query the database according to instructions from the user
@@ -162,8 +91,9 @@ class Search:
                 previous_sentence = wordrow['sentence_id']
             # Add all the information about the current word as a Word object to the sentence
             self.aligns[wordrow['align_id']][wordrow['sentence_id']].words[wordrow['tokenid']] = Word(wordrow)
-        #Finally, process all the sentences in the last align unit that included a match or matches
-        self.ProcessSentencesOfAlign(previous_align)
+        #Finally, process all the sentences in the last align unit that included a match or matches (if the original query didn't fail)
+        if wordrows:
+            self.ProcessSentencesOfAlign(previous_align)
 
     def processWordsOfSentence(self,alignkey,sentencekey):
         """ Process every word of a sentence and chek if a search condition is met.
