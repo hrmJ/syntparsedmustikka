@@ -13,11 +13,12 @@ from dbmodule import mydatabase
 from menus import Menu, multimenu, yesnomenu 
 from search import Search, Match, Sentence, Word, ConstQuery, Db 
 from phdqueries import FinnishTime
+import pickle
 
 class MainMenu:
     """This class include all
     the comand line menu options and actions"""
-    mainanswers =  {'q':'quit','l':'select language', 'm':'Monoconcordance', 'd':'select database','p':'phdquery'}
+    mainanswers =  {'q':'quit','l':'select language', 'm':'Monoconcordance', 'd':'select database','p':'phdquery','s':'View searches'}
 
     def __init__(self):
         self.menu = multimenu(MainMenu.mainanswers)
@@ -104,10 +105,25 @@ class MainMenu:
         printResults(thisSearch)
         input('Press enter to continue.')
 
+    def viewsearches(self):
+        """Take a look at the conducted searches and repeat / save them"""
+        #collect the answers in a dict
+        answlist = dict()
+        for idx, searchobject in enumerate(Search.all_searches):
+            answlist[str(idx)] = searchobject.name
+        pickedsearch = self.menu.redifine_and_prompt('Select a search',answlist)
+        self.menu.redifine_and_prompt('What do you want to do with this search?',{'s':'save','r':'re-show the results'})
+        if self.menu.answer == 's':
+            pass
+        elif self.menu.answer == 'r':
+            printResults(Search.all_searches[int(pickedsearch)])
+        input('Press enter to continue')
+
+
+
     def MenuChooser(self,answer):
         if answer == 'q':
             self.run = False
-            pass
         elif answer == 'l':
             self.chooselang()
         elif answer == 'm':
@@ -116,6 +132,8 @@ class MainMenu:
             self.choosedb()
         elif answer == 'p':
             self.phd()
+        elif answer == 's':
+            self.viewsearches()
 
 def printResults(thisSearch):
         if len(thisSearch.matches) >0:
