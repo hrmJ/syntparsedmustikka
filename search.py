@@ -38,8 +38,13 @@ class Search:
     """This is the very
     basic class that is used to retrieve data from the corpus"""
     all_searches = []
-    def __init__(self):
-    # The matches will be saved as lists in a dict with align_ids as keys.
+    def __init__(self,queried_db=''):
+        """Initialize a search object. 
+        ----------------------------------------
+        attributes:
+        searchtype = this helps to determine search-specific conditions
+        matches = The matches will be saved as lists in a dict with align_ids as keys.
+        """
         self.matches = defaultdict(list)
         #Save the search object to a list of all conducted searches during the session
         Search.all_searches.append(self)
@@ -50,6 +55,9 @@ class Search:
         if not self.name:
             self.name = 'unnamed_{}'.format(len(Search.all_searches))
         self.searchtype = 'none'
+        #Record information about db
+        self.queried_db = queried_db
+        self.queried_table = Db.searched_table
 
     def find(self):
         """Query the database according to instructions from the user
@@ -100,15 +108,16 @@ class Search:
         The purpose of this function is to simplify the pickFromAlign_ids function"""
         # The sentence is processed word by word
         for wkey, word in self.aligns[alignkey][sentencekey].words.items():
-            #This is where the actual test is:
             if self.evaluateWordrow(word,self.aligns[alignkey][sentencekey]):  
-            #------------------------------------------------------------
                 #if the evaluation function returns true
                 self.aligns[alignkey][sentencekey].matchids.append(word.tokenid)
 
     def ProcessSentencesOfAlign(self, alignkey):
         """WARNING the keys should probably be converted to INTS
-           Process all the sentences in the previous align unit and check for matches matches"""
+           Process all the sentences in the previous align unit and check for matches
+           variables:
+           alignkey = the key of the align segment to be processed
+           """
         for sentence_id in sorted(self.aligns[alignkey].keys()):
             #Process all the matches in the sentence that contained one or more matches
             for matchid in self.aligns[alignkey][sentence_id].matchids:
@@ -131,10 +140,6 @@ class Search:
             if sentence.words[word.head].deprel not in ('ROOT','advcl','cop','aux'):
                 return False
         else:
-            #if word.lemma == sqlvalue and (aligns[previous_align][previous_sentence].words[word.head].deprel == 'ROOT'):
-            #if word.lemma == sqlvalue and (aligns[wordrow['align_id']][previous_sentence].words[word.head].deprel == 'ROOT'):
-            #if word.lemma == sqlvalue and (aligns[previousalign][previous_sentence].words[word.head].deprel == 'ROOT'):
-            #if word.lemma == sqlvalue and (aligns[thisalign    ][previous_sentence].words[word.head].deprel == 'ROOT'):
             if getattr(word, self.lemmas_or_tokens) != self.searchstring:
                 #if the lemma or the token isn't what's being looked for, quit as a non-match
                 return False
@@ -142,24 +147,79 @@ class Search:
         return True
 
 class Match:
+    """ 
+    A match object contains ifromation about a concrete token that 
+    is the reason for a specific match to be registered.
+    """
     # A list containing the ids of all the matches found
     def __init__(self,alignsegment,matchid,sentence_id):
+        """
+        Creates a match object.
+        Variables:
+        -----------
+        alignsegment = the segment the matching sentence is a part of
+        matchid = the tokenid ('how manyth word/punct in the sentence?') of the word  that matched
+        """
         #self.text_id = text_id
-	#DEAL WITH MATCHID
-        #Get the sentence where the match is
         self.context = alignsegment
         self.matchedsentence = alignsegment[sentence_id]
+        self.matchedword = alignsegment[sentence_id].words[matchid]
+        self.sourcetextid = self.matchedword.sourcetextid
 
-    def monoConcordance(self):
-    #WARNING! the keys should probably be converted to ints
-        for sentence_id in sorted(self.context.keys()):
-            self.context[sentence_id].buildPrintString()
-            #Print out (just for testing)
-            print("Sentence id {}:\n\t{}".format(sentence_id,self.context[sentence_id].printstring))
+    def BuildSentencePrintString(self):
+        """Constructs a printable sentence and highliths the match
+        """
+        self.matchedsentence.printstring = ''
+        #create an string also without the higlight
+        self.matchedsentence.cleanprintstring = ''
+        isqmark = False
+        for idx in sorted(self.matchedsentence.words.keys()):
+            spacechar = ' '
+            word = self.matchedsentence.words[idx]
+            try:
+                previous_word = self.matchedsentence.words[idx-1]
+                #if previous tag is a word:
+                if previous_word.pos != 'Punct' and previous_word.token not in string.punctuation:
+                    #...and the current tag is a punctuation mark. Notice that exception is made for hyphens, since in mustikka they are often used as dashes
+                    if word.token in string.punctuation and word.token != '-':
+                        #..don't insert whitespace
+                        spacechar = ''
+                        #except if this is the first quotation mark
+                        if word.token == '\"' and not isqmark:
+                            isqmark = True
+                            spacechar = ' '
+                        elif word.token == '\"' and isqmark:
+                            isqmark = False
+                            spacechar = ''
+                #if previous tag was not a word
+                elif previous_word.token in string.punctuation:
+                    #...and this tag is a punctuation mark
+                    if (word.token in string.punctuation and word.token != '-' and word.token != '\"') or isqmark:
+                        #..don't insert whitespace
+                        spacechar = ''
+                    if previous_word.token == '\"':
+                        spacechar = ''
+                        isqmark = True
+                    else:
+                        spacechar = ' '
+            except:
+                #if this is the first word
+                spacechar = ''
+            #if this word is a match:
+            if word.tokenid == self.matchedword.tokenid:
+                #Surround the match with <>
+                self.matchedsentence.printstring += spacechar + '<' + word.token  + '>'
+            else:
+                self.matchedsentence.printstring += spacechar + word.token
+            self.matchedsentence.cleanprintstring += spacechar + word.token
 
 
 class Sentence:
-    """a sentence"""
+    """
+    The sentence consists of words (which can actually also be punctuation marks).
+    The words are listed in a dictionary. The words tokenid (it's ordinal place in the sentence) 
+    is the key in the dictionary of words.
+    """
     def __init__(self,sentence_id):
         self.sentence_id = sentence_id
         #initialize a dict of words. The word's ids in the sentence will be used as keys
@@ -220,24 +280,6 @@ class Word:
         self.head = row["head"]
         self.deprel = row["deprel"] 
         self.tokenid = row["tokenid"] 
+        self.sourcetextid = row["text_id"]
         #The general id in the db conll table
         self.dbid =  row["id"]
-
-
-#Main module
-
-def main():
-    #Set the language that is being searched
-    #Db.searched_table = 'fi_conll'
-    Db.searched_table = 'ru_conll'
-    newsearch = Search()
-    newsearch.FindByQuery2(ConstQuery.independentByLemma2,'уже')
-    for key, matches in newsearch.matches.items():
-        for match in matches:
-            #match.monoConcordance()
-            match.matchedsentence.buildPrintString()
-            print(match.matchedsentence.printstring)
-            sys.exit(0)
-#Start the script
-if __name__ == "__main__":
-    main()
