@@ -8,17 +8,20 @@ import string
 import re
 # For flushing the screen os-dependently
 import os
+import os.path
 #local modules
 from dbmodule import mydatabase
 from menus import Menu, multimenu, yesnomenu 
 from search import Search, Match, Sentence, Word, ConstQuery, Db 
 from phdqueries import FinnishTime
 import pickle
+import datetime
+import glob
 
 class MainMenu:
     """This class include all
     the comand line menu options and actions"""
-    mainanswers =  {'q':'quit','l':'select language', 'm':'Monoconcordance', 'd':'select database','p':'phdquery','s':'View searches'}
+    mainanswers =  {'q':'quit','l':'select language', 'm':'Monoconcordance', 'd':'select database','p':'phdquery','s':'View searches','o':'View saved searches'}
 
     def __init__(self):
         self.menu = multimenu(MainMenu.mainanswers)
@@ -111,15 +114,40 @@ class MainMenu:
         answlist = dict()
         for idx, searchobject in enumerate(Search.all_searches):
             answlist[str(idx)] = searchobject.name
-        pickedsearch = self.menu.redifine_and_prompt('Select a search',answlist)
-        self.menu.redifine_and_prompt('What do you want to do with this search?',{'s':'save','r':'re-show the results'})
-        if self.menu.answer == 's':
+        answlist['c'] = "Cancel"
+        try:
+            pickedsearch = Search.all_searches[int(self.menu.redifine_and_prompt('Select a search',answlist))]
+            self.menu.redifine_and_prompt('What do you want to do with this search?',{'s':'save','r':'re-show the results'})
+            if self.menu.answer == 's':
+                filename = "savedsearches/{}_{}.p".format(pickedsearch.name,datetime.date.today())
+                filenumber = 2
+                while os.path.exists(filename):
+                    filename = "savedsearches/{}_{}{}.p".format(pickedsearch.name,datetime.date.today(),filenumber)
+                    filenumber += 1
+                pickle.dump(pickedsearch, open(filename, "wb"))
+            elif self.menu.answer == 'r':
+                printResults(pickedsearch)
+            input('Press enter to continue')
+        except:
             pass
-        elif self.menu.answer == 'r':
-            printResults(Search.all_searches[int(pickedsearch)])
+
+    def viewsavedsearches(self):
+        """Take a look at the saved searches and append them to the lsit of searches"""
+        #collect the answers in a dict
+        answlist = dict()
+        if glob.glob('savedsearches/*.p'):
+            for idx, savedsearch in enumerate(glob.glob('savedsearches/*.p')):
+                answlist[str(idx)] = savedsearch
+            answlist['c'] = "Cancel"
+            pickedsearch = answlist[self.menu.redifine_and_prompt('Load a saved search:',answlist)]
+            try:
+                Search.all_searches.append(pickle.load( open(pickedsearch, "rb") ))
+                print('Search {} loaded succesfully. Press "View searches" in the main menu to view it'.format(pickedsearch))
+            except:
+                print('No search loaded')
+        else:
+            print('No saved searches found.')
         input('Press enter to continue')
-
-
 
     def MenuChooser(self,answer):
         if answer == 'q':
@@ -134,6 +162,8 @@ class MainMenu:
             self.phd()
         elif answer == 's':
             self.viewsearches()
+        elif answer == 'o':
+            self.viewsavedsearches()
 
 def printResults(thisSearch):
         if len(thisSearch.matches) >0:
