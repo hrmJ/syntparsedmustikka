@@ -12,6 +12,12 @@ class Menu:
             while self.answer not in self.validanswers.keys():
                 self.answer = input("Please give a valid answer.\n {}".format(question))
 
+    def redifine_and_prompt(self, newquestion, newanswers):
+        self.question = newquestion
+        self.validanswers = newanswers
+        self.prompt_valid()
+        return self.answer
+
 class yesnomenu(Menu):
     validanswers = { 'y':'yes','n':'no' }
 
