@@ -56,23 +56,27 @@ class mydatabase:
        self.connection.autocommit = True
        self.dictcur = self.connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
        self.cur = self.connection.cursor()
-    #INSERT query{{{3
+       self.dbname = dbname
+
     def insertquery(self, SQL, valuetuple=("empty",)):
+        """A general query for inserting updating etc."""
         try:
             self.cur.execute(SQL, valuetuple)
         except psycopg2.Error as e:
             print("Somerthing wrong with the query")
             print ("Psql gives the error: {}".format(e.pgerror))
-    #Query with a dictionary cursor {{{3
+
     def dictquery(self, SQL,valuetuple=("empty",)):
+        """Query with a dictionary cursor"""
         try:
             self.dictcur.execute(SQL, valuetuple)
             return self.dictcur.fetchall()
         except psycopg2.Error as e:
             print("Somerthing wrong with the query")
             print ("Psql gives the error: {}".format(e.pgerror))
-    #Query with a non-dictionary cursor {{{3
+
     def nondictquery(self, SQL,valuetuple=("empty",)):
+        " Query with a non-dictionary cursor "
         try:
             self.cur.execute(SQL, valuetuple)
             return self.cur.fetchall()
@@ -80,8 +84,10 @@ class mydatabase:
             print("Somerthing wrong with the query")
             print(SQL)
             print ("Psql gives the error: {}".format(e.pgerror))
-    #Query with a non-dictionary cursor that returns only one value {{{3
+
     def OneResultQuery(self, SQL,valuetuple=("empty",)):
+        """Query with a non-dictionary cursor that returns only one
+        value """
         try:
             self.cur.execute(SQL, valuetuple)
             result = self.cur.fetchall()
@@ -90,3 +96,4 @@ class mydatabase:
             print("Somerthing wrong with the query")
             print(SQL)
             print ("Psql gives the error: {}".format(e.pgerror))
+

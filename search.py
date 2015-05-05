@@ -3,6 +3,7 @@
 import codecs
 import csv
 import sys
+import os
 from collections import defaultdict
 from lxml import etree
 import string
@@ -139,6 +140,30 @@ class Search:
             #if the word's head's deprel not listed
             if sentence.words[word.head].deprel not in ('ROOT','advcl','cop','aux'):
                 return False
+        elif self.searchtype == 'nuzhno':
+            nomatch = True
+            for wkey in sorted(map(int,sentence.words)):
+                wordinsent = sentence.words[wkey]
+                if wordinsent.head == word.tokenid and wordinsent.feat[-2:] == 'dn' and wordinsent.deprel != '2-компл':
+                    nomatch = False
+                    break
+            if nomatch:
+                return False
+            if word.lemma not in ('нужно','надо','должно'):
+                return False
+        elif self.searchtype == 'semsubj_gen':
+            nomatch = False
+            for wkey in sorted(map(int,sentence.words)):
+                wordinsent = sentence.words[wkey]
+                #If the examined word's head is 'kuluttua' don't accept
+                if wordinsent.head == word.tokenid and (wordinsent.token == 'kuluttua' or (wordinsent.pos != 'V' and wordinsent.deprel != 'ROOT')):
+                    nomatch = True
+                    break
+            if nomatch:
+                return False
+            #If this is not a subject in genetive, don't accept
+            if word.deprel != 'nsubj' or 'CASE_Gen' not in word.feat:
+                return False
         else:
             if getattr(word, self.lemmas_or_tokens) != self.searchstring:
                 #if the lemma or the token isn't what's being looked for, quit as a non-match
@@ -268,6 +293,22 @@ class Sentence:
                 self.printstring += spacechar + '*' + word.token  + '*'
             else:
                 self.printstring += spacechar + word.token
+
+    def buildStringToVisualize(self):
+        """Build a string to be saved in a file to be run through the TDT visualizer"""
+        csvrows = list()
+        for idx in sorted(self.words.keys()):
+            word = self.words[idx]
+            csvrows.append([word.tokenid,word.token,word.lemma,word.pos,word.pos,word.feat,word.feat,word.head,word.head,word.deprel,word.deprel,'_','_'])
+        self.visualizable = csvrows
+
+    def visualize(self):
+        """Make a file and visualize it"""
+        with open('input.conll9','w') as f:
+            writer = csv.writer(f, delimiter='\t')
+            writer.writerows(self.visualizable)
+        os.system("cat input.conll9 | python /home/juho/Dropbox/VK/skriptit/python/finnish_dep_parser/Finnish-dep-parser/visualize.py > output.html")
+
 
 class Word:
     """A word object containing all the morhpological and syntactic information"""

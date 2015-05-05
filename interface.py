@@ -21,7 +21,7 @@ import glob
 class MainMenu:
     """This class include all
     the comand line menu options and actions"""
-    mainanswers =  {'q':'quit','l':'select language', 'm':'Monoconcordance', 'd':'select database','p':'phdquery','s':'View searches','o':'View saved searches'}
+    mainanswers =  {'q':'quit','l':'select language', 'm':'Monoconcordance', 'd':'select database','p':'phdquery','s':'View searches','o':'View saved searches','n':'Нужно-search'}
 
     def __init__(self):
         self.menu = multimenu(MainMenu.mainanswers)
@@ -71,7 +71,7 @@ class MainMenu:
         if not Db.searched_table :
             input('Please specify language first')
             return False
-        thisSearch = Search()
+        thisSearch = Search(self.selecteddb)
         self.menu.question = 'Search type:'
         self.menu.validanswers = {'l':'lemmas','t':'tokens'}
         self.menu.prompt_valid()
@@ -95,7 +95,7 @@ class MainMenu:
 
     def phd(self):
         #Initialize the search object
-        thisSearch = Search()
+        thisSearch = Search(self.selecteddb)
         print('Please wait, building the subquery.')
         FinnishTimeQuery = FinnishTime()
         thisSearch.subquery = FinnishTimeQuery.subq
@@ -105,6 +105,21 @@ class MainMenu:
         thisSearch.subqueryvalues=()
         print('Starting the actual query.')
         thisSearch.find()
+        printResults(thisSearch)
+        input('Press enter to continue.')
+
+    def nuzhnosearch(self):
+        #Initialize the search object
+        thisSearch = Search(self.selecteddb)
+        thisSearch.subquery = """
+        SELECT align_id FROM {}
+        WHERE lemma = %s
+        """.format(Db.searched_table)
+        thisSearch.searchtype= "nuzhno"
+        thisSearch.searchstring = 'нужно'
+        thisSearch.subqueryvalues=(thisSearch.searchstring,)
+        thisSearch.find()
+        #Print the results:
         printResults(thisSearch)
         input('Press enter to continue.')
 
@@ -164,23 +179,45 @@ class MainMenu:
             self.viewsearches()
         elif answer == 'o':
             self.viewsavedsearches()
+        elif answer == 'n':
+            self.nuzhnosearch()
 
 def printResults(thisSearch):
         if len(thisSearch.matches) >0:
-            limit = input('Found {} occurences, how many should I print?'.format(len(thisSearch.matches)))
-            printed = 0
-            for key, matches in thisSearch.matches.items():
-                for match in matches:
-                    if printed == int(limit):
-                        break
-                    #match.monoConcordance()
-                    match.matchedsentence.buildPrintString()
-                    printed += 1
-                    print('{}:\n\n{}\n\n'.format(printed,match.matchedsentence.printstring))
+            printmenu = multimenu({'a':'Print all','r':'Print max. 5 random','s':'Specify how many to print'})
+            printmenu.question = 'Found {} occurences. What should I do?'.format(len(thisSearch.matches))
+            printmenu.prompt_valid()
+            if printmenu.answer == 's':
+                #sort the dict to make sure its order stays the same
+                matchitems = sorted(thisSearch.matches.items())
+                printedsentences = resultprinter(matchitems, input('How many of the {} occurences should I print?'.format(len(thisSearch.matches))))
+                pickedmatch = input('Select a sentence number to be visualized (empty cancels)')
+                if pickedmatch in printedsentences:
+                    printedsentences[pickedmatch].buildStringToVisualize()
+                    printedsentences[pickedmatch].visualize()
+                print('Sentence no {} visualized.'.format(pickedmatch))
         else:
             print('Sorry, nothing found.')
             print(thisSearch.subquery)
             print(thisSearch.subqueryvalues)
+
+
+def resultprinter(matchitems,limit=1):
+    """Print to screen the specified number of elements from search object"""
+    printed = 0
+    sentences = dict()
+    for key, matches in matchitems:
+        for match in matches:
+            if printed == int(limit):
+                break
+            #match.monoConcordance()
+            match.matchedsentence.buildPrintString()
+            printed += 1
+            print('{}:\t{}\nSentence id: {}, align id: {}\n'.format(printed,match.matchedsentence.printstring, match.matchedsentence.sentence_id, key))
+            #Save the sentence so it can be referenced easily
+            sentences[str(printed)] = match.matchedsentence
+    return sentences
+
 
 #Start the menu
 

@@ -152,3 +152,16 @@ def AnalyzeTimeAdvlData1(search):
     print('Analysis completed.')
     print('')
 
+def UpdateHeadDeprelToDB(table):
+    """Insert information about the deprel of the head of each word into database"""
+    con = mydatabase('syntparfin','juho')
+    sentence_ids = con.nondictquery('SELECT DISTINCT sentence_id FROM {}'.format(table))
+    i=0
+    for sid in sentence_ids:
+        tokens = con.nondictquery('SELECT tokenid, head FROM {} WHERE sentence_id = %s order by tokenid'.format(table),(sid[0],))
+        for token in tokens:
+            heads_deprel = con.nondictquery('SELECT deprel, pos, feat FROM {} WHERE sentence_id = %s AND tokenid = %s'.format(table),(sid[0],token[1]))
+            if heads_deprel:
+                con.insertquery('UPDATE {} SET heads_deprel = %s, heads_pos = %s, heads_feat = %s WHERE sentence_id = %s AND tokenid = %s'.format(table),(heads_deprel[0][0],heads_deprel[0][1],heads_deprel[0][2], sid[0], token[0]))
+        i += 1
+        print('{}/{} sentences updated'.format(i,len(sentence_ids)), end='\r')
