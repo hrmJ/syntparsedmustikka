@@ -57,17 +57,49 @@ def suboord1(con):
     thisSearch.find()
     matchitems = thisSearch.matches.items()
     i=0
+    sql = "UPDATE ru_conll SET contr_deprel = CASE id"
+    sqlvals = list()
+    idvals = list()
+    logging.info('Starting the update process.')
+    #First, set deprel
     for key, matches in matchitems:
         for match in matches:
             nonconj = match.matchedword
             try:
                 conj = match.matchedsentence.words[nonconj.head]
-                con.insertquery('UPDATE ru_conll SET contr_deprel = %s, contr_head = %s WHERE id = %s',('conj', nonconj.tokenid,conj.dbid))
-                con.insertquery('UPDATE ru_conll SET contr_deprel = %s, contr_head = %s WHERE id = %s',('carg', conj.head, nonconj.dbid))
+                #conj
+                sql += """ WHEN %s THEN %s"""
+                sqlvals.append(conj.dbid)
+                sqlvals.append('conj')
+                idvals.append(conj.dbid)
+                #nonconj
+                sql += """ WHEN %s THEN %s"""
+                sqlvals.append(nonconj.dbid)
+                sqlvals.append('carg')
+                idvals.append(nonconj.dbid)
+            except KeyError:
+                logging.info('Key error with sentence id {}'.format(match.matchedsentence.sentence_id))
+    #Then set heads
+    sql += " END, contr_head = CASE id"
+    for key, matches in matchitems:
+        for match in matches:
+            nonconj = match.matchedword
+            try:
+                conj = match.matchedsentence.words[nonconj.head]
+                #conj
+                sql += """ WHEN %s THEN %s"""
+                sqlvals.append(conj.dbid)
+                sqlvals.append(nonconj.tokenid)
+                #nonconj
+                sql += """ WHEN %s THEN %s"""
+                sqlvals.append(nonconj.dbid)
+                sqlvals.append(conj.head)
             except:
                 logging.info('Key error with sentence id {}'.format(match.matchedsentence.sentence_id))
-        i += 1
-        print('UPDATED {}/{}'.format(i,len(matchitems)), end='\r')
+    sql += " END WHERE id in %s"
+    sqlvals.append(tuple(idvals))
+    con.insertquery(sql,tuple(sqlvals))
+    logging.info("UPDATED {} rows in {}".format(con.cur.rowcount, con.dbname))
 
 def collectmatchids(matchitems):
     ids = list()
@@ -118,6 +150,6 @@ prcon = mydatabase('syntparrus','juho')
 
 logging.info('Reanalyzing SNs subordinate clauses')
 suboord1(pfcon)
-suboord1(prcon)
+#suboord1(prcon)
 
 logging.info('Done.')
