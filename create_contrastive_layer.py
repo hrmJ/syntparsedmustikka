@@ -56,7 +56,6 @@ def suboord1(con):
     thisSearch.subqueryvalues=('подч-союзн',)
     thisSearch.find()
     matchitems = thisSearch.matches.items()
-    i=0
     sql = "UPDATE ru_conll SET contr_deprel = CASE id"
     sqlvals = list()
     idvals = list()
@@ -130,26 +129,26 @@ logging.info("Establishing connections...")
 pfcon = mydatabase('syntparfin','juho')
 prcon = mydatabase('syntparrus','juho')
 
-#logging.info("Clearing all data from contr_deprel")
-#cleardata(pfcon)
-#cleardata(prcon)
-#logging.info("Cleared.")
-#
-#logging.info("Creating syntsubj for SN")
-#syntsubj1(pfcon)
-#syntsubj1(prcon)
-#
-#logging.info("Creating syntsubj for TDT")
-#logging.info("Making csubj-cop csubj and all csubjs syntsubj")
-#csubj1(pfcon)
-#csubj1(prcon)
+logging.info("Clearing all data from contr_deprel")
+cleardata(pfcon)
+cleardata(prcon)
+logging.info("Cleared.")
 
-#logging.info('Make TDT:s genitive nsubjects semsubjects')
-#TDTsemsubj1(pfcon)
-#TDTsemsubj1(prcon)
+logging.info("Creating syntsubj for SN")
+syntsubj1(pfcon)
+syntsubj1(prcon)
+
+logging.info("Creating syntsubj for TDT")
+logging.info("Making csubj-cop csubj and all csubjs syntsubj")
+csubj1(pfcon)
+csubj1(prcon)
+
+logging.info('Make TDT:s genitive nsubjects semsubjects')
+TDTsemsubj1(pfcon)
+TDTsemsubj1(prcon)
 
 logging.info('Reanalyzing SNs subordinate clauses')
 suboord1(pfcon)
-#suboord1(prcon)
+suboord1(prcon)
 
 logging.info('Done.')

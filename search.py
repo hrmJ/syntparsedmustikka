@@ -309,6 +309,39 @@ class Sentence:
             writer.writerows(self.visualizable)
         os.system("cat input.conll9 | python /home/juho/Dropbox/VK/skriptit/python/finnish_dep_parser/Finnish-dep-parser/visualize.py > output.html")
 
+    def texvisualize(self,lang):
+        """Visualize with tikz/latex"""
+        #set latex encoding
+        if lang == 'finnish':
+            enc = "T1"
+        elif lang == 'russian':
+            enc = "T2A"
+        preamp = """\\documentclass[{0}]{{standalone}}
+            \\usepackage{{tikz-dependency}}
+            \\usepackage[utf8]{{inputenc}}
+            \\usepackage[{1}]{{fontenc}}
+            \\usepackage[{0}]{{babel}}
+            \\begin{{document}}
+            \\begin{{dependency}}[theme = simple]""".format(lang,enc)
+        deptext = "\n\\begin{deptext}[column sep=1em]\n"
+        texend = """
+            \\end{dependency}
+            \\end{document}"""
+        deprels = ""
+        for wkey in sorted(map(int,self.words)):
+            word = self.words[wkey]
+            if wkey < len(self.words):
+                deptext +=  word.token + " \\& "
+            else:
+                deptext +=  word.token + " \\\\"
+            if word.deprel == 'ROOT':
+                deprels += "\n\\deproot{{{}}}{{ROOT}}".format(word.tokenid)
+            else:
+                deprels += "\n\\depedge{{{0}}}{{{1}}}{{{2}}}".format(word.head,word.tokenid,word.deprel)
+        deptext += "\n\\end{deptext}\n"
+        with open('{}_{}.tex'.format(lang,self.sentence_id),mode="w", encoding="utf8") as f:
+            f.write('{}{}{}{}\n'.format(preamp,deptext,deprels,texend))
+
 
 class Word:
     """A word object containing all the morhpological and syntactic information"""
