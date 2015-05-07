@@ -21,7 +21,8 @@ import glob
 class MainMenu:
     """This class include all
     the comand line menu options and actions"""
-    mainanswers =  {'q':'quit','l':'select language', 'm':'Monoconcordance', 'd':'select database','p':'phdquery','s':'View searches','o':'View saved searches','n':'Нужно-search'}
+    mainanswers =  {'q':'quit','l':'select language', 'm':'Monoconcordance', 'd':'select database','p':'phdquery','s':'View searches','o':'View saved searches','n':'Нужно-search',
+                    'a':'advanced search'}
 
     def __init__(self):
         self.menu = multimenu(MainMenu.mainanswers)
@@ -66,20 +67,23 @@ class MainMenu:
         self.selecteddb = self.menu.validanswers[self.menu.answer]
 
 
-    def monoconc(self):
+    def monoconc(self, advanced=False):
         #Initialize the search object
         if not Db.searched_table :
             input('Please specify language first')
             return False
         thisSearch = Search(self.selecteddb)
-        self.menu.question = 'Search type:'
-        self.menu.validanswers = {'l':'lemmas','t':'tokens'}
-        self.menu.prompt_valid()
-        #Set the switch on if lemmatized chosen:
-        if self.menu.answer == 'l':
-            thisSearch.lemmas_or_tokens = 'lemma'
-        elif self.menu.answer == 't':
-            thisSearch.lemmas_or_tokens = 'token'
+        if advanced:
+            thisSearch.lemmas_or_tokens = input('Give the category to be matched:')
+        else:
+            self.menu.question = 'Search type:'
+            self.menu.validanswers = {'l':'lemmas','t':'tokens'}
+            self.menu.prompt_valid()
+            #Set the switch on if lemmatized chosen:
+            if self.menu.answer == 'l':
+                thisSearch.lemmas_or_tokens = 'lemma'
+            elif self.menu.answer == 't':
+                thisSearch.lemmas_or_tokens = 'token'
         thisSearch.searchstring = input('\n\nGive a string to search:\n\n>')
         #Build the query:
         thisSearch.subquery = """
@@ -181,6 +185,8 @@ class MainMenu:
             self.viewsavedsearches()
         elif answer == 'n':
             self.nuzhnosearch()
+        elif answer == 'a':
+            self.monoconc(True)
 
 def printResults(thisSearch):
         if len(thisSearch.matches) >0:

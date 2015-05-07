@@ -42,7 +42,7 @@ ThisSentence = Sentence(sentence_id)
 for wordrow in wordrows:
     ThisSentence.words[wordrow["tokenid"]] = Word(wordrow)
 
-if "fi_" in "table":
+if "fi_" in table:
     ThisSentence.texvisualize('finnish')
 else:
     ThisSentence.texvisualize('russian')

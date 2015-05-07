@@ -328,16 +328,27 @@ class Sentence:
             \\end{dependency}
             \\end{document}"""
         deprels = ""
+        #in case of messed up russian sentences:
+        numbercompensation = 0
+        firstword=True
         for wkey in sorted(map(int,self.words)):
             word = self.words[wkey]
+            tokenid = int(word.tokenid)
+            head = int(word.head)
+            if firstword:
+                numbercompensation = tokenid - 1
+                firstword = False
+            #test if the token ids don't start at 1
+            head -= numbercompensation
+            tokenid -= numbercompensation
             if wkey < len(self.words):
                 deptext +=  word.token + " \\& "
             else:
                 deptext +=  word.token + " \\\\"
             if word.deprel == 'ROOT':
-                deprels += "\n\\deproot{{{}}}{{ROOT}}".format(word.tokenid)
+                deprels += "\n\\deproot{{{}}}{{ROOT}}".format(tokenid)
             else:
-                deprels += "\n\\depedge{{{0}}}{{{1}}}{{{2}}}".format(word.head,word.tokenid,word.deprel)
+                deprels += "\n\\depedge{{{0}}}{{{1}}}{{{2}}}".format(head,tokenid,word.deprel)
         deptext += "\n\\end{deptext}\n"
         with open('{}_{}.tex'.format(lang,self.sentence_id),mode="w", encoding="utf8") as f:
             f.write('{}{}{}{}\n'.format(preamp,deptext,deprels,texend))
