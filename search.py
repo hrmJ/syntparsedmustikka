@@ -87,7 +87,11 @@ class Search:
                 condition += " AND "
             #This is to make sure psycopg2 uses the correct %s values
             sqlRef = '{}cond{}'.format(parentidx,sqlidx)
-            condition += "{} = %({})s".format(column,sqlRef)
+            #If this is a neagtive condition
+            if column[0] == '!':
+                condition += "{} != %({})s".format(column[1:],sqlRef)
+            else:
+                condition += "{} = %({})s".format(column,sqlRef)
             self.subqueryvalues[sqlRef] = value
             sqlidx += 1
         return condition
@@ -200,9 +204,15 @@ class Search:
             #Iterate over the list of the sepcified column value pairs
             for MultipleValuePair in self.ConditionColumns:
                 for column, value in MultipleValuePair.items():
-                    if getattr(word, column) != value:
-                        #if the requested value of the specified column isn't what's being looked for, quit as a non-match
-                        return False
+                    #If this is a negative condition:
+                    if column[0] == '!':
+                        if getattr(word, column[1:]) == value:
+                            #if the requested value of the specified column is what's not being looked for, quit as a non-match
+                            return False
+                    else:
+                        if getattr(word, column) != value:
+                            #if the requested value of the specified column isn't what's being looked for, quit as a non-match
+                            return False
                     #if all tests passed, return True
         return True
 
