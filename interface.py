@@ -74,24 +74,19 @@ class MainMenu:
             return False
         thisSearch = Search(self.selecteddb)
         if advanced:
-            thisSearch.lemmas_or_tokens = input('Give the category to be matched:')
+            cond = input('Give the category to be matched:')
+            thisSearch.ConditionColumns.append({cond: input('\n\nGive a string to search:\n\n>')})
         else:
             self.menu.question = 'Search type:'
             self.menu.validanswers = {'l':'lemmas','t':'tokens'}
             self.menu.prompt_valid()
             #Set the switch on if lemmatized chosen:
             if self.menu.answer == 'l':
-                thisSearch.lemmas_or_tokens = 'lemma'
+                thisSearch.ConditionColumns.append({'lemma': input('\n\nGive a string to search:\n\n>')})
             elif self.menu.answer == 't':
-                thisSearch.lemmas_or_tokens = 'token'
-        thisSearch.searchstring = input('\n\nGive a string to search:\n\n>')
+                thisSearch.ConditionColumns.append({'token': input('\n\nGive a string to search:\n\n>')})
         #Build the query:
-        thisSearch.subquery = """
-        SELECT align_id FROM {}
-        WHERE {} = %s
-        """.format(Db.searched_table,thisSearch.lemmas_or_tokens)
-        #The query values must be a tuple
-        thisSearch.subqueryvalues=(thisSearch.searchstring,)
+        thisSearch.BuildSubQuery()
         thisSearch.find()
         #Print the results:
         printResults(thisSearch)

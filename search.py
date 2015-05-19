@@ -12,6 +12,8 @@ import re
 from dbmodule import mydatabase
 from menus import Menu, multimenu, yesnomenu 
 #classes
+
+
 class Db:
     """ A class to include some shared properties for the search and
     the match classes"""
@@ -56,9 +58,39 @@ class Search:
         if not self.name:
             self.name = 'unnamed_{}'.format(len(Search.all_searches))
         self.searchtype = 'none'
+        #Make a dict to contain column_name: string_value pairs to be matched
+        self.ConditionColumns = list()
+        #Make a dict containing the psycopg2 string reference and its desired value
+        self.subqueryvalues = dict()
         #Record information about db
         self.queried_db = queried_db
         self.queried_table = Db.searched_table
+
+    def BuildSubQuery(self):
+        """Builds a subquery to be used in the find method"""
+        MultipleValuePairs = ''
+        #This is to make sure psycopg2 uses the correct %s values
+        sqlidx=0
+        for ivaluedict in self.ConditionColumns:
+            if MultipleValuePairs:
+                MultipleValuePairs += " OR "
+            MultipleValuePairs += "({})".format(self.BuildSubqString(ivaluedict,sqlidx))
+            sqlidx += 1
+        self.subquery = """SELECT align_id FROM {} WHERE {} """.format(Db.searched_table,MultipleValuePairs)
+
+    def BuildSubqString(self, ivaluedict,parentidx):
+        condition = ''
+        #This is to make sure psycopg2 uses the correct %s values
+        sqlidx=0
+        for column, value in ivaluedict.items():
+            if condition:
+                condition += " AND "
+            #This is to make sure psycopg2 uses the correct %s values
+            sqlRef = '{}cond{}'.format(parentidx,sqlidx)
+            condition += "{} = %({})s".format(column,sqlRef)
+            self.subqueryvalues[sqlRef] = value
+            sqlidx += 1
+        return condition
 
     def find(self):
         """Query the database according to instructions from the user
@@ -165,10 +197,13 @@ class Search:
             if word.deprel != 'nsubj' or 'CASE_Gen' not in word.feat:
                 return False
         else:
-            if getattr(word, self.lemmas_or_tokens) != self.searchstring:
-                #if the lemma or the token isn't what's being looked for, quit as a non-match
-                return False
-            #if all tests passed, return True
+            #Iterate over the list of the sepcified column value pairs
+            for MultipleValuePair in self.ConditionColumns:
+                for column, value in MultipleValuePair.items():
+                    if getattr(word, column) != value:
+                        #if the requested value of the specified column isn't what's being looked for, quit as a non-match
+                        return False
+                    #if all tests passed, return True
         return True
 
 class Match:
