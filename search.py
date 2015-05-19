@@ -203,17 +203,23 @@ class Search:
         else:
             #Iterate over the list of the sepcified column value pairs
             for MultipleValuePair in self.ConditionColumns:
+                pairmatch=True
                 for column, value in MultipleValuePair.items():
                     #If this is a negative condition:
                     if column[0] == '!':
                         if getattr(word, column[1:]) == value:
-                            #if the requested value of the specified column is what's not being looked for, quit as a non-match
-                            return False
+                            #if the requested value of the specified column is what's not being looked for, regard this a non-match
+                            pairmatch = False
                     else:
                         if getattr(word, column) != value:
-                            #if the requested value of the specified column isn't what's being looked for, quit as a non-match
-                            return False
-                    #if all tests passed, return True
+                            #if the requested value of the specified column isn't what's being looked for, regard this a non-match
+                            pairmatch = False
+                if pairmatch:
+                    #if one of the conditions matched, accept this and stop testing
+                    return True
+            if not pairmatch:
+                return False
+        #if all tests passed, return True
         return True
 
 class Match:
