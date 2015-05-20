@@ -13,7 +13,8 @@ import os.path
 from dbmodule import mydatabase
 from menus import Menu, multimenu, yesnomenu 
 from search import Search, Match, Sentence, Word, ConstQuery, Db 
-from phdqueries import FinnishTime
+from phdqueries import FinnishTime, tmevalues
+from filtermatches import FilterDuplicates1
 import pickle
 import datetime
 import glob
@@ -22,7 +23,7 @@ class MainMenu:
     """This class include all
     the comand line menu options and actions"""
     mainanswers =  {'q':'quit','l':'select language', 'm':'Monoconcordance', 'd':'select database','p':'phdquery','s':'View searches','o':'View saved searches','n':'Нужно-search',
-                    'a':'advanced search'}
+            'a':'advanced search','tme':'TME search'}
 
     def __init__(self):
         self.menu = multimenu(MainMenu.mainanswers)
@@ -67,7 +68,7 @@ class MainMenu:
         self.selecteddb = self.menu.validanswers[self.menu.answer]
 
 
-    def monoconc(self, advanced=False):
+    def monoconc(self, advanced=False,tme=False):
         #Initialize the search object
         if not Db.searched_table :
             input('Please specify language first')
@@ -75,22 +76,38 @@ class MainMenu:
         thisSearch = Search(self.selecteddb)
         if advanced:
             cond = input('Give the category to be matched:')
-            thisSearch.ConditionColumns.append({cond: input('\n\nGive a string to search:\n\n>')})
+            valuetuple = (input('\n\nGive a string to search:\n\n>'),)
+            thisSearch.ConditionColumns.append({cond: valuetuple})
+        elif tme:
+            thisSearch.ConditionColumns = tmevalues(self.selectedlang)
+            thisSearch.headcond = {'column':'pos','values':('V',)}
+            thisSearch.depcond = {'column':'!deprel','values':('cop',)}
         else:
             self.menu.question = 'Search type:'
             self.menu.validanswers = {'l':'lemmas','t':'tokens'}
             self.menu.prompt_valid()
+            valuetuple = (input('\n\nGive a string to search:\n\n>'),)
             #Set the switch on if lemmatized chosen:
             if self.menu.answer == 'l':
-                thisSearch.ConditionColumns.append({'lemma': input('\n\nGive a string to search:\n\n>')})
+                thisSearch.ConditionColumns.append({'lemma': valuetuple})
             elif self.menu.answer == 't':
-                thisSearch.ConditionColumns.append({'token': input('\n\nGive a string to search:\n\n>')})
+                thisSearch.ConditionColumns.append({'token': valuetuple})
         #Build the query:
         thisSearch.BuildSubQuery()
         thisSearch.find()
         #Print the results:
         printResults(thisSearch)
         input('Press enter to continue.')
+
+    def tmesearch(self):
+        #Initialize the search object
+        lang = input('Which language?')
+        thisSearch =  TME(lang)
+        #Build the query:
+        thisSearch.BuildSubQuery()
+        thisSearch.find()
+        #Print the results:
+        printResults(thisSearch)
 
     def phd(self):
         #Initialize the search object
@@ -134,9 +151,11 @@ class MainMenu:
             self.menu.redifine_and_prompt('What do you want to do with this search?',{'s':'save','r':'re-show the results'})
             if self.menu.answer == 's':
                 filename = "savedsearches/{}_{}.p".format(pickedsearch.name,datetime.date.today())
+                pickedsearch.filename = filename
                 filenumber = 2
                 while os.path.exists(filename):
                     filename = "savedsearches/{}_{}{}.p".format(pickedsearch.name,datetime.date.today(),filenumber)
+                    pickedsearch.filename = filename
                     filenumber += 1
                 pickle.dump(pickedsearch, open(filename, "wb"))
             elif self.menu.answer == 'r':
@@ -182,6 +201,8 @@ class MainMenu:
             self.nuzhnosearch()
         elif answer == 'a':
             self.monoconc(True)
+        elif answer == 'tme':
+            self.monoconc(tme=True)
 
 def printResults(thisSearch):
         if len(thisSearch.matches) >0:
@@ -212,7 +233,8 @@ def resultprinter(matchitems,limit=1):
             if printed == int(limit):
                 break
             #match.monoConcordance()
-            match.matchedsentence.buildPrintString()
+            #match.matchedsentence.buildPrintString()
+            match.BuildSentencePrintString()
             printed += 1
             print('{}:\t{}\nSentence id: {}, align id: {}\n'.format(printed,match.matchedsentence.printstring, match.matchedsentence.sentence_id, key))
             #Save the sentence so it can be referenced easily

@@ -8,6 +8,7 @@ from collections import defaultdict
 from lxml import etree
 import string
 import re
+import pickle
 #local modules
 from dbmodule import mydatabase
 from menus import Menu, multimenu, yesnomenu 
@@ -62,9 +63,18 @@ class Search:
         self.ConditionColumns = list()
         #Make a dict containing the psycopg2 string reference and its desired value
         self.subqueryvalues = dict()
+        #Initiate an attribute that will be dealing with the word's head's parameters
+        self.headcond = dict()
+        #Initiate an attribute that will be dealing with the word's dependents' parameters
+        self.depcond = dict()
         #Record information about db
         self.queried_db = queried_db
         self.queried_table = Db.searched_table
+
+    def Save(self):
+        """Save the search object as a pickle file"""
+        pickle.dump(self, open(self.filename, "wb"))
+        input('Pickle succesfully saved.')
 
     def BuildSubQuery(self):
         """Builds a subquery to be used in the find method"""
@@ -79,6 +89,7 @@ class Search:
         self.subquery = """SELECT align_id FROM {} WHERE {} """.format(Db.searched_table,MultipleValuePairs)
 
     def BuildSubqString(self, ivaluedict,parentidx):
+        """ HConstructs the actual condition. Values must be TUPLES."""
         condition = ''
         #This is to make sure psycopg2 uses the correct %s values
         sqlidx=0
@@ -89,9 +100,9 @@ class Search:
             sqlRef = '{}cond{}'.format(parentidx,sqlidx)
             #If this is a neagtive condition
             if column[0] == '!':
-                condition += "{} != %({})s".format(column[1:],sqlRef)
+                condition += "{} not in %({})s".format(column[1:],sqlRef)
             else:
-                condition += "{} = %({})s".format(column,sqlRef)
+                condition += "{} in %({})s".format(column,sqlRef)
             self.subqueryvalues[sqlRef] = value
             sqlidx += 1
         return condition
@@ -200,25 +211,78 @@ class Search:
             #If this is not a subject in genetive, don't accept
             if word.deprel != 'nsubj' or 'CASE_Gen' not in word.feat:
                 return False
+        #-------------------------------------------------------------------------------------
         else:
+            #If this is a standard search
             #Iterate over the list of the sepcified column value pairs
             for MultipleValuePair in self.ConditionColumns:
                 pairmatch=True
                 for column, value in MultipleValuePair.items():
                     #If this is a negative condition:
                     if column[0] == '!':
-                        if getattr(word, column[1:]) == value:
+                        if getattr(word, column[1:]) in value:
                             #if the requested value of the specified column is what's not being looked for, regard this a non-match
                             pairmatch = False
                     else:
-                        if getattr(word, column) != value:
+                        if getattr(word, column) not in value:
                             #if the requested value of the specified column isn't what's being looked for, regard this a non-match
                             pairmatch = False
                 if pairmatch:
                     #if one of the conditions matched, accept this and stop testing
-                    return True
+                    break
             if not pairmatch:
                 return False
+        #-------------------------------------------------------------------------------------
+        #Test conditions based on the head of the word
+        if self.headcond:
+            #To test if this has no head at all:
+            isRoot=True
+            #use this variable to test if the head fulfills the criteria
+            #Assume that the head DOES fulfill the criteria
+            headfulfills=True
+            for wkey in sorted(map(int,sentence.words)):
+                wordinsent = sentence.words[wkey]
+                if word.head == wordinsent.tokenid:
+                    #When the loop reaches the head of the word
+                    isRoot = False
+                    if self.headcond['column'][0] == '!':
+                        #If this is a negative condition:
+                        if getattr(wordinsent, self.headcond['column'][1:]) in self.headcond['values']:
+                            #If condition negative and the head of the examined word matches the condition:
+                            headfulfills = False
+                            break
+                    else:
+                        #If this is a positive condition:
+                        if getattr(wordinsent, self.headcond['column']) not in self.headcond['values']:
+                            #If condition positive and the head of the examined word doesn't match the condition:
+                            headfulfills = False
+                            break
+            if not headfulfills:
+                #If the head of the word did not meet the criteria
+                return False
+            if isRoot:
+                #If this word has no head, return False
+                return False
+        #-------------------------------------------------------------------------------------
+        #Test conditions based on the dependents of the word
+        if self.depcond:
+            #use this variable to test if ALL the DEPENDENTS fulfill the criteria
+            #Assume that the dependents DO fulfill the criteria
+            fulfills=True
+            for wkey in sorted(map(int,sentence.words)):
+                wordinsent = sentence.words[wkey]
+                if wordinsent.head == word.tokenid:
+                    #When the loop reaches a dependent of the examined word
+                    if self.depcond['column'][0] == '!':
+                        #If this is a negative condition:
+                        if getattr(wordinsent, self.depcond['column'][1:]) in self.depcond['values']:
+                            headfulfills = False
+                            break
+                    else:
+                        #If this is a positive condition:
+                        if getattr(wordinsent, self.depcond['column']) not in self.depcond['values']:
+                            headfulfills = False
+                            break
         #if all tests passed, return True
         return True
 
@@ -241,6 +305,14 @@ class Match:
         self.matchedsentence = alignsegment[sentence_id]
         self.matchedword = alignsegment[sentence_id].words[matchid]
         self.sourcetextid = self.matchedword.sourcetextid
+        #For post processing purposes
+        self.postprocessed = False
+        self.rejectreason = ''
+
+    def postprocess(self,rejectreason):
+        """If the user wants to filter the matches and mark some of them manually as accepted and some rejected"""
+        self.postprocessed = True
+        self.rejectreason = rejectreason
 
     def BuildSentencePrintString(self):
         """Constructs a printable sentence and highliths the match
@@ -419,3 +491,6 @@ class Word:
         self.sourcetextid = row["text_id"]
         #The general id in the db conll table
         self.dbid =  row["id"]
+
+    def printAttributes(self):
+        print('Attributes of the word:\n token = {} \n lemma = {} \n feat = {} \n  pos = {}'.format(self.token,self.lemma,self.feat,self.pos))

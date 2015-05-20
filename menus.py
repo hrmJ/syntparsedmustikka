@@ -4,7 +4,9 @@
 
 class Menu:
     """Any command line menus that are used to ask the user for input"""
-    def prompt_valid(self):
+    def prompt_valid(self,definedquestion=''):
+            if definedquestion:
+                self.question = definedquestion
             #Make a printable string from the dict:
             options = '\n                '.join("{!s}: {!s}".format(key,val) for (key,val) in sorted(self.validanswers.items()))
             question = "{}\n{}{}\n>".format(self.question,'                ',options)

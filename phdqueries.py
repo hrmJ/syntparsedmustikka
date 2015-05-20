@@ -53,6 +53,7 @@ class FinnishTime:
         self.subq = FinnishTimeWordsSubQ
         self.qwords = qwords
 
+
 def BuildGroupString(match,attribute,accepted_dependencies=list()):
     """This methods constructs strings that 
     can be used in statistical analysis. The created strings represent 
@@ -165,3 +166,19 @@ def UpdateHeadDeprelToDB(table):
                 con.insertquery('UPDATE {} SET heads_deprel = %s, heads_pos = %s, heads_feat = %s WHERE sentence_id = %s AND tokenid = %s'.format(table),(heads_deprel[0][0],heads_deprel[0][1],heads_deprel[0][2], sid[0], token[0]))
         i += 1
         print('{}/{} sentences updated'.format(i,len(sentence_ids)), end='\r')
+
+
+
+def tmevalues(lang):
+    """return a list of dicts to find tmes"""
+    #Restrict the number of align ids by means of sql
+    #1.1 condition about the lemma and the deprel of the word
+    if lang == 'fi':
+        deprel= ('nsubj','nsubj-cop','ROOT')
+    elif lang == 'ru':
+        deprel= ('предик','дат-субъект')
+    allwords = Csvlist('/home/juho/clauseinittime/tme_{}.csv'.format(lang))
+    ConditionColumns = list()
+    for row in allwords.aslist:
+        ConditionColumns.append({'lemma':(row[0],), '!deprel':deprel})
+    return ConditionColumns
