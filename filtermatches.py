@@ -201,6 +201,7 @@ class PotetialNontemporal:
         #Information about head and dependent words
         self.head = self.match.matchedsentence.words[self.match.matchedword.head]
         self.dependent = self.match.matchedword
+        self.subdependents = self.match.matchedsentence.listDependents(self.dependent.tokenid)
 
     def CheckExistingRules(self):
         """Query the postprocess database to find rules that already exist"""
@@ -218,6 +219,11 @@ class PotetialNontemporal:
                 if getattr(self.dependent,vals.criterionattr) == vals.criterionval:
                     logging.info("""\nApplied a rule\n==================\nSentence\n    {}\nHead: {}\nHead's criteria {} = {}\nAction: {}\nDependent's criteria: {} = {}\n
                                 """.format(self.sentence, self.head.token, category, getattr(self.head,category), vals.action,vals.criterionattr,getattr(self.dependent,vals.criterionattr)))
+                    if vals.action == 'a':
+                        self.rejected = 'n'
+                    elif vals.action == 'r':
+                        self.rejected = 'y'
+                    self.evalueatesel()
                     return True
         #If no match, return false
         return False
@@ -309,27 +315,31 @@ def FilterDuplicates1(thisSearch):
 def FilterNonTemporal(thisSearch):
     """Process matches and reject the ones that by your interpretation are not temporal"""
     logging.info('Filtering NON-TEMPORAL: ' + '*'*150)
-    #Arrange the matches in a dict that has the matched word's head's database id as its key
-    matchitems = sorted(thisSearch.matches.items())
-    processed = 0
-    for key, matches in matchitems:
+    matchestoprocess = list()
+    # Count how much is to be processed and exlcude those that already are
+    for key, matches in thisSearch.matches.items():
         for match in matches:
-            processed += 1
-            thismatch = PotetialNontemporal(match) 
-            if not thismatch.CheckExistingRules():
-                #If no predefined rules exist
-                #Clear the output for conveniance
-                os.system('cls' if os.name == 'nt' else 'clear')
-                print('Processing match no {}/{}'.format(processed,len(matchitems)))
-                cont = thismatch.select()
-                if not cont:
-                    return 'Remember to save, if necessary'
-                else:
-                    #If something was rejected, ask about a rule:
-                    createrule = yesnomenu()
-                    createrule.prompt_valid('Create a rule?')
-                    if createrule.answer =='y':
-                        thismatch.CreateRule()
+            if not match.postprocessed:
+                #If this match has not yet been processed
+                matchestoprocess.append(match)
+    processed = 0
+    for match in matchestoprocess:
+        processed += 1
+        thismatch = PotetialNontemporal(match) 
+        if not thismatch.CheckExistingRules():
+            #If no predefined rules exist
+            #Clear the output for conveniance
+            os.system('cls' if os.name == 'nt' else 'clear')
+            print('Processing match no {}/{}'.format(processed,len(matchestoprocess)))
+            cont = thismatch.select()
+            if not cont:
+                return 'Remember to save, if necessary'
+            else:
+                #If something was rejected, ask about a rule:
+                createrule = yesnomenu()
+                createrule.prompt_valid('Create a rule?')
+                if createrule.answer =='y':
+                    thismatch.CreateRule()
 
 def printprocessed(searcho):
     for key, matches in searcho.matches.items():
