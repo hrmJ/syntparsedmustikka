@@ -8,6 +8,7 @@ from collections import defaultdict
 from lxml import etree
 import string
 import re
+from termcolor import colored
 import pickle
 #local modules
 from dbmodule import mydatabase
@@ -320,6 +321,7 @@ class Match:
         self.matchedsentence.printstring = ''
         #create an string also without the higlight
         self.matchedsentence.cleanprintstring = ''
+        self.matchedsentence.Headhlprintstring = ''
         isqmark = False
         for idx in sorted(self.matchedsentence.words.keys()):
             spacechar = ' '
@@ -357,8 +359,13 @@ class Match:
             if word.tokenid == self.matchedword.tokenid:
                 #Surround the match with <>
                 self.matchedsentence.printstring += spacechar + '<' + word.token  + '>'
+                self.matchedsentence.Headhlprintstring += spacechar + '<<' + word.token  + '>>Y'
+            elif word.tokenid == self.matchedword.head:
+                self.matchedsentence.Headhlprintstring += spacechar + '<' + word.token  + '>X'
+                self.matchedsentence.printstring += spacechar + word.token
             else:
                 self.matchedsentence.printstring += spacechar + word.token
+                self.matchedsentence.Headhlprintstring += spacechar + word.token
             self.matchedsentence.cleanprintstring += spacechar + word.token
 
 
