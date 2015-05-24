@@ -483,6 +483,13 @@ class Sentence:
         with open('{}_{}.tex'.format(lang,self.sentence_id),mode="w", encoding="utf8") as f:
             f.write('{}{}{}{}\n'.format(preamp,deptext,deprels,texend))
 
+    def listDependents(self, mtokenid):
+        """return a list of dependents of the specified word"""
+        dependents = list()
+        for tokenid, word in self.words.items():
+            if word.head == mtokenid:
+                dependents.append(word)
+        return dependents
 
 class Word:
     """A word object containing all the morhpological and syntactic information"""
