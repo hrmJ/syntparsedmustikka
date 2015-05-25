@@ -150,6 +150,7 @@ class Search:
             self.aligns[wordrow['align_id']][wordrow['sentence_id']].words[wordrow['tokenid']] = Word(wordrow)
         #Finally, process all the sentences in the last align unit that included a match or matches (if the original query didn't fail)
         if wordrows:
+            self.processWordsOfSentence(previous_align,previous_sentence)
             self.ProcessSentencesOfAlign(previous_align)
 
     def processWordsOfSentence(self,alignkey,sentencekey):
@@ -486,10 +487,15 @@ class Sentence:
     def listDependents(self, mtokenid):
         """return a list of dependents of the specified word"""
         dependents = list()
+        self.dependentDict = dict()
+        self.dependentDict_prints = dict()
         for tokenid, word in self.words.items():
             if word.head == mtokenid:
                 dependents.append(word)
-        return dependents
+                #This is for building command line questions concerning the dependents
+                self.dependentDict[str(tokenid)] = word
+                self.dependentDict_prints[str(tokenid)] = word.token
+        self.dependentlist = dependents
 
 class Word:
     """A word object containing all the morhpological and syntactic information"""

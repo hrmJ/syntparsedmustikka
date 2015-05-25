@@ -24,8 +24,10 @@ class yesnomenu(Menu):
     validanswers = { 'y':'yes','n':'no' }
 
 class multimenu(Menu):
-    def __init__(self, validanswers):
+    def __init__(self, validanswers, promptnowquestion=''):
         self.validanswers=validanswers
-
+        if promptnowquestion:
+            self.question = promptnowquestion
+            self.prompt_valid()
 
 

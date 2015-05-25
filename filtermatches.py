@@ -19,6 +19,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, backref, sessionmaker
 import logging
 import time
+from phdqueries import Csvlist, joinidlist
+#import hardcodedfilters
 
 engine = create_engine('postgresql:///{}'.format('postprocess'), echo=False)
 Base = declarative_base(engine)
@@ -65,6 +67,28 @@ class RejectDepArg(Base):
     id = Column(Integer, primary_key=True)
     head_id = Column(Integer, ForeignKey("reject_dep_head.id"))
     RejectDepHead = relationship("RejectDepHead", backref=backref("reject_dep_arg", order_by=id))
+    criterionattr = Column(String)  
+    criterionval = Column(String)  
+    #Will this be a rejection or acception based rule
+    action = Column(String)
+
+class SubDepHead(Base):
+    """Query and insert to the reject_dep_head database table"""
+
+    __tablename__ = 'subdephead'
+
+    id = Column(Integer, primary_key=True)
+    criterionattr = Column(String)  
+    criterionval = Column(String)  
+
+class SubDepArg(Base):
+    """Query and insert to the reject_dep_arg database table"""
+
+    __tablename__ = 'subdeparg'
+
+    id = Column(Integer, primary_key=True)
+    head_id = Column(Integer, ForeignKey("subdephead.id"))
+    SubDepHead = relationship("SubDepHead", backref=backref("subdeparg", order_by=id))
     criterionattr = Column(String)  
     criterionval = Column(String)  
     #Will this be a rejection or acception based rule
@@ -201,20 +225,23 @@ class PotetialNontemporal:
         #Information about head and dependent words
         self.head = self.match.matchedsentence.words[self.match.matchedword.head]
         self.dependent = self.match.matchedword
-        self.subdependents = self.match.matchedsentence.listDependents(self.dependent.tokenid)
+        self.match.matchedsentence.listDependents(self.dependent.tokenid)
+        #This dict includes the token strings of the subdependents
+        self.subdependents = self.match.matchedsentence.dependentDict_prints
+        #This dict includes the objects strings of the subdependents
+        self.subdependentobjects = self.match.matchedsentence.dependentDict
 
-    def CheckExistingRules(self):
+    def CheckExistingRules(self,con):
         """Query the postprocess database to find rules that already exist"""
-        con = SqlaCon(Base, engine)
-        con.LoadSession()
         matchcategories = dict()
-        matchcategories['token'] = con.session.query(RejectDepHead).filter(RejectDepHead.criterionattr == 'token').filter(RejectDepHead.criterionval == self.head.token).first()
-        matchcategories['lemma'] = con.session.query(RejectDepHead).filter(RejectDepHead.criterionattr == 'lemma').filter(RejectDepHead.criterionval == self.head.lemma).first()
-        matchcategories['feat'] = con.session.query(RejectDepHead).filter(RejectDepHead.criterionattr == 'feat').filter(RejectDepHead.criterionval == self.head.feat).first()
-        matchcategories['pos'] = con.session.query(RejectDepHead).filter(RejectDepHead.criterionattr == 'pos').filter(RejectDepHead.criterionval == self.head.pos).first()
+        #First check rules concerning the tme as dependente
+        matchcategories['token'] = con.session.query(RejectDepHead).filter(RejectDepHead.criterionattr == 'token').filter(RejectDepHead.criterionval == self.head.token).all()
+        matchcategories['lemma'] = con.session.query(RejectDepHead).filter(RejectDepHead.criterionattr == 'lemma').filter(RejectDepHead.criterionval == self.head.lemma).all()
+        matchcategories['feat'] = con.session.query(RejectDepHead).filter(RejectDepHead.criterionattr == 'feat').filter(RejectDepHead.criterionval == self.head.feat).all()
+        matchcategories['pos'] = con.session.query(RejectDepHead).filter(RejectDepHead.criterionattr == 'pos').filter(RejectDepHead.criterionval == self.head.pos).all()
         logging.info('Checking word {} as head'.format(self.head.token))
-        for category, res in matchcategories.items():                                                                                                                                     
-            if res:
+        for category, results in matchcategories.items():                                                                                                                                     
+            for res in results:
                 vals = con.session.query(RejectDepArg).filter(RejectDepArg.head_id == res.id).first()
                 if getattr(self.dependent,vals.criterionattr) == vals.criterionval:
                     logging.info("""\nApplied a rule\n==================\nSentence\n    {}\nHead: {}\nHead's criteria {} = {}\nAction: {}\nDependent's criteria: {} = {}\n
@@ -225,7 +252,33 @@ class PotetialNontemporal:
                         self.rejected = 'y'
                     self.evalueatesel()
                     return True
-        #If no match, return false
+        #If no match, check rules concerning the tme as head
+        matchcategories['token'] = con.session.query(SubDepHead).filter(SubDepHead.criterionattr == 'token').filter(SubDepHead.criterionval == self.dependent.token).all()
+        matchcategories['lemma'] = con.session.query(SubDepHead).filter(SubDepHead.criterionattr == 'lemma').filter(SubDepHead.criterionval == self.dependent.lemma).all()
+        matchcategories['feat'] = con.session.query(SubDepHead).filter(SubDepHead.criterionattr == 'feat').filter(SubDepHead.criterionval == self.dependent.feat).all()
+        matchcategories['pos'] = con.session.query(SubDepHead).filter(SubDepHead.criterionattr == 'pos').filter(SubDepHead.criterionval == self.dependent.pos).all()
+        logging.info('Checking word {} as head'.format(self.dependent.token))
+        for category, results in matchcategories.items():                                                                                                                                     
+            for res in results:
+                vals = con.session.query(SubDepArg).filter(SubDepArg.head_id == res.id).first()
+                for subdidx, subdependent in self.subdependentobjects.items():
+                    logging.info('{}={}?'.format(vals.criterionattr,vals.criterionval))
+                    logging.info('{}={}!'.format(vals.criterionattr,getattr(subdependent,vals.criterionattr)))
+                    if getattr(subdependent,vals.criterionattr) == vals.criterionval:
+                        logging.info("""\nApplied a rule\n==================\nSentence\n    {}\nHead: {}\nHead's criteria {} = {}\nAction: {}\nDependent's criteria: {} = {}\n
+                                    """.format(self.sentence, self.dependent.token, category, getattr(self.dependent,category), vals.action,vals.criterionattr,getattr(subdependent,vals.criterionattr)))
+                        if vals.action == 'a':
+                            self.rejected = 'n'
+                        elif vals.action == 'r':
+                            self.rejected = 'y'
+                        self.evalueatesel()
+                        return True
+        #Now, if nothing matched, check the hardcoded rules
+        logmessagge = self.checkhardcodedrules()
+        if logmessagge:
+            logging.info(logmessagge)
+            return True
+        #if no match, return false
         return False
 
 
@@ -252,11 +305,45 @@ class PotetialNontemporal:
     def CreateRule(self):
         #Connect to the postproseccing database
         con = SqlaCon(Base, engine)
+        ruletype = multimenu({'d':'tme as dependent','h':'tme as head'},'What will you base the rule on?')
+        if ruletype.answer == 'd':
+            headrule = RejectDepHead()
+            headrule.reject_dep_arg = [RejectDepArg()]
+            #Set the rule attributes
+            setRuleAttributes(headrule,self.head)
+            setRuleAttributes(headrule.reject_dep_arg[-1],self.dependent)
+            #Mark, whether this is an accepting or rejecting rule
+            if self.rejected == 'n':
+                headrule.reject_dep_arg[-1].action = 'a'
+            elif self.rejected == 'y':
+                headrule.reject_dep_arg[-1].action = 'r'
+            ##Insert to db
+            con.insert(headrule)
+        elif ruletype.answer == 'h':
+            whichsub = multimenu(self.subdependents,'Which subdependent is the rule associated with?')
+            headrule = SubDepHead()
+            headrule.subdeparg = [SubDepArg()]
+            #Set the rule attributes
+            setRuleAttributes(headrule,self.dependent)
+            setRuleAttributes(headrule.subdeparg[-1],self.subdependentobjects[whichsub.answer])
+            #Mark, whether this is an accepting or rejecting rule
+            if self.rejected == 'n':
+                headrule.subdeparg[-1].action = 'a'
+            elif self.rejected == 'y':
+                headrule.subdeparg[-1].action = 'r'
+            ##Insert to db
+            con.insert(headrule)
+
+    def CreateQuickRule(self):
+        #Connect to the postproseccing database
+        con = SqlaCon(Base, engine)
         headrule = RejectDepHead()
         headrule.reject_dep_arg = [RejectDepArg()]
         #Set the rule attributes
-        setRuleAttributes(headrule,self.head)
-        setRuleAttributes(headrule.reject_dep_arg[-1],self.dependent)
+        headrule.criterionattr = 'lemma'
+        headrule.criterionval = self.head.lemma
+        headrule.reject_dep_arg[-1].criterionattr = 'feat'
+        headrule.reject_dep_arg[-1].criterionval = self.dependent.feat
         #Mark, whether this is an accepting or rejecting rule
         if self.rejected == 'n':
             headrule.reject_dep_arg[-1].action = 'a'
@@ -315,18 +402,30 @@ def FilterDuplicates1(thisSearch):
 def FilterNonTemporal(thisSearch):
     """Process matches and reject the ones that by your interpretation are not temporal"""
     logging.info('Filtering NON-TEMPORAL: ' + '*'*150)
+    #Connect to databases
+    con = SqlaCon(Base, engine)
+    con.LoadSession()
     matchestoprocess = list()
     # Count how much is to be processed and exlcude those that already are
+    print('Counting and applying rules')
+    i = 0
     for key, matches in thisSearch.matches.items():
+        print('{}/{}'.format(i,len(thisSearch.matches)), end='\r')
         for match in matches:
             if not match.postprocessed:
                 #If this match has not yet been processed
-                matchestoprocess.append(match)
+                #First, check if there is a rule concerning this match
+                thismatch = PotetialNontemporal(match) 
+                if not thismatch.CheckExistingRules(con):
+                    matchestoprocess.append(match)
+                #matchestoprocess.append(match)
+        i += 1
+    #Start the actual processing:
     processed = 0
     for match in matchestoprocess:
         processed += 1
         thismatch = PotetialNontemporal(match) 
-        if not thismatch.CheckExistingRules():
+        if not thismatch.CheckExistingRules(con):
             #If no predefined rules exist
             #Clear the output for conveniance
             os.system('cls' if os.name == 'nt' else 'clear')
@@ -336,10 +435,11 @@ def FilterNonTemporal(thisSearch):
                 return 'Remember to save, if necessary'
             else:
                 #If something was rejected, ask about a rule:
-                createrule = yesnomenu()
-                createrule.prompt_valid('Create a rule?')
+                createrule = multimenu({'y':'yes','n':'no','x':'Create rule with dependents feat and heads (verbs) lemma'},'Create a rule?')
                 if createrule.answer =='y':
                     thismatch.CreateRule()
+                elif createrule.answer =='x':
+                    thismatch.CreateQuickRule()
 
 def printprocessed(searcho):
     for key, matches in searcho.matches.items():
@@ -349,15 +449,62 @@ def printprocessed(searcho):
                 print('{}: {}\n\n'.format(match.rejectreason,match.matchedsentence.printstring))
 
 #====================================================================================================
+class TimeExpressionConstant:
+    """Includes some readily-defined groups"""
+    finnish_weekdays = [ 'maanantai',
+                        'tiistai',
+                        'keskiviikko',
+                        'torstai',
+                        'perjantai',
+                        'lauantai',
+                        'sunnuntai']
+
+def checkhardcodedrules(self):
+    """Go through some rules not found the rules database"""
+
+    if FinnishWDEss(self):
+        return 'Applied the Finnish TME + ESS rule ({}....{})'.format(self.head.token,self.dependent.token)
+    else:
+        return ''
+
+
+def FinnishWDEss(nontempo):
+    """Finnish weekdays in essive will automatically be accepted. 
+    Other TME are also accepted if they are not dependents of Pitää"""
+    finnishtmes = flattenlist(Csvlist('/home/juho/clauseinittime/tme_{}.csv'.format('fi')).aslist)
+    if nontempo.dependent.lemma in finnishtmes and 'CASE_Ess' in nontempo.dependent.feat:
+        if nontempo.dependent.lemma in TimeExpressionConstant.finnish_weekdays:
+            nontempo.rejected = 'n'
+            nontempo.evalueatesel()
+            return True
+        elif nontempo.head.lemma != 'pitää':
+            nontempo.rejected = 'n'
+            nontempo.evalueatesel()
+            return True
+    else:
+        return False
+
+
+def flattenlist(thislist):
+    newlist = list()
+    for listitem in thislist:
+        newlist.append(listitem[0])
+    return newlist
+
+#====================================================================================================
 #Initialize a logger
 root = logging.getLogger()
 root.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(asctime)s: %(message)s')
-fh = logging.FileHandler('logof_filtermatches.txt',mode='w')
+fh = logging.FileHandler('logof_filtermatches.txt')
 fh.setLevel(logging.DEBUG)
 fh.setFormatter(formatter)
 root.addHandler(fh)
+# Import some extensions to the classes
+#PotetialNontemporal.checkhardcodedrules = hardcodedfilters.checkhardcodedrules
+PotetialNontemporal.checkhardcodedrules = checkhardcodedrules
 
-Base.metadata.create_all(engine)
+#Create databases if needed:
+#Base.metadata.create_all(engine)
 
 
