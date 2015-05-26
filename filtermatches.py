@@ -523,7 +523,7 @@ def checkhardcodedrules(self):
 def FinnishWDEss(nontempo):
     """Finnish weekdays in essive will automatically be accepted. 
     Other TME are also accepted if they are not dependents of Pitää"""
-    finnishtmes = flattenlist(Csvlist('/home/juho/clauseinittime/tme_{}.csv'.format('fi')).aslist)
+    finnishtmes = flattenlist(Csvlist('/home/juho/phdmanuscript/clausinittime/tme_{}.csv'.format('fi')).aslist)
     if nontempo.dependent.lemma in finnishtmes and 'CASE_Ess' in nontempo.dependent.feat:
         if nontempo.dependent.lemma in TimeExpressionConstant.finnish_weekdays:
             nontempo.rejected = 'n'
