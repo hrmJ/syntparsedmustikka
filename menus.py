@@ -14,6 +14,14 @@ class Menu:
             while self.answer not in self.validanswers.keys():
                 self.answer = input("Please give a valid answer.\n {}".format(question))
 
+    def prompt(self,definedquestion=''):
+            if definedquestion:
+                self.question = definedquestion
+            #Make a printable string from the dict:
+            options = '\n                '.join("{!s}: {!s}".format(key,val) for (key,val) in sorted(self.validanswers.items()))
+            question = "{}\n{}{}\n>".format(self.question,'                ',options)
+            self.answer=input(question)
+
     def redifine_and_prompt(self, newquestion, newanswers):
         self.question = newquestion
         self.validanswers = newanswers

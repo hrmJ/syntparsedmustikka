@@ -168,7 +168,6 @@ def UpdateHeadDeprelToDB(table):
         print('{}/{} sentences updated'.format(i,len(sentence_ids)), end='\r')
 
 
-
 def tmevalues(lang):
     """return a list of dicts to find tmes"""
     #Restrict the number of align ids by means of sql

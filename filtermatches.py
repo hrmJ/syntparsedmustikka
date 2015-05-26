@@ -113,9 +113,13 @@ class PotentialDuplicatePair:
         #Build the question
         answers.update(self.sentences)
         selmenu = multimenu(answers)
-        selmenu.prompt_valid('Which one will you reject?')
+        selmenu.prompt('Which one(s) will you reject? (if rejecting many, type all the indexes in one string)')
         if selmenu.answer == 'q':
             return False
+        if len(self.sentences) > 2:
+            for rejectidx in selmenu.answer:
+                self.rejected = rejectidx
+                self.evalueatesel()
         self.rejected = selmenu.answer
         self.evalueatesel()
         return True
@@ -215,7 +219,7 @@ class PotentialDuplicatePair:
 class PotetialNontemporal:
     """THis is for dealing with potentially non-temporal ones"""
 
-    def __init__(self,match):
+    def __init__(self,match, isRussian = False):
 
         self.reason = 'Rejected as non-temporal'
         self.match = match
@@ -230,6 +234,19 @@ class PotetialNontemporal:
         self.subdependents = self.match.matchedsentence.dependentDict_prints
         #This dict includes the objects strings of the subdependents
         self.subdependentobjects = self.match.matchedsentence.dependentDict
+        self.isRussian = False
+        if isRussian:
+            self.prephead = self.match.matchedsentence.words[self.match.matchedword.head]
+            self.isRussian = True
+        try:
+            mhead = self.match.matchedword.head
+            while isRussian and (match.matchedsentence.words[mhead].pos != 'V' and match.matchedsentence.words[mhead].deprel != 'ROOT'):
+                #For Russian cases roll back to the main verb
+                headword = match.matchedsentence.words[mhead]
+                mhead = headword.head
+            self.vhead =  self.match.matchedsentence.words[mhead]
+        except KeyError:
+            logging.info('Key error with sentence number {}'.format(match.matchedsentence.sentence_id))
 
     def CheckExistingRules(self,con):
         """Query the postprocess database to find rules that already exist"""
@@ -362,17 +379,24 @@ def setRuleAttributes(rule, word):
 
 def FilterDuplicates1(thisSearch):
     """Process matches with the same head and throw away the other"""
-    logging.info('*'*150)
+    logging.info('Processing duplicates*'*150)
     #Arrange the matches in a dict that has the matched word's head's database id as its key
     matchitems = sorted(thisSearch.matches.items())
     mheadids = dict()
     mheadids = defaultdict(list)
     for key, matches in matchitems:
         for match in matches:
-            mword = match.matchedword
+            mhead = match.matchedword.head
             if not match.postprocessed:
                 #If this match has not yet been processed
-                mheadids[match.matchedsentence.words[mword.head].dbid].append(match)
+                try:
+                    while thisSearch.queried_table == 'ru_conll' and (match.matchedsentence.words[mhead].pos != 'V' and match.matchedsentence.words[mhead].deprel != 'ROOT'):
+                        #For Russian cases roll back to the main verb
+                        headword = match.matchedsentence.words[mhead]
+                        mhead = headword.head
+                    mheadids[match.matchedsentence.words[mhead].dbid].append(match)
+                except KeyError:
+                    logging.info('Key error with sentence number {}'.format(match.matchedsentence.sentence_id))
     #Just for counting:
     total = 0
     for mheadid, matchlist in mheadids.items():
@@ -406,6 +430,9 @@ def FilterNonTemporal(thisSearch):
     con = SqlaCon(Base, engine)
     con.LoadSession()
     matchestoprocess = list()
+    isRussian = False
+    if thisSearch.queried_table == 'ru_conll':
+        isRussian = True
     # Count how much is to be processed and exlcude those that already are
     print('Counting and applying rules')
     i = 0
@@ -415,7 +442,7 @@ def FilterNonTemporal(thisSearch):
             if not match.postprocessed:
                 #If this match has not yet been processed
                 #First, check if there is a rule concerning this match
-                thismatch = PotetialNontemporal(match) 
+                thismatch = PotetialNontemporal(match, isRussian) 
                 if not thismatch.CheckExistingRules(con):
                     matchestoprocess.append(match)
                 #matchestoprocess.append(match)
@@ -458,12 +485,37 @@ class TimeExpressionConstant:
                         'perjantai',
                         'lauantai',
                         'sunnuntai']
+    ru_temporal_prep_acc  = ['в', 'за', 'через', 'спустя']
+    ru_temporal_prep_gen  = ['с', 'до', 'от', 'после']
+    ru_nontemporalprep = ['без', 'для', 'ради']
 
 def checkhardcodedrules(self):
-    """Go through some rules not found the rules database"""
+    """Go through some rules not found in the rules database"""
 
     if FinnishWDEss(self):
         return 'Applied the Finnish TME + ESS rule ({}....{})'.format(self.head.token,self.dependent.token)
+    elif Russian_acc_TME(self):
+        return 'Applied the Russian acc_temp_prep + TME_acc rule ({}....{})'.format(self.prephead.token,self.dependent.token)
+    elif Russian_instr_TME(self):
+        return 'Applied the Russian TME_instr << V rule ({}....{})'.format(self.prephead.token,self.dependent.token)
+    elif Russian_gen_TME(self):
+        return 'Applied the Russian gen_temp_prep + TME_gen rule ({}....{})'.format(self.prephead.token,self.dependent.token)
+    elif nazad(self):
+        return 'Applied the Russian TME + nazad rule ({}....{})'.format(self.prephead.token,self.dependent.token)
+    elif kazhdyj(self):
+        return 'Applied the Russian TME + каждый rule ({}....{})'.format(self.prephead.token,self.dependent.token)
+    elif self.head.lemma in TimeExpressionConstant.ru_nontemporalprep:
+        self.rejected = 'y'
+        self.evalueatesel()
+        return 'Applied the Russian rule about nontemporal prepositions ({}....{})'.format(self.prephead.token,self.dependent.token)
+    elif self.head.lemma == 'на':
+        try:
+            if self.match.matchedsentence.words[self.match.matchedword.tokenid+1].token == 'старше':
+                self.rejected = 'y'
+                self.evalueatesel()
+                return 'Applied the Russian rule about ...старше ({}....{})'.format(self.prephead.token,self.dependent.token)
+        except KeyError:
+            pass
     else:
         return ''
 
@@ -483,6 +535,68 @@ def FinnishWDEss(nontempo):
             return True
     else:
         return False
+
+
+def Russian_gen_TME(nontempo):
+    """Apply rules concerning russian TMEs as dependents of a genitive-demanding preposition"""
+    try:
+        if nontempo.dependent.pos == 'N' and nontempo.dependent.feat[-2] == 'g' and nontempo.prephead.lemma in TimeExpressionConstant.ru_temporal_prep_gen:
+            #If not locative case (предложный п.) and 
+            nontempo.rejected = 'n'
+            nontempo.evalueatesel()
+            return True
+    except AttributeError:
+        logging.info('AttributeError error with sentence number {}'.format(nontempo.match.matchedsentence.sentence_id))
+
+
+def Russian_acc_TME(nontempo):
+    """Apply rules concerning russian TMEs"""
+    try:
+        if nontempo.dependent.pos == 'N' and nontempo.dependent.feat[-2] != 'l' and nontempo.prephead.lemma in TimeExpressionConstant.ru_temporal_prep_acc:
+            #If not locative case (предложный п.) and 
+            nontempo.rejected = 'n'
+            nontempo.evalueatesel()
+            return True
+    except AttributeError:
+        logging.info('AttributeError error with sentence number {}'.format(nontempo.match.matchedsentence.sentence_id))
+
+
+def Russian_instr_TME(nontempo):
+    """Apply rules concerning russian TMEs as dependents of a verb and in the instrumental case """
+    try:
+        if nontempo.dependent.pos == 'N' and nontempo.dependent.feat[-2] == 'i' and nontempo.prephead.pos == 'V':
+            nontempo.rejected = 'n'
+            nontempo.evalueatesel()
+            return True
+    except AttributeError:
+        logging.info('AttributeError error with sentence number {}'.format(nontempo.match.matchedsentence.sentence_id))
+
+
+def nazad(nontempo):
+    """Apply rules concerning russian TMEs and nazad"""
+    try:
+        if  (nontempo.match.matchedsentence.words[nontempo.match.matchedword.tokenid + 1].lemma == 'назад' or 
+                nontempo.match.matchedsentence.words[nontempo.match.matchedword.tokenid + 2].lemma == 'назад') and nontempo.head.pos == 'V':
+            nontempo.rejected = 'n'
+            nontempo.evalueatesel()
+            return True
+    except KeyError:
+        pass
+    except AttributeError:
+        logging.info('AttributeError error with sentence number {}'.format(nontempo.match.matchedsentence.sentence_id))
+
+
+def kazhdyj(nontempo):
+    """Apply rules concerning russian TMEs and каждый"""
+    try:
+        if  nontempo.match.matchedsentence.words[nontempo.match.matchedword.tokenid-1].lemma == 'каждый' and nontempo.dependent.feat[-2] == 'a':
+            nontempo.rejected = 'n'
+            nontempo.evalueatesel()
+            return True
+    except KeyError:
+        pass
+    except AttributeError:
+        logging.info('AttributeError error with sentence number {}'.format(nontempo.match.matchedsentence.sentence_id))
 
 
 def flattenlist(thislist):

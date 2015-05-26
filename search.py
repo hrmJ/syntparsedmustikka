@@ -288,6 +288,12 @@ class Search:
         #if all tests passed, return True
         return True
 
+    def FetchPreviousAlign(self,align_id):
+        """Fetches the previous align unit from the db"""
+        sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id"
+        sqlq = "SELECT {0} FROM {1} WHERE align_id = {2} order by align_id, id".format(sql_cols, Db.searched_table, align_id)
+        wordrows = Db.con.dictquery(sqlq)
+
 class Match:
     """ 
     A match object contains ifromation about a concrete token that 

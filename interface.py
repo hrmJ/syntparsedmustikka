@@ -79,9 +79,14 @@ class MainMenu:
             valuetuple = (input('\n\nGive a string to search:\n\n>'),)
             thisSearch.ConditionColumns.append({cond: valuetuple})
         elif tme:
+            #Time measuring expressions
             thisSearch.ConditionColumns = tmevalues(self.selectedlang)
-            thisSearch.headcond = {'column':'pos','values':('V',)}
-            thisSearch.depcond = {'column':'!deprel','values':('cop',)}
+            if self.selectedlang == 'fi':
+                thisSearch.headcond = {'column':'pos','values':('V',)}
+                thisSearch.depcond = {'column':'!deprel','values':('cop',)}
+            elif self.selectedlang == 'ru':
+                # Accept cases where the head's pos is either V or S (prepositions)
+                thisSearch.headcond = {'column':'pos','values':('V','S')}
         else:
             self.menu.question = 'Search type:'
             self.menu.validanswers = {'l':'lemmas','t':'tokens'}
