@@ -43,7 +43,7 @@ class Search:
     """This is the very
     basic class that is used to retrieve data from the corpus"""
     all_searches = []
-    def __init__(self,queried_db=''):
+    def __init__(self,queried_db='',askname=True):
         """Initialize a search object. 
         ----------------------------------------
         attributes:
@@ -56,8 +56,9 @@ class Search:
         # save an id for the search for this session
         self.searchid = id(self)
         #Ask a name for the search (make this optional?)
-        self.name = input('Give a name for this search:\n\n>')
-        if not self.name:
+        if askname:
+            self.name = input('Give a name for this search:\n\n>')
+        else:
             self.name = 'unnamed_{}'.format(len(Search.all_searches))
         self.searchtype = 'none'
         #Make a dict to contain column_name: string_value pairs to be matched
@@ -71,6 +72,8 @@ class Search:
         #Record information about db
         self.queried_db = queried_db
         self.queried_table = Db.searched_table
+        #Change the default connection:
+        Db.con = mydatabase(queried_db,'juho')
 
     def Save(self):
         """Save the search object as a pickle file"""
@@ -293,6 +296,15 @@ class Search:
         sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id"
         sqlq = "SELECT {0} FROM {1} WHERE align_id = {2} order by align_id, id".format(sql_cols, Db.searched_table, align_id)
         wordrows = Db.con.dictquery(sqlq)
+
+    def listMatchids(self):
+        """Returns a tuple of all the DATABASE ids of the matches in this Search"""
+        idlist = list()
+        for key, matches in self.matches.items():
+            for match in matches:
+                idlist.append(match.matchedword.dbid)
+        self.idlist = tuple(idlist)
+        return self.idlist
 
 class Match:
     """ 

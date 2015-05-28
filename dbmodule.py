@@ -49,6 +49,22 @@ class Vkdatabase:
             print(SQL)
             print ("Psql gives the error: {}".format(e.pgerror))
 
+class psycopg:
+
+    def __init__(self,dbname,username,autocom=False):
+       self.connection = psycopg2.connect("dbname='{}' user='{}'".format(dbname, username))
+       self.connection.autocommit = autocom
+       self.cur = self.connection.cursor()
+       self.dbname = dbname
+
+    def query(self, SQL, valuetuple=("empty",)):
+        """A general query for inserting updating etc."""
+        try:
+            self.cur.execute(SQL, valuetuple)
+        except psycopg2.Error as e:
+            print("Somerthing wrong with the query")
+            print ("Psql gives the error: {}".format(e.pgerror))
+
 class mydatabase:
     """Establish a connection to database and create two cursors for use"""
 
