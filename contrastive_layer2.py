@@ -24,8 +24,10 @@ def updateidlist(idlist,con):
 def createContrastiveLayer():
     """Creates the contrastive layer phase by phase"""
     prcon = psycopg('syntparrus','juho')
+    pfcon = psycopg('syntparfin','juho')
     #contrastive_deptypes.sn_obj(prcon)
-    contrastive_deptypes.sn_gmod_own(prcon)
+    #contrastive_deptypes.sn_gmod_own(prcon)
+    contrastive_deptypes.sn_infcomp_from_predik(prcon)
     prcon.connection.commit()
 
 
