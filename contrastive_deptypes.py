@@ -13,6 +13,7 @@ class Featset:
     #REMEMBER  PRONONUNS
     def __init__(self):
         self.NounAcc =  self.createNounSet(cases = ('a',))
+        self.NounDat =  self.createNounSet(cases = ('d',))
         self.PronAcc =  self.createPronSet(cases = ('a',))
         #Pronouns
 
@@ -52,12 +53,9 @@ def sn_obj(dbcon=False):
     logging.info('='*50 + '\n' + '1. Create the category of object in the SN data')
     Db.searched_table = 'ru_conll'
     thisSearch = makeSearch(database='syntparrus', ConditionColumns={'feat':featset.NounAcc,'deprel':('1-компл',)}, headcond = {'column':'pos','values':('V',)})
-    #insert to db:
     logging.info('Updating {} items in the db'.format(len(thisSearch.listMatchids())))
     dbcon.query('UPDATE ru_conll SET contr_deprel = %(deprel)s WHERE id in %(idlist)s',{'deprel':'obj','idlist':thisSearch.idlist})
     logging.info('to be updated: {} database rows.'.format(dbcon.cur.rowcount))
-
-########################################################################################################################
 
 def sn_gmod_own(dbcon=False):
     """"Create the category of gmod_own in SN
@@ -68,9 +66,50 @@ def sn_gmod_own(dbcon=False):
     logging.info('='*50 + '\n' + '1. Create the category of gmod_own in the SN data')
     Db.searched_table = 'ru_conll'
     thisSearch = makeSearch(database='syntparrus', ConditionColumns={'token':('у',),'deprel':('1-компл',)}, headcond = {'column':'lemma','values':('быть','есть', 'бывать', 'нет','мало','много')})
-    #insert to db:
     logging.info('Updating {} items in the db'.format(len(thisSearch.listMatchids())))
     dbcon.query('UPDATE ru_conll SET contr_deprel = %(deprel)s WHERE id in %(idlist)s',{'deprel':'gmod-own','idlist':thisSearch.idlist})
+    logging.info('to be updated: {} database rows.'.format(dbcon.cur.rowcount))
+
+def sn_infcomp_from_predik(dbcon=False):
+    """Muokkaan kontrastiivista analyysikerrosta varten SN-analyysiä siten, että
+    verbillä ilmaistavat subjektit
+    luokitellaan uudella tunnisteella infcomp"""
+    logging.info('='*50 + '\n' + '1. Make infinitive subjects of SN infcomps')
+    Db.searched_table = 'ru_conll'
+    thisSearch = makeSearch(database='syntparrus', ConditionColumns={'deprel':('предик',),'pos':('V',),'feat':('Vmn----a-e','Vmn----a-p')})
+    logging.info('Updating {} items in the db'.format(len(thisSearch.listMatchids())))
+    dbcon.query('UPDATE ru_conll SET contr_deprel = %(deprel)s WHERE id in %(idlist)s',{'deprel':'infcomp','idlist':thisSearch.idlist})
+    logging.info('to be updated: {} database rows.'.format(dbcon.cur.rowcount))
+
+def sn_semsubj(dbcon=False):
+    """Otan käyttöön termin semsubj nesessiivilauseille ja muille vastaaville rakenteille, joissa SN-analyysi
+    määrittää infinitiivimuotoisen verbin subjektiksi. Näin TDT:n nsubj ja SN:n
+    2-kompl ja dat-subj muuttuvat (näiden lauseiden osalta) kontrastiivisessa
+    kerroksessa muotoon semsubj.
+    
+    Rakenteen finiittimuotoinen verbi katsotaan
+    SN-jäsennyksen mukaisesti juureksi ja infinitiivimuotoinen verbi luetaan infcomp-kategoriaan.
+    
+    Muutan kuitenkin SN-jäsennystä TDT-jäsennyksen mallin mukaiseksi siinä,
+    että semsubj-kategorialla analysoitu sanamuoto katsotaan infinitiivimuodon
+    eikä apuverbin dependentiksi."""
+
+    featset = Featset()
+    thisSearch = makeSearch(database='syntparrus', ConditionColumns={'deprel':('2-компл','дат-субъект')})
+    SemSubjIds = list()
+    #! >>
+    SemsubjHeadids = list()
+    #Check out whether there is a 'predik' depending on the verbal head
+    for matchlist in thisSearch.matches.items():
+        for match in matchlist:
+            match.matchedsentence.listDependents(match.matchedword.head)
+            for codependent in match.matchedsentence.dependentlist:
+                #If there is a verbal codependent marked as predik AND the nominal complement is in dative:
+                if (codependent.deprel == 'предик' and condependent.pos='V') and match.feat in featset.NounDat:
+                    SemSubjIds.append(match.matchedword.dbid)
+                    SemsubjHeadids.append(match.matchedword.dbid)
+    logging.info('Updating {} items in the db'.format(len(SemSubjIds)))
+    dbcon.query('UPDATE ru_conll SET contr_deprel = %(deprel)s WHERE id in %(idlist)s',{'deprel':'semsubj','idlist':SemSubjIds})
     logging.info('to be updated: {} database rows.'.format(dbcon.cur.rowcount))
 
 ########################################################################################################################
