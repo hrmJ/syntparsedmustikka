@@ -107,7 +107,6 @@ def infcomp(dbcon=False):
     LogNewDeprel('Create the infcomp category in SN')
     thisSearch = makeSearch(database='syntparrus',dbtable='ru_conll',  ConditionColumns={'deprel':('предик','1-компл','2-компл','аналит'),'pos':('V',),'feat':featset.inf})
     simpleupdate(thisSearch, dbcon, deprel='infcomp')
-    #Vaihda subjektin riippuvuus:
 
 def prtcl(dbcon=False):
     """

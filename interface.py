@@ -249,7 +249,8 @@ def resultprinter(matchitems,limit=1):
 
 #Start the menu
 
-searchmenu = MainMenu()
-while searchmenu.run == True:
-    searchmenu.runmenu()
-    pass
+if __name__ == "__main__":
+    searchmenu = MainMenu()
+    while searchmenu.run == True:
+        searchmenu.runmenu()
+        pass

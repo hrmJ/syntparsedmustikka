@@ -28,9 +28,14 @@ def createContrastiveLayer():
     #tdt.infcomp(prcon)
     #tdt.semsubj(prcon)
     #tdt.advmod(prcon)
-    tdt.prdctv(prcon)
-    #tdt.nsubj(prcon)
+    #tdt.prdctv(prcon)
+    tdt.nsubj(prcon)
     #tdt.cop(prcon)
+    #tdt.prtcl(prcon)
+    #tdt.attr
+    #tdt.cdep
+    #tdt.conj
+    #tdt.fixChains(prcon) # last
 
     prcon.connection.commit()
 

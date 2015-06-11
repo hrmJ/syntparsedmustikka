@@ -1,5 +1,6 @@
 import logging
 from search import Search, Match, Sentence, Word, ConstQuery, Db 
+from collections import defaultdict
 
 def LogNewDeprel(message):
     """Log the deprels name as header"""
@@ -44,17 +45,15 @@ def DependentSameAsHead(dbcon,thisSearch,dbtable,matchdep):
                 log('KeyError  with word {}, sentence {}'.format(match.matchedword.token,match.matchedsentence.sentence_id))
     log('{}: updated {} items in the db'.format(matchdep,updated))
 
-
-
 def DependentToHead(dbcon,thisSearch,dbtable,matchdep, headdep):
     """Make the matched word the head and the 
     head the dependent"""
 
-    sql = "UPDATE {table} SET contr_deprel = CASE id".format(table=dbtable)
-    sqlvals = list()
-    idvals = list()
     log('Starting...')
-    #First, set deprel
+    contr_heads = list()
+    contr_deprels = list()
+    error_sids = list()
+    #########################################################################
     for key, matches in thisSearch.matches.items():
         for match in matches:
             try:
@@ -64,38 +63,17 @@ def DependentToHead(dbcon,thisSearch,dbtable,matchdep, headdep):
                     newmatchdep = mhead.deprel
                 else:
                     newmatchdep = matchdep
-                #head
-                sql += """ WHEN %s THEN %s"""
-                sqlvals.append(mhead.dbid)
-                sqlvals.append(headdep)
-                idvals.append(mhead.dbid)
-                #match
-                sql += """ WHEN %s THEN %s"""
-                sqlvals.append(match.matchedword.dbid)
-                sqlvals.append(newmatchdep)
-                idvals.append(match.matchedword.dbid)
+                contr_deprels.append({'baseval':match.matchedword.dbid,'changedval':newmatchdep})
+                contr_deprels.append({'baseval':mhead.dbid,'changedval':headdep})
+                contr_heads.append({'baseval':match.matchedword.dbid,'changedval':mhead.head})
+                contr_heads.append({'baseval':mhead.dbid,'changedval':match.matchedword.tokenid})
             except KeyError:
-                log('KeyError  with word {}, sentence {}'.format(match.matchedword.token,match.matchedsentence.sentence_id))
-    #Then set heads
-    sql += " END, contr_head = CASE id"
-    for key, matches in thisSearch.matches.items():
-        for match in matches:
-            nonconj = match.matchedword
-            try:
-                mhead = match.matchedsentence.words[match.matchedword.head]
-                #head
-                sql += """ WHEN %s THEN %s"""
-                sqlvals.append(mhead.dbid)
-                sqlvals.append(match.matchedword.tokenid)
-                #nonconj
-                sql += """ WHEN %s THEN %s"""
-                sqlvals.append(match.matchedword.dbid)
-                sqlvals.append(mhead.head)
-            except KeyError:
-                logging.info('Key error with sentence id {}'.format(match.matchedsentence.sentence_id))
-    sql += " END WHERE id in %s"
-    sqlvals.append(tuple(idvals))
-    log('Execute the query...')
-    dbcon.query(sql,tuple(sqlvals))
-    logging.info("UPDATED {} rows ".format(dbcon.cur.rowcount))
+                error_sids.append(matchedsentence.sentence_id)
+    #########################################################################
+    updates = [{'updatedcolumn':'contr_deprel','basecolumn':'id','valuelist':contr_deprels},
+               {'updatedcolumn':'contr_head','basecolumn':'id','valuelist':contr_heads}]
+    dbcon.BatchUpdate(table=dbtable, updates=updates)
+    log('This might potentially effect {} database rows.'.format(dbcon.cur.rowcount))
+    if error_sids:
+        log('Key errors with sids {} (total {})'.format(','.join(error_sids),len(error_sids)))
 

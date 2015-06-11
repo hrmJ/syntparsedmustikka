@@ -65,6 +65,44 @@ class psycopg:
             print("Somerthing wrong with the query")
             print ("Psql gives the error: {}".format(e.pgerror))
 
+    def BatchUpdate(self,table,updates):
+        """Do updates for large amounts of data
+
+        param updates: a list of dicts. The dicts must have  three keys, 'valuelist', 'updatedcolumn' and 'basecolumn'.
+        updatedcolumn is the column the values of which are being changed, 
+        basecolumn is the column that specifies what the updated value will be
+        valuelist is itself also a list of dicts. Each list item must have the keys 'baseval' and 'changedval'
+
+        
+        """
+
+        queryvalues = dict()
+        sql = "UPDATE {table} SET ".format(table=table)
+
+        qrange = 'WHERE '
+        rangevaluelist=list()
+        for uidx, update in enumerate(updates):
+            sql += " {column} = CASE {basecolumn} ".format(table=table,column=update['updatedcolumn'],basecolumn=update['basecolumn'])
+            rangevaluelist.append(list())
+            for idx, valuepair in enumerate(update['valuelist']):
+                basecolref = '{}{}{}'.format(uidx,'basecol',idx) 
+                changedcolref = '{}{}{}'.format(uidx,'changedcol',idx) 
+                queryvalues[basecolref]=valuepair['baseval']
+                queryvalues[changedcolref]=valuepair['changedval']
+                sql += 'WHEN %({basecolref})s THEN %({changedcolref})s '.format(basecolref=basecolref, changedcolref=changedcolref)
+                rangevaluelist[-1].append(valuepair['baseval'])
+            sql += " END"
+            qrange += ' {basecol} IN %({rangevals})s'.format(basecol=update['basecolumn'],rangevals='rangevals{}'.format(uidx))
+            queryvalues['rangevals{}'.format(uidx)] = tuple(rangevaluelist[-1])
+            if uidx +1 < len(updates):
+                sql += ", "
+                qrange += " OR "
+
+        sql += " " + qrange
+
+        self.cur.execute(sql, queryvalues)
+
+
 class mydatabase:
     """Establish a connection to database and create two cursors for use"""
 
