@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-from contrastive_layer2 import Featset, LogNewDeprel, simpleupdate, makeSearch, log
+from deptypetools import LogNewDeprel, simpleupdate, makeSearch, log
 
 class Featset:
     """Predefined feature sets and some methods to define them on the fly"""
@@ -71,15 +71,22 @@ def obj(dbcon=False):
     thisSearch = makeSearch(database='syntparrus', dbtable='ru_conll', ConditionColumns={'feat':featset.NounAcc,'deprel':('1-компл','2-компл','длительн')}, headcond = {'column':'pos','values':('V',)})
     simpleupdate(thisSearch, dbcon, deprel='obj')
 
-def gmod_own(dbcon=False):
-    """"Create the category of gmod_own in SN
+def nsubj(dbcon=False):
+    """Nimetään uudelleen predik-kategoria nsubj:ksi"""
+
+    LogNewDeprel('Create the category of nsubj in the SN data')
+    dbcon.query('UPDATE ru_conll SET contr_deprel = %(contrdep)s WHERE deprel = %(deprel)s',{'contrdep':'nsubj','deprel':'предик'})
+    log('Succesfully renamed predik to nsubj')
+
+def nommod_own(dbcon=False):
+    """"Create the category of nommod_own in SN
     NEEDS ADJUSTMENTS, Something's probably being left out 
     ------------------------------
     """
     featset = Featset()
-    LogNewDeprel('Create the category of gmod_own in the SN data')
+    LogNewDeprel('Create the category of nommod_own in the SN data')
     thisSearch = makeSearch(database='syntparrus',dbtable='ru_conll', ConditionColumns={'token':('у',),'deprel':('1-компл',)}, headcond = {'column':'lemma','values':('быть','есть', 'бывать', 'нет','мало','много')})
-    simpleupdate(thisSearch, dbcon, deprel='gmod-own')
+    simpleupdate(thisSearch, dbcon, deprel='nommod-own')
 
 def infcomp(dbcon=False):
     """Muokkaan kontrastiivista analyysikerrosta varten SN-analyysiä siten, että
@@ -100,6 +107,7 @@ def infcomp(dbcon=False):
     LogNewDeprel('Create the infcomp category in SN')
     thisSearch = makeSearch(database='syntparrus',dbtable='ru_conll',  ConditionColumns={'deprel':('предик','1-компл','2-компл','аналит'),'pos':('V',),'feat':featset.inf})
     simpleupdate(thisSearch, dbcon, deprel='infcomp')
+    #Vaihda subjektin riippuvuus:
 
 def prtcl(dbcon=False):
     """
@@ -138,7 +146,6 @@ def semsubj(dbcon=False):
 
     LogNewDeprel('Create the class of SemSubj in SN ')
     featset = Featset()
-    Db.searched_table = 'ru_conll'
     thisSearch = makeSearch(database='syntparrus',dbtable='ru_conll',  ConditionColumns={'deprel':('1-компл', '2-компл','дат-субъект')})
     updated = 0
     #Check out whether there is a 'predik' or infinitival 1-kompl depending on the verbal head
@@ -157,7 +164,7 @@ def prdctv(dbcon=False):
     verbin täydennyksistä, pyrin kontrastiivisessa analyysitasossa tarkentamaan SN-jäsennyksen prisvjaz-
     kategoriaa. Tämä tapahtuu erottamalla omaksi prdctv-luokakseen sellaiset prisvjaz-kategorian sanat,
     jotka eivät ole prepositioita. Prepositioilla ilmaistavat prisvjaz-dependentit puolestaan liitetään edellä
-    määriteltyyn gmod-kategoriaan."""
+    määriteltyyn nommod-kategoriaan."""
 
     LogNewDeprel('Create the prdctv category in SN')
     thisSearch = makeSearch(database='syntparrus', dbtable = 'ru_conll', ConditionColumns={'deprel':('присвяз',), '!pos':('S',)})
@@ -247,11 +254,11 @@ def attr(dbcon=False):
     kontrastiiviseen analyysikerrokseen muodostuu erittäin suuri alempien dependenssitasojen luokka, jota
     merkitään nimityksellä attr."""
 
-    lognewdeprel('create the attr category in sn')
+    LogNewDeprel('create the attr category in sn')
     thissearch = makesearch(database='syntparrus', dbtable='ru_conll', conditioncolumns={'deprel':('опред', 'квазиагент', 'атриб', 'аппоз', 'разъяснит', 'количест', 'сравн-союзн', 'сравнит', 'вспом', 'соотнос', 'колич-вспом', 'электив', 'оп-опред', 'уточн', 'колич-огран', 'аппрокс-колич', 'кратн', 'нум-аппоз', 'эллипт', 'распред', 'композ')}, headcond = {'column':'pos','values':('a','n','p')})
     simpleupdate(thissearch,dbcon,deprel='attr')
 
-def gmod(dbcon=False):
+def nommod(dbcon=False):
     """
     Kun muut luokat analysoitu, loput verbin täydennykset ja määritteet tähän luokkaan.
     
@@ -264,8 +271,21 @@ def gmod(dbcon=False):
     """
 
     featset = Featset()
-    lognewdeprel('Create the gmod category in sn')
+    LogNewDeprel('Create the nommod category in sn')
     deprels = ('1-компл', '2-компл', '3-компл', '4-компл', '5-компл','обст','присвяз')
     thissearch = makesearch(database='syntparrus', dbtable='ru_conll', conditioncolumns={'deprel':deprels,'contr_deprel':'gdep'})
-    simpleupdate(thissearch,dbcon,deprel='gmod')
+    simpleupdate(thissearch,dbcon,deprel='nommod')
+
+def advmod(dbcon=False):
+    """ Muokkaan SN-jäsennyksen obst-kategoriaa ja
+    TDT-jäsennyksen advmod-kategoriaa siten, että kontrastiiviseen jäsennykseen
+    luodaan oma advmod-luokkansa. Tähän luokkaan rajataan SN-jäsennyksestä ne
+    obst-kategorian sanat, joiden sanaluokka on adverbi (ja jotka
+    automaattisesti ovat myös verbin dependenttejä) ja TDT-jäsennyksestä ne
+    advmod-kategorian sanat, jotka ovat verbin dependenttejä.
+    """
+
+    LogNewDeprel('Create the advmod category in sn')
+    thissearch = makesearch(database='syntparrus', dbtable='ru_conll', conditioncolumns={'deprel':('обст',),'pos':('R',),'contr_deprel':'advmod'}, headcond={'column':'pos','values': ('V',)})
+    simpleupdate(thissearch,dbcon,deprel='advmod')
 

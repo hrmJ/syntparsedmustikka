@@ -93,7 +93,7 @@ class Search:
         self.subquery = """SELECT align_id FROM {} WHERE {} """.format(Db.searched_table,MultipleValuePairs)
 
     def BuildSubqString(self, ivaluedict,parentidx):
-        """ HConstructs the actual condition. Values must be TUPLES."""
+        """ Constructs the actual condition. Values must be TUPLES."""
         condition = ''
         #This is to make sure psycopg2 uses the correct %s values
         sqlidx=0
@@ -105,6 +105,9 @@ class Search:
             #If this is a neagtive condition
             if column[0] == '!':
                 condition += "{} not in %({})s".format(column[1:],sqlRef)
+            #If this is a fuzzy condition. Note, that the values of a fuzzycond.dict must be simple strings, not tuples
+            elif column[0] == '?':
+                condition += "{} LIKE %({})s".format(column[1:],sqlRef)
             else:
                 condition += "{} in %({})s".format(column,sqlRef)
             self.subqueryvalues[sqlRef] = value
@@ -227,6 +230,11 @@ class Search:
                     if column[0] == '!':
                         if getattr(word, column[1:]) in value:
                             #if the requested value of the specified column is what's not being looked for, regard this a non-match
+                            pairmatch = False
+                    #If this is a fuzzy condition:
+                    elif column[0] == '?':
+                        if value.replace('%','') not in getattr(word, column[1:]):
+                            #if the requested value of the specified column isn't what's being looked for, regard this a non-match
                             pairmatch = False
                     else:
                         if getattr(word, column) not in value:
