@@ -15,7 +15,6 @@ from dbmodule import mydatabase
 from menus import Menu, multimenu, yesnomenu 
 #classes
 
-
 class Db:
     """ A class to include some shared properties for the search and
     the match classes"""
@@ -95,9 +94,11 @@ class Search:
     def BuildSubqString(self, ivaluedict,parentidx):
         """ Constructs the actual condition. Values must be TUPLES."""
         condition = ''
-        #This is to make sure psycopg2 uses the correct %s values
         sqlidx=0
         for column, value in ivaluedict.items():
+            #Make sure the user gives the values as tuples (excluding fuzzy matches)
+            if column[0] != '?' and not isinstance(value,tuple):
+                raise TypeError('The values in the ConditionColumn lists dict must be tuples, see {}:{}'.format(column,value))
             if condition:
                 condition += " AND "
             #This is to make sure psycopg2 uses the correct %s values

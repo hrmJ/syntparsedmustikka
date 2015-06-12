@@ -68,8 +68,8 @@ def obj(dbcon=False):
 
     featset = Featset()
     LogNewDeprel('Create the category of object in the SN data')
-    thisSearch = makeSearch(database='syntparrus', dbtable='ru_conll', ConditionColumns={'feat':featset.NounAcc,'deprel':('1-компл','2-компл','длительн')}, headcond = {'column':'pos','values':('V',)})
-    simpleupdate(thisSearch, dbcon, deprel='obj')
+    thisSearch = makeSearch(database=dbcon.dbname, dbtable='ru_conll', ConditionColumns={'feat':featset.NounAcc,'deprel':('1-компл','2-компл','длительн')}, headcond = {'column':'pos','values':('V',)})
+    simpleupdate(thisSearch, dbcon, deprel='obj',dbtable='ru_conll')
 
 def nsubj(dbcon=False):
     """Nimetään uudelleen predik-kategoria nsubj:ksi"""
@@ -85,8 +85,8 @@ def nommod_own(dbcon=False):
     """
     featset = Featset()
     LogNewDeprel('Create the category of nommod_own in the SN data')
-    thisSearch = makeSearch(database='syntparrus',dbtable='ru_conll', ConditionColumns={'token':('у',),'deprel':('1-компл',)}, headcond = {'column':'lemma','values':('быть','есть', 'бывать', 'нет','мало','много')})
-    simpleupdate(thisSearch, dbcon, deprel='nommod-own')
+    thisSearch = makeSearch(database=dbcon.dbname,dbtable='ru_conll', ConditionColumns={'token':('у',),'deprel':('1-компл',)}, headcond = {'column':'lemma','values':('быть','есть', 'бывать', 'нет','мало','много')})
+    simpleupdate(thisSearch, dbcon, deprel='nommod-own',dbtable='ru_conll')
 
 def infcomp(dbcon=False):
     """Muokkaan kontrastiivista analyysikerrosta varten SN-analyysiä siten, että
@@ -105,8 +105,8 @@ def infcomp(dbcon=False):
 
     featset = Featset()
     LogNewDeprel('Create the infcomp category in SN')
-    thisSearch = makeSearch(database='syntparrus',dbtable='ru_conll',  ConditionColumns={'deprel':('предик','1-компл','2-компл','аналит'),'pos':('V',),'feat':featset.inf})
-    simpleupdate(thisSearch, dbcon, deprel='infcomp')
+    thisSearch = makeSearch(database=dbcon.dbname,dbtable='ru_conll',  ConditionColumns={'deprel':('предик','1-компл','2-компл','аналит'),'pos':('V',),'feat':featset.inf})
+    simpleupdate(thisSearch, dbcon, deprel='infcomp',dbtable='ru_conll')
 
 def prtcl(dbcon=False):
     """
@@ -121,8 +121,8 @@ def prtcl(dbcon=False):
     """
 
     LogNewDeprel('Create the prtcl category in SN')
-    thisSearch = makeSearch(database='syntparrus', dbtable = 'ru_conll', ConditionColumns={'deprel':('огранич','аналит'), 'pos':('Q',)})
-    simpleupdate(thisSearch, dbcon, deprel='prtcl')
+    thisSearch = makeSearch(database=dbcon.dbname, dbtable = 'ru_conll', ConditionColumns={'deprel':('огранич','аналит'), 'pos':('Q',)})
+    simpleupdate(thisSearch, dbcon, deprel='prtcl',dbtable='ru_conll')
 
 def semsubj(dbcon=False):
     """Otan käyttöön termin semsubj nesessiivilauseille ja muille vastaaville rakenteille, joissa SN-analyysi
@@ -145,7 +145,7 @@ def semsubj(dbcon=False):
 
     LogNewDeprel('Create the class of SemSubj in SN ')
     featset = Featset()
-    thisSearch = makeSearch(database='syntparrus',dbtable='ru_conll',  ConditionColumns={'deprel':('1-компл', '2-компл','дат-субъект')})
+    thisSearch = makeSearch(database=dbcon.dbname,dbtable='ru_conll',  ConditionColumns={'deprel':('1-компл', '2-компл','дат-субъект')})
     updated = 0
     #Check out whether there is a 'predik' or infinitival 1-kompl depending on the verbal head
     for key, matchlist in thisSearch.matches.items():
@@ -166,8 +166,8 @@ def prdctv(dbcon=False):
     määriteltyyn nommod-kategoriaan."""
 
     LogNewDeprel('Create the prdctv category in SN')
-    thisSearch = makeSearch(database='syntparrus', dbtable = 'ru_conll', ConditionColumns={'deprel':('присвяз',), '!pos':('S',)})
-    simpleupdate(thisSearch,dbcon,deprel='prdctv')
+    thisSearch = makeSearch(database=dbcon.dbname, dbtable = 'ru_conll', ConditionColumns={'deprel':('присвяз',), '!pos':('S',)})
+    simpleupdate(thisSearch,dbcon,deprel='prdctv',dbtable='ru_conll')
 
 def cdep(dbcon=False):
     """
@@ -186,7 +186,7 @@ def cdep(dbcon=False):
     """
 
     LogNewDeprel('Create the cdep and the sc categories in SN')
-    thisSearch = makeSearch(database='syntparrus', dbtable = 'ru_conll', ConditionColumns={'deprel':('подч-союзн',)})
+    thisSearch = makeSearch(database=dbcon.dbname, dbtable = 'ru_conll', ConditionColumns={'deprel':('подч-союзн',)})
     updated = 0
     for key, matchlist in thisSearch.matches.items():
         for match in matchlist:
@@ -222,7 +222,7 @@ def conj(dbcon=False):
     """
 
     LogNewDeprel('Create the conj and cc categories in SN')
-    thisSearch = makeSearch(database='syntparrus', dbtable = 'ru_conll', ConditionColumns={'deprel':('сочин','сент-соч','соч-союзн')})
+    thisSearch = makeSearch(database=dbcon.dbname, dbtable = 'ru_conll', ConditionColumns={'deprel':('сочин','сент-соч','соч-союзн')})
     updated = 0
     for key, matchlist in thisSearch.matches.items():
         for match in matchlist:
@@ -254,8 +254,8 @@ def attr(dbcon=False):
     merkitään nimityksellä attr."""
 
     LogNewDeprel('create the attr category in sn')
-    thissearch = makesearch(database='syntparrus', dbtable='ru_conll', conditioncolumns={'deprel':('опред', 'квазиагент', 'атриб', 'аппоз', 'разъяснит', 'количест', 'сравн-союзн', 'сравнит', 'вспом', 'соотнос', 'колич-вспом', 'электив', 'оп-опред', 'уточн', 'колич-огран', 'аппрокс-колич', 'кратн', 'нум-аппоз', 'эллипт', 'распред', 'композ')}, headcond = {'column':'pos','values':('a','n','p')})
-    simpleupdate(thissearch,dbcon,deprel='attr')
+    thisSearch = makeSearch(database=dbcon.dbname, dbtable='ru_conll', ConditionColumns={'deprel':('опред', 'квазиагент', 'атриб', 'аппоз', 'разъяснит', 'количест', 'сравн-союзн', 'сравнит', 'вспом', 'соотнос', 'колич-вспом', 'электив', 'оп-опред', 'уточн', 'колич-огран', 'аппрокс-колич', 'кратн', 'нум-аппоз', 'эллипт', 'распред', 'композ')}, headcond = {'column':'pos','values':('a','n','p')})
+    simpleupdate(thisSearch,dbcon,deprel='attr',dbtable='ru_conll')
 
 def nommod(dbcon=False):
     """
@@ -272,8 +272,8 @@ def nommod(dbcon=False):
     featset = Featset()
     LogNewDeprel('Create the nommod category in sn')
     deprels = ('1-компл', '2-компл', '3-компл', '4-компл', '5-компл','обст','присвяз')
-    thissearch = makesearch(database='syntparrus', dbtable='ru_conll', conditioncolumns={'deprel':deprels,'contr_deprel':'gdep'})
-    simpleupdate(thissearch,dbcon,deprel='nommod')
+    thisSearch = makeSearch(database=dbcon.dbname, dbtable='ru_conll', ConditionColumns={'deprel':deprels,'contr_deprel':('gdep',)})
+    simpleupdate(thisSearch,dbcon,deprel='nommod',dbtable='ru_conll')
 
 def advmod(dbcon=False):
     """ Muokkaan SN-jäsennyksen obst-kategoriaa ja
@@ -285,6 +285,6 @@ def advmod(dbcon=False):
     """
 
     LogNewDeprel('Create the advmod category in sn')
-    thissearch = makesearch(database='syntparrus', dbtable='ru_conll', conditioncolumns={'deprel':('обст',),'pos':('R',),'contr_deprel':'advmod'}, headcond={'column':'pos','values': ('V',)})
-    simpleupdate(thissearch,dbcon,deprel='advmod')
+    thisSearch = makeSearch(database=dbcon.dbname, dbtable='ru_conll', ConditionColumns={'deprel':('обст',),'pos':('R',)}, headcond={'column':'pos','values': ('V',)})
+    simpleupdate(thisSearch,dbcon,deprel='advmod',dbtable='ru_conll')
 
