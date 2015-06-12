@@ -25,8 +25,20 @@ def obj(dbcon=False):
     dbcon.query('UPDATE fi_conll SET contr_deprel = %(contrdep)s WHERE deprel = %(deprel)s',{'contrdep':'obj','deprel':'dobj'})
     log('Succesfully renamed dobj to obj')
     #2. Infinitiivien subjektit, jotka voisi luokitella obj
-    thisSearch = makeSearch(database='syntparrus', dbtable='fi_conll', ConditionColumns={'?feat':'%CASE_Acc%'}, headcond={'column':'deprel','values': ('iccomp',)})
+    thisSearch = makeSearch(database=dbcon.dbname, dbtable='fi_conll', ConditionColumns={'?feat':'%CASE_Acc%'}, headcond={'column':'deprel','values': ('iccomp',)})
     DependentSameAsHead(dbcon=dbcon,thisSearch=thisSearch, dbtable='fi_conll', matchdep='obj')
+
+
+def nommod(dbcon=False):
+    """
+
+    Säilytetään TDT:n nommod- ja nommod-own-kategoriat sellaisinaan
+    
+    """
+
+    LogNewDeprel('Create the category of nommod and nommod-own in the TDT data')
+    dbcon.query('UPDATE fi_conll SET contr_deprel = deprel WHERE deprel in %(deprel)s',{'deprel':('nommod','nommod-own')})
+    log('Copied the nommod and nommod-own categories from tdt ')
 
 def advmod(dbcon=False):
     """ Muokkaan SN-jäsennyksen obst-kategoriaa ja
@@ -38,8 +50,8 @@ def advmod(dbcon=False):
     """
 
     LogNewDeprel('Create the advmod category in tdt')
-    thisSearch = makeSearch(database='syntparrus', dbtable='fi_conll', ConditionColumns={'deprel':('advmod',),'pos':('Adv',)}, headcond={'column':'pos','values': ('V',)})
-    simpleupdate(thisSearch,dbcon,deprel='advmod')
+    thisSearch = makeSearch(database=dbcon.dbname, dbtable='fi_conll', ConditionColumns={'deprel':('advmod',),'pos':('Adv',)}, headcond={'column':'pos','values': ('V',)})
+    simpleupdate(thisSearch,dbcon,deprel='advmod',dbtable='fi_conll')
 
 def infcomp(dbcon=False):
     """Muokkaan kontrastiivista analyysikerrosta varten SN-analyysiä siten,
@@ -77,7 +89,7 @@ def infcomp(dbcon=False):
     #1. iccomp-tapaukset vain nimetään uudelleen infcomp:ksi
     dbcon.query('UPDATE fi_conll SET contr_deprel = %(contrdep)s WHERE deprel = %(deprel)s ',{'contrdep':'infcomp','deprel':('iccomp')})
     #2. neg, aux- ja auxpass-tapauksissa riippuvuussuunta pitää kääntää
-    thisSearch = makeSearch(database='syntparrus',dbtable='fi_conll',  ConditionColumns={'deprel':('auxpass','aux','neg')})
+    thisSearch = makeSearch(database=dbcon.dbname,dbtable='fi_conll',  ConditionColumns={'deprel':('auxpass','aux','neg')})
     DependentToHead(dbcon=dbcon,thisSearch=thisSearch,dbtable='fi_conll',matchdep='head',headdep='infcomp')
     #3. Infinitiivimuotoiset Csubj-cop ja csubj (haverinen esim. 182)
     dbcon.query('UPDATE fi_conll SET contr_deprel = %(contrdep)s WHERE deprel IN %(deprel)s AND feat LIKE %(feat)s',{'contrdep':'infcomp','deprel':('csubj-cop','csubj'),'feat':'%INF_Inf1'})
@@ -104,8 +116,8 @@ def semsubj(dbcon=False):
 
     """
     LogNewDeprel('Create the semsubj category in SN')
-    thisSearch = makeSearch(database='syntparrus',dbtable='fi_conll',  ConditionColumns={'deprel':('nsubj',),'?feat':'%CASE_Gen%'},headcond={'column':'pos','values':('V',)})
-    simpleupdate(thisSearch, dbcon, deprel='semsubj')
+    thisSearch = makeSearch(database=dbcon.dbname,dbtable='fi_conll',  ConditionColumns={'deprel':('nsubj',),'?feat':'%CASE_Gen%'},headcond={'column':'pos','values':('V',)})
+    simpleupdate(thisSearch, dbcon, deprel='semsubj',dbtable='fi_conll')
 
 def prdctv(dbcon=False):
     """Tämä tarkoittaa käytännössä sitä, että TDT-jäsennetyn aineiston
@@ -130,10 +142,10 @@ def prdctv(dbcon=False):
     """
 
     LogNewDeprel('Create the prdctv category in tdt')
-    thisSearch = makeSearch(database='syntparrus', dbtable='fi_conll', ConditionColumns={'deprel':('nsubj-cop',)})
+    thisSearch = makeSearch(database=dbcon.dbname, dbtable='fi_conll', ConditionColumns={'deprel':('nsubj-cop',)})
     log('Change nsubj-cop to subj')
     #Change the deprel of nsubj-cop to always be nsubj
-    simpleupdate(thisSearch,dbcon,deprel='nsubj')
+    simpleupdate(thisSearch,dbcon,deprel='nsubj',dbtable='fi_conll')
     #Update the contrastive layer for nsubj-cop and cop
     nocopula = list()
     contr_heads = list()
@@ -190,8 +202,8 @@ def cop(dbcon=False):
     vastaavantyyppisiä rakenteita."""
 
     LogNewDeprel('Create the cop category in tdt')
-    thisSearch = makeSearch(database='syntparrus', dbtable='fi_conll', ConditionColumns={'deprel':('cop',),'contr_dep':('gdep',)})
-    simpleupdate(thisSearch,dbcon,deprel='cop')
+    thisSearch = makeSearch(database=dbcon.dbname, dbtable='fi_conll', ConditionColumns={'deprel':('cop',),'contr_dep':('gdep',)})
+    simpleupdate(thisSearch,dbcon,deprel='cop',dbtable='fi_conll')
 
 def prtcl(dbcon=False):
     """
@@ -201,8 +213,8 @@ def prtcl(dbcon=False):
     """
 
     LogNewDeprel('Create the prtcl category in TDT')
-    thisSearch = makeSearch(database='syntparrus', dbtable = 'fi_conll', ConditionColumns={'deprel':('prt',)})
-    simpleupdate(thisSearch, dbcon, deprel='prtcl')
+    thisSearch = makeSearch(database=dbcon.dbname, dbtable = 'fi_conll', ConditionColumns={'deprel':('prt',)})
+    simpleupdate(thisSearch, dbcon, deprel='prtcl',dbtable='fi_conll')
 
 def cdep(dbcon=False):
     """
@@ -226,8 +238,8 @@ def cdep(dbcon=False):
     kielikohtaisissa jäsennyksissä.
     """
     LogNewDeprel('Create the cdep category in TDT')
-    thisSearch = makeSearch(database='syntparrus', dbtable = 'fi_conll', ConditionColumns={'deprel':('advcl','ccomp')})
-    simpleupdate(thisSearch, dbcon, deprel='cdep')
+    thisSearch = makeSearch(database=dbcon.dbname, dbtable = 'fi_conll', ConditionColumns={'deprel':('advcl','ccomp')})
+    simpleupdate(thisSearch, dbcon, deprel='cdep',dbtable='fi_conll')
 
 def attr(dbcon=False):
     """Kaikkiin kielen tilanteisiin tarkoitettujen jäsenninten on luonnollisesti pyrittävä mahdollisimman
@@ -242,8 +254,8 @@ def attr(dbcon=False):
     merkitään nimityksellä attr."""
 
     LogNewDeprel('create the attr category in sn')
-    thissearch = makesearch(database='syntparrus', dbtable='ru_conll', conditioncolumns={'deprel':('опред', 'квазиагент', 'атриб', 'аппоз', 'разъяснит', 'количест', 'сравн-союзн', 'сравнит', 'вспом', 'соотнос', 'колич-вспом', 'электив', 'оп-опред', 'уточн', 'колич-огран', 'аппрокс-колич', 'кратн', 'нум-аппоз', 'эллипт', 'распред', 'композ')}, headcond = {'column':'pos','values':('a','n','p')})
-    simpleupdate(thissearch,dbcon,deprel='attr')
+    thisSearch = makeSearch(database=dbcon.dbname, dbtable='ru_conll', ConditionColumns={'deprel':('опред', 'квазиагент', 'атриб', 'аппоз', 'разъяснит', 'количест', 'сравн-союзн', 'сравнит', 'вспом', 'соотнос', 'колич-вспом', 'электив', 'оп-опред', 'уточн', 'колич-огран', 'аппрокс-колич', 'кратн', 'нум-аппоз', 'эллипт', 'распред', 'композ')}, headcond = {'column':'pos','values':('a','n','p')})
+    simpleupdate(thisSearch,dbcon,deprel='attr',dbtable='fi_conll')
 
 def conj(dbcon=False):
     """
@@ -270,11 +282,11 @@ def conj(dbcon=False):
 
     """
     LogNewDeprel('Create the conj category in TDT')
-    thissearch = makesearch(database='syntparrus', dbtable='fi_conll', conditioncolumns={'deprel':('conj','parataxis')})
-    simpleupdate(thissearch,dbcon,deprel='conj')
+    thisSearch = makeSearch(database=dbcon.dbname, dbtable='fi_conll', ConditionColumns={'deprel':('conj','parataxis')})
+    simpleupdate(thisSearch,dbcon,deprel='conj',dbtable='fi_conll')
     LogNewDeprel('Create the cc category in TDT')
-    thissearch = makesearch(database='syntparrus', dbtable='fi_conll', conditioncolumns={'deprel':('cc',)})
-    simpleupdate(thissearch,dbcon,deprel='cc')
+    thisSearch = makeSearch(database=dbcon.dbname, dbtable='fi_conll', ConditionColumns={'deprel':('cc',)})
+    simpleupdate(thisSearch,dbcon,deprel='cc',dbtable='fi_conll')
 
 def fixChains(dbcon=False):
     """Lopuksi saattaa olla tarve korjata joitakin vääriä

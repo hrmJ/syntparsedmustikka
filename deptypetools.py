@@ -10,10 +10,10 @@ def log(message):
     """Log just a simple message"""
     logging.info(message)
 
-def simpleupdate(thisSearch,dbcon, deprel):
+def simpleupdate(thisSearch,dbcon, deprel, dbtable):
     """In the prototypical case you just give the deprel of the contrastive layer"""
     logging.info('Updating {} items in the db'.format(len(thisSearch.listMatchids())))
-    dbcon.query('UPDATE ru_conll SET contr_deprel = %(deprel)s WHERE id in %(idlist)s',{'deprel':deprel,'idlist':thisSearch.idlist})
+    dbcon.query('UPDATE {table} SET contr_deprel = %(deprel)s WHERE id in %(idlist)s'.format(table=dbtable),{'deprel':deprel,'idlist':thisSearch.idlist})
     logging.info('to be updated: {} database rows.'.format(dbcon.cur.rowcount))
 
 def makeSearch(ConditionColumns,database,dbtable,headcond=None,depcond=None,appendconditioncolumns=True):
@@ -72,8 +72,9 @@ def DependentToHead(dbcon,thisSearch,dbtable,matchdep, headdep):
     #########################################################################
     updates = [{'updatedcolumn':'contr_deprel','basecolumn':'id','valuelist':contr_deprels},
                {'updatedcolumn':'contr_head','basecolumn':'id','valuelist':contr_heads}]
+    log('Updating the database, this might take long.. ')
     dbcon.BatchUpdate(table=dbtable, updates=updates)
-    log('This might potentially effect {} database rows.'.format(dbcon.cur.rowcount))
+    log('Update done. This will potentially effect {} database rows.'.format(dbcon.cur.rowcount))
     if error_sids:
         log('Key errors with sids {} (total {})'.format(','.join(error_sids),len(error_sids)))
 

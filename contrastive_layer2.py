@@ -6,38 +6,41 @@ from search import Search, Match, Sentence, Word, ConstQuery, Db
 import sn
 import tdt
 
-def createContrastiveLayer():
+def createContrastiveLayer(con):
     """Creates the contrastive layer phase by phase"""
 
-    prcon = psycopg('syntparrus','juho')
-    pfcon = psycopg('syntparfin','juho')
-    #sn.gdep(prcon)
-    #sn.obj(prcon)
-    #sn.nsubj(prcon)
-    #sn.nommod_own(prcon)
-    #sn.infcomp(prcon)
-    #sn.prtcl(prcon)
-    #sn.prdctv(prcon)
-    #sn.semsubj(prcon)
-    #sn.cdep(prcon)
-    #sn.conj(prcon)
-    #sn.attr(prcon)
-    #sn.nommod(prcon)
-    #tdt.gdep(prcon)
-    #tdt.obj(prcon)
-    #tdt.infcomp(prcon)
-    #tdt.semsubj(prcon)
-    #tdt.advmod(prcon)
-    #tdt.prdctv(prcon)
-    tdt.nsubj(prcon)
-    #tdt.cop(prcon)
-    #tdt.prtcl(prcon)
+    #SN:----------------------------------------
+    #sn.gdep(con)
+    #sn.obj(con)
+    #sn.nsubj(con)
+    #sn.nommod_own(con)
+    #sn.advmod(con)
+    #sn.infcomp(con)
+    #sn.prtcl(con)
+    #sn.prdctv(con)
+    #sn.semsubj(con)
+    #sn.cdep(con)
+    #sn.conj(con)
+    #sn.attr(con)
+    sn.nommod(con)
+    #TDT:----------------------------------------
+    #tdt.gdep(con)
+    #tdt.obj(con)
+    #tdt.nsubj(con)
+    #tdt.nommod(con)
+    #tdt.advmod(con)
+    #tdt.infcomp(con)
+    #tdt.prtcl(con)
+    #tdt.prdctv(con)
+    #tdt.semsubj(con)
+    #tdt.cop(con)
     #tdt.attr
     #tdt.cdep
     #tdt.conj
-    #tdt.fixChains(prcon) # last
+    #tdt.fixChains(con) # last
 
-    prcon.connection.commit()
+    # Commit:
+    con.connection.commit()
 
 if __name__ == "__main__":
     #Initialize a logger and start the function that creates the contrastive layer
@@ -57,4 +60,11 @@ if __name__ == "__main__":
     root.addHandler(fh)
     root.addHandler(ch)
 
-    createContrastiveLayer()
+    #Connect:
+    prcon = psycopg('syntparrus','juho')
+    pfcon = psycopg('syntparfin','juho')
+    logging.info('\n{0} \nSTART CREATING THE CONTRASTIVE LAYER \n{0} \n'.format('*'*60))
+    logging.info('\n{0} \n The ParRus database \n{0} \n'.format('-'*60))
+    createContrastiveLayer(prcon)
+    logging.info('\n{0} \n The ParFin database \n{0} \n'.format('-'*60))
+    createContrastiveLayer(pfcon)
