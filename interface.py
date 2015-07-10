@@ -22,8 +22,9 @@ import glob
 class MainMenu:
     """This class include all
     the comand line menu options and actions"""
-    mainanswers =  {'q':'quit','l':'select language', 'm':'Monoconcordance', 'd':'select database','p':'phdquery','s':'View searches','o':'View saved searches','n':'Нужно-search',
-            'a':'advanced search','tme':'TME search'}
+    mainanswers =  {'q':'quit','l':'select language', 'm':'Monoconcordance', 
+            'd':'select database','p':'phdquery','s':'View searches','o':'View saved searches','n':'Нужно-search',
+            'a':'advanced search','tme':'TME search','cs':'Corpus stats'}
 
     def __init__(self):
         self.menu = multimenu(MainMenu.mainanswers)
@@ -208,6 +209,86 @@ class MainMenu:
             self.monoconc(True)
         elif answer == 'tme':
             self.monoconc(tme=True)
+        elif answer == 'cs':
+            statmen = Statmenu()
+            statmen.runmenu()
+
+class Statmenu:
+    menuoptions = {'1':'Word count','c':'Return to main menu'}
+    def __init__(self):
+        self.menu = multimenu(Statmenu.menuoptions)
+        self.menu.question = 'Select the function you would like to apply:'
+
+    def wordCountForText(self, text_id, table):
+        """Count the number of words in a given text and return it as a string"""
+        query = 'SELECT count(*) from {} WHERE token NOT IN %(punct)s AND text_id = %(text_id)s'.format(table)
+        res = Db.con.nondictquery(query,{'punct':tuple(string.punctuation),'text_id':text_id})
+        return str(res[0][0])
+
+    def CollectTexts(self):
+        """Get a list of texts from the database"""
+        return Db.con.dictquery('SELECT title, transtitle, id from text_ids')
+
+    def WordCounts(self):
+        """Count words in the texts"""
+        #This needs to be improved:
+        tables = {'source':'fi_conll','target':'ru_conll'}
+        #########
+        maxtitleLength = len('title')
+        maxWcLength = len('word count')
+        max_trtitleLength = len('translation title')
+        max_trWcLength = len('trans. word count')
+        texts = list()
+        print('Analyzing...')
+        #Start printing data for each text and target text
+        results = self.CollectTexts()
+        for res in results:
+            #Fetch wordcount for each text and target text
+            texts.append({'id':res['id'],'title':res['title'],'wordcount':self.wordCountForText(res['id'],tables['source']),
+                'translation title':res['transtitle'],'trwordcount':self.wordCountForText(res['id'],tables['target'])})
+            #Get string length information for the output table
+            if len(res['title'])>maxtitleLength:
+                maxtitleLength = len(res['title'])
+            if len(texts[-1]['wordcount'])>maxWcLength:
+                maxWcLength = len(texts[-1]['wordcount'])
+            if len(res['transtitle'])>max_trtitleLength:
+                max_trtitleLength = len(res['transtitle'])
+            if len(texts[-1]['trwordcount'])>max_trWcLength:
+                max_trWcLength = len(texts[-1]['trwordcount'])
+        #Print the output table
+        print('{0:3} | {1:{titlewidth}} | {2:{wcwidth}} | {3:{trtitlewidth}} | {4:{trwcwidth}}'.format('Id','Title','Word count', 'Translation title', 'translation wordcount',
+            titlewidth = maxtitleLength, wcwidth = maxWcLength, trtitlewidth = max_trtitleLength, trwcwidth = max_trWcLength))
+        for text in texts:
+            print('{0:3} | {1:{titlewidth}} | {2:{wcwidth}} | {3:{trtitlewidth}} | {4:{trwcwidth}}'.format(text['id'],text['title'],text['wordcount'],text['translation title'],text['trwordcount'],
+                titlewidth = maxtitleLength, wcwidth = maxWcLength, trtitlewidth = max_trtitleLength, trwcwidth = max_trWcLength))
+        #Print csv if the user wants to:
+        csvmenu = multimenu({'y':'yes','n':'no'}, 'Write csv?')
+        if csvmenu.answer == 'y':
+            with open('wordcounts.csv','w') as f:
+                fieldnames = ['id', 'title','wordcount','translation title','trwordcount']
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                for text in texts:
+                    writer.writerow(text)
+        input('Press enter to continue:')
+
+
+    def runmenu(self):
+        #Clear the terminal:
+        os.system('cls' if os.name == 'nt' else 'clear')
+        self.menu.prompt_valid()
+        while self.menu.answer != 'c':
+            self.evaluatestatmenu()
+            self.menu.prompt_valid()
+
+    def evaluatestatmenu(self):
+        """choose what to do"""
+        if self.menu.answer == '1':
+            self.WordCounts()
+
+
+
+##################################################
 
 def printResults(thisSearch):
         if len(thisSearch.matches) >0:
@@ -246,6 +327,7 @@ def resultprinter(matchitems,limit=1):
             sentences[str(printed)] = match.matchedsentence
     return sentences
 
+##################################################
 
 #Start the menu
 

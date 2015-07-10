@@ -1,6 +1,8 @@
 #! /usr/bin/env python
 from deptypetools import  LogNewDeprel, simpleupdate, makeSearch, log, DependentToHead, DependentSameAsHead
 from interface import printResults
+import rel_tdt
+import os.path
 
 def gdep(dbcon=False):
     """"Aluksi määritellään kaikkien elementtien luokaksi gdep, jota sitten
@@ -9,6 +11,7 @@ def gdep(dbcon=False):
     LogNewDeprel('Create the category of gdep in the TDT data')
     dbcon.query('UPDATE fi_conll SET contr_head = head, contr_deprel = %(contrdep)s',{'contrdep':'gdep'})
     log('The gdep category was succesfully created')
+
 
 def obj(dbcon=False):
     """Nimetään uudelleen dobj-kategoria obj:ksi
@@ -27,6 +30,37 @@ def obj(dbcon=False):
     #2. Infinitiivien subjektit, jotka voisi luokitella obj
     thisSearch = makeSearch(database=dbcon.dbname, dbtable='fi_conll', ConditionColumns={'?feat':'%CASE_Acc%'}, headcond={'column':'deprel','values': ('iccomp',)})
     DependentSameAsHead(dbcon=dbcon,thisSearch=thisSearch, dbtable='fi_conll', matchdep='obj')
+
+
+def rel(dbcon=False):
+    """
+    HUOM! joten-sana kohdeltava erikseen
+
+    """
+
+    LogNewDeprel('REANALYZE the rel category in TDT')
+
+    log('1. Search for all the relative pronouns  analyzed as "rel"'.format(dbcon.dbname))
+    thisSearch = makeSearch(database=dbcon.dbname, dbtable='fi_conll', ConditionColumns={'deprel':('rel',),'lemma':('joka','mikä')})
+
+    log('2. Extract the relative clauses')
+    relclauses = rel_tdt.getRelDict(thisSearch)
+
+    log('3. Print the relative clauses to file')
+    rel_tdt.PrintRelClausesToFile(relclauses)
+
+    #Reparse, if not yet done
+    reparsedfile = "{}_reparsedrelativizers.conll".format(dbcon.dbname)
+    if not os.path.isfile(reparsedfile):
+        #if no previous reprse found:
+        log('Now re-parse. This should take at least 10 mins ')
+        os.system("cat parserinput.txt | /home/juho/Dropbox/VK/skriptit/python/finnish_dep_parser/Finnish-dep-parser/parser_wrapper.sh > {}".format(reparsedfile))
+
+    log('4. Read the new deprels from the reparsed file')
+    newdeprels = rel_tdt.ReadConllInput(reparsedfile)
+
+    log('5. Insert the new deprels to the database')
+    rel_tdt.UpdateContrRel(dbcon, relclauses, newdeprels)
 
 
 def nommod(dbcon=False):
@@ -75,7 +109,7 @@ def infcomp(dbcon=False):
     Kopulat!
     ---------
 
-    on pakko-tyyppisissä tapauksissa kopula pitää ehkä jättää kontrastiiviseen tasoon niin kuin
+    *on pakko*-tyyppisissä tapauksissa kopula pitää ehkä jättää kontrastiiviseen tasoon niin kuin
     se on Haverinen 57, esim. 179
 
     Subjektin pääsana?
@@ -86,8 +120,8 @@ def infcomp(dbcon=False):
     """
 
     LogNewDeprel('Create the category of infcomp in the TDT data')
-    #1. iccomp-tapaukset vain nimetään uudelleen infcomp:ksi
-    dbcon.query('UPDATE fi_conll SET contr_deprel = %(contrdep)s WHERE deprel = %(deprel)s ',{'contrdep':'infcomp','deprel':('iccomp')})
+    #1. iccomp- ja xcomp-tapaukset vain nimetään uudelleen infcomp:ksi
+    dbcon.query('UPDATE fi_conll SET contr_deprel = %(contrdep)s WHERE deprel in %(deprel)s ',{'contrdep':'infcomp','deprel':('iccomp','xcomp')})
     #2. neg, aux- ja auxpass-tapauksissa riippuvuussuunta pitää kääntää
     thisSearch = makeSearch(database=dbcon.dbname,dbtable='fi_conll',  ConditionColumns={'deprel':('auxpass','aux','neg')})
     DependentToHead(dbcon=dbcon,thisSearch=thisSearch,dbtable='fi_conll',matchdep='head',headdep='infcomp')
@@ -241,6 +275,23 @@ def cdep(dbcon=False):
     thisSearch = makeSearch(database=dbcon.dbname, dbtable = 'fi_conll', ConditionColumns={'deprel':('advcl','ccomp')})
     simpleupdate(thisSearch, dbcon, deprel='cdep',dbtable='fi_conll')
 
+def adpos(dbcon=False):
+    """
+    Kuten esimerkeistä @parsers1fi--@parsers1ru havaittiin, TDT- ja SN-jäsentimet
+    eroavat lähtökohtaisesti siinä, miten adpositiorakenteiden pääsana
+    määritellään. Kontrastiivinen jäsennys seuraa tältä osin SN-jäsennyksen
+    jäsennystapaa, niin että TDT-tapauksissa riippuvuussuunta käännetään.
+    Adpositioluokan nimi on kuitenkin TDT-analyysin mukaisesti *adpos*.
+    SN-analyysissa prepositiot analysoidaan omalla luokallaan *предл*. Ongelmia
+    aiheuttaa kuitenkin se, että SN-analysoitu aineisto sisältää myös
+    adpositiorakenteita, jotka on analysoitu квазиагент-luokkaan.
+    """
+
+    LogNewDeprel('Create the adpos category in TDT')
+    #Käännä riippuvuus ja tee entisestä pääsanasta adpos
+    thisSearch = makeSearch(database=dbcon.dbname,dbtable='fi_conll',  ConditionColumns={'deprel':('adpos',)})
+    DependentToHead(dbcon=dbcon,thisSearch=thisSearch,dbtable='fi_conll',matchdep='head',headdep='adpos')
+
 def attr(dbcon=False):
     """Kaikkiin kielen tilanteisiin tarkoitettujen jäsenninten on luonnollisesti pyrittävä mahdollisimman
     suureen tarkkuuteen myös alemman tason dependenssisuhteissa. Tämän vuoksi erilaisia substantiivia tai
@@ -253,8 +304,8 @@ def attr(dbcon=False):
     kontrastiiviseen analyysikerrokseen muodostuu erittäin suuri alempien dependenssitasojen luokka, jota
     merkitään nimityksellä attr."""
 
-    LogNewDeprel('create the attr category in sn')
-    thisSearch = makeSearch(database=dbcon.dbname, dbtable='ru_conll', ConditionColumns={'deprel':('опред', 'квазиагент', 'атриб', 'аппоз', 'разъяснит', 'количест', 'сравн-союзн', 'сравнит', 'вспом', 'соотнос', 'колич-вспом', 'электив', 'оп-опред', 'уточн', 'колич-огран', 'аппрокс-колич', 'кратн', 'нум-аппоз', 'эллипт', 'распред', 'композ')}, headcond = {'column':'pos','values':('a','n','p')})
+    LogNewDeprel('create the attr category in TDT')
+    thisSearch = makeSearch(database=dbcon.dbname, dbtable='fi_conll', ConditionColumns={'deprel':('amod','det','quantmod','poss')})
     simpleupdate(thisSearch,dbcon,deprel='attr',dbtable='fi_conll')
 
 def conj(dbcon=False):

@@ -6,9 +6,13 @@ def LogNewDeprel(message):
     """Log the deprels name as header"""
     logging.info('{0}{1}{0}{2}{0}{1}{0}'.format('\n','='*50,message))
 
-def log(message):
+def log(message,counter=0, countmax=0):
     """Log just a simple message"""
-    logging.info(message)
+    if countmax>0:
+        print('{}  {}/{}'.format(message,counter,countmax), end = '\r')
+    else:
+        logging.info(message)
+
 
 def simpleupdate(thisSearch,dbcon, deprel, dbtable):
     """In the prototypical case you just give the deprel of the contrastive layer"""

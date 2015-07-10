@@ -3,6 +3,7 @@ import logging
 import sys
 from dbmodule import psycopg, mydatabase
 from search import Search, Match, Sentence, Word, ConstQuery, Db 
+from deptypetools import log
 import sn
 import tdt
 
@@ -20,11 +21,14 @@ def createContrastiveLayer(con):
     #sn.prdctv(con)
     #sn.semsubj(con)
     #sn.cdep(con)
+    #sn.agent(con)
+    #sn.adpos(con)
     #sn.conj(con)
     #sn.attr(con)
-    sn.nommod(con)
+    #sn.nommod(con)
     #TDT:----------------------------------------
     #tdt.gdep(con)
+    tdt.rel(con)
     #tdt.obj(con)
     #tdt.nsubj(con)
     #tdt.nommod(con)
@@ -34,7 +38,7 @@ def createContrastiveLayer(con):
     #tdt.prdctv(con)
     #tdt.semsubj(con)
     #tdt.cop(con)
-    #tdt.attr
+    #tdt.attr(con)
     #tdt.cdep
     #tdt.conj
     #tdt.fixChains(con) # last
@@ -64,7 +68,7 @@ if __name__ == "__main__":
     prcon = psycopg('syntparrus','juho')
     pfcon = psycopg('syntparfin','juho')
     logging.info('\n{0} \nSTART CREATING THE CONTRASTIVE LAYER \n{0} \n'.format('*'*60))
-    logging.info('\n{0} \n The ParRus database \n{0} \n'.format('-'*60))
-    createContrastiveLayer(prcon)
+    #logging.info('\n{0} \n The ParRus database \n{0} \n'.format('-'*60))
+    #createContrastiveLayer(prcon)
     logging.info('\n{0} \n The ParFin database \n{0} \n'.format('-'*60))
     createContrastiveLayer(pfcon)

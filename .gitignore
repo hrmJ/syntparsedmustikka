@@ -1,0 +1,14 @@
+#vim's swap files
+.*.swp
+#Python's cahce
+__pycache__/*
+#individual files to be ignored
+wordcounts.csv
+logfile
+parserinput.txt
+#visualization html
+output.html
+#log files
+*log
+logof*
+

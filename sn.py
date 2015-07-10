@@ -253,9 +253,63 @@ def attr(dbcon=False):
     kontrastiiviseen analyysikerrokseen muodostuu erittäin suuri alempien dependenssitasojen luokka, jota
     merkitään nimityksellä attr."""
 
+    #kvaziagent pitää vielä miettiä!
     LogNewDeprel('create the attr category in sn')
     thisSearch = makeSearch(database=dbcon.dbname, dbtable='ru_conll', ConditionColumns={'deprel':('опред', 'квазиагент', 'атриб', 'аппоз', 'разъяснит', 'количест', 'сравн-союзн', 'сравнит', 'вспом', 'соотнос', 'колич-вспом', 'электив', 'оп-опред', 'уточн', 'колич-огран', 'аппрокс-колич', 'кратн', 'нум-аппоз', 'эллипт', 'распред', 'композ')}, headcond = {'column':'pos','values':('a','n','p')})
     simpleupdate(thisSearch,dbcon,deprel='attr',dbtable='ru_conll')
+
+def adpos(dbcon=False):
+    """
+    Kuten esimerkeistä @parsers1fi--@parsers1ru havaittiin, TDT- ja SN-jäsentimet
+    eroavat lähtökohtaisesti siinä, miten adpositiorakenteiden pääsana
+    määritellään. Kontrastiivinen jäsennys seuraa tältä osin SN-jäsennyksen
+    jäsennystapaa, niin että TDT-tapauksissa riippuvuussuunta käännetään.
+    Adpositioluokan nimi on kuitenkin TDT-analyysin mukaisesti *adpos*.
+    SN-analyysissa prepositiot analysoidaan omalla luokallaan *предл*. Ongelmia
+    aiheuttaa kuitenkin se, että SN-analysoitu aineisto sisältää myös
+    adpositiorakenteita, jotka on analysoitu квазиагент-luokkaan.
+    """
+
+    LogNewDeprel('Create the adpos category in SN')
+    thisSearch = makeSearch(database=dbcon.dbname, dbtable = 'ru_conll', ConditionColumns={'deprel':('предл',)})
+    simpleupdate(thisSearch, dbcon, deprel='adpos',dbtable='ru_conll')
+
+def agent(dbcon=False):
+    """
+     """
+
+    LogNewDeprel('Create the agent category in SN')
+    thisSearch = makeSearch(database=dbcon.dbname, dbtable = 'ru_conll', ConditionColumns={'deprel':('агент',)})
+    simpleupdate(thisSearch, dbcon, deprel='agent',dbtable='ru_conll')
+
+def rel(dbcon=False):
+    """
+    Relatiivilauseiden tapauksessa SN-jäsennin ja TDT-jäsennin eroavat toisistaan
+    poikkeuksellisen paljon. Syynä on TDT-jäsennyksen monikerroksisuus:
+    TDT-analysoidussa aineistossa relatiivipronominit saavat ikään kuin kaksi
+    dependenssianalyysia. Ensimmäisessä kerroksessa relatiivipronominit tulkitaan 
+    relatiivilauseen sisäisesti, jolloin ne voidaan luokitella mihin tahansa
+    kategoriaan, mikä niille lauseessa kuuluisi. Toisessa kerroksessa -- joka jää
+    voimaan, kun aineisto on ajettu jäsentimen läpi -- relatiivipronominit
+    analysoidaan *rel*-luokkaan kuuluviksi [@haverinen2013tdt, 30--31]. SN-jäsennin
+    ei tee vastaavaa eroa, vaan käyttää suoraan niitä kategorioita, jotka
+    TDT-jäsennyksessä kuuluvat ensimmäiseen, lopputuloksen ulkopuolelle jäävään
+    kerrokseen.
+
+    Analyysin kannalta SN-jäsentimen kaltainen yksikerroksinen lopputulos
+    vaikuttaisi intuitiivisesti mielekkäämmältä: yksittäiset lauseet ovat
+    vertailukelpoisempia, kun ei tehdä eroa sen suhteen, onko kyseessä
+    relatiivilause, vai jokin muu lausetyyppi. Teknisesti on kuitenkin haastavaa
+    muuttaa TDT:n rel-tyypiksi analysoituja elementtejä takaisin niiden ensimmäisen
+    kerroksen mukaisiksi dependenssityypeiksi. Huomattavasti yksinkertaisempaa on
+    muuttaa SN-analyysia: relatiivipronominien dependenssityyppi muutetaan
+    muotoon *rel* riippumatta siitä, mikä se on alkuperäisen jäsennyksen mukaisesti.
+
+    """
+
+    LogNewDeprel('Create the rel category in SN')
+    thisSearch = makeSearch(database=dbcon.dbname, dbtable = 'ru_conll', ConditionColumns={'lemma':('который','чьей','' )})
+    simpleupdate(thisSearch, dbcon, deprel='agent',dbtable='ru_conll')
 
 def nommod(dbcon=False):
     """

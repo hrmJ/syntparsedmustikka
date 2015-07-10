@@ -67,13 +67,17 @@ class psycopg:
 
     def BatchUpdate(self,table,updates):
         """Do updates for large amounts of data
+        ===================================================
 
-        param updates: a list of dicts. The dicts must have  three keys, 'valuelist', 'updatedcolumn' and 'basecolumn'.
-        updatedcolumn is the column the values of which are being changed, 
-        basecolumn is the column that specifies what the updated value will be
-        valuelist is itself also a list of dicts. Each list item must have the keys 'baseval' and 'changedval'
+        + updates: a list of dicts. The dicts must have  three keys, 'valuelist', 'updatedcolumn' and 'basecolumn'.
+            + valuelist: also a list of dicts. Each list item must have the keys 'baseval' and 'changedval'
+                -  baseval     : the value of the column in the WHERE clause (typically id)
+                -  changedval  : the new value of the *updatedcolumn*
+            - updatedcolumn: the column the values of which are being changed, 
+            - basecolumn: the column that specifies what the updated
+              value will be: in other words, what typically would reside
+              in the WHERE clause (update footable set foo=bar WHERE BASECOLUMN = foobar)
 
-        
         """
 
         queryvalues = dict()
