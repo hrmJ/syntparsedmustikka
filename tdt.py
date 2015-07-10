@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-from deptypetools import  LogNewDeprel, simpleupdate, makeSearch, log, DependentToHead, DependentSameAsHead
+from deptypetools import  LogNewDeprel, simpleupdate, makeSearch, log, DependentToHead, DependentSameAsHead, DepTypeUpdater
 from interface import printResults
 import rel_tdt
 import os.path
@@ -12,7 +12,6 @@ def gdep(dbcon=False):
     dbcon.query('UPDATE fi_conll SET contr_head = head, contr_deprel = %(contrdep)s',{'contrdep':'gdep'})
     log('The gdep category was succesfully created')
 
-
 def obj(dbcon=False):
     """Nimetään uudelleen dobj-kategoria obj:ksi
     
@@ -23,14 +22,12 @@ def obj(dbcon=False):
     
     """
 
-    #1. Uudelleennimeäminen
-    LogNewDeprel('Create the category of obj in the TDT data')
-    dbcon.query('UPDATE fi_conll SET contr_deprel = %(contrdep)s WHERE deprel = %(deprel)s',{'contrdep':'obj','deprel':'dobj'})
-    log('Succesfully renamed dobj to obj')
+    updater = DepTypeUpDater(dbcon, 'fi_conll', 'Create the category of obj in the TDT data')
+    updater.rename('dobj','obj')
+
     #2. Infinitiivien subjektit, jotka voisi luokitella obj
     thisSearch = makeSearch(database=dbcon.dbname, dbtable='fi_conll', ConditionColumns={'?feat':'%CASE_Acc%'}, headcond={'column':'deprel','values': ('iccomp',)})
     DependentSameAsHead(dbcon=dbcon,thisSearch=thisSearch, dbtable='fi_conll', matchdep='obj')
-
 
 def rel(dbcon=False):
     """
@@ -61,7 +58,6 @@ def rel(dbcon=False):
 
     log('5. Insert the new deprels to the database')
     rel_tdt.UpdateContrRel(dbcon, relclauses, newdeprels)
-
 
 def nommod(dbcon=False):
     """

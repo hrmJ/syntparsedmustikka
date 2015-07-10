@@ -49,7 +49,7 @@ def DependentSameAsHead(dbcon,thisSearch,dbtable,matchdep):
                 log('KeyError  with word {}, sentence {}'.format(match.matchedword.token,match.matchedsentence.sentence_id))
     log('{}: updated {} items in the db'.format(matchdep,updated))
 
-def DependentToHead(dbcon,thisSearch,dbtable,matchdep, headdep):
+def DependentToHead(dbcon,thisSearch,dbtable,matchdep,headdep):
     """Make the matched word the head and the 
     head the dependent"""
 
@@ -82,3 +82,57 @@ def DependentToHead(dbcon,thisSearch,dbtable,matchdep, headdep):
     if error_sids:
         log('Key errors with sids {} (total {})'.format(','.join(error_sids),len(error_sids)))
 
+
+
+
+class DepTypeUpdater:
+    """General class for many kinds of updates"""
+
+    def __init__(self,dbcon,dbtable)
+        """Initialize the connection oand other variables"""
+        LogNewDeprel(message)
+        self.dbcon = dbcon
+        self.dbtable = dbtable
+
+    def rename(self, oldname, newname):
+        """Rename a category"""
+        #1. Uudelleennimeäminen
+        self.dbcon.query('UPDATE {} SET contr_deprel = %(contrdep)s WHERE deprel = %(deprel)s'.format(self.dbtable),{'contrdep':newname,'deprel':oldname})
+        log('Update done. Renamed {} database rows.'.format(self.dbcon.cur.rowcount))
+
+    def simpleupdate(self, deprel):
+        """In the prototypical case you just give the deprel of the contrastive layer"""
+        log('Updating {} items in the db'.format(len(self.search.listMatchids())))
+        dbcon.query('UPDATE {table} SET contr_deprel = %(deprel)s WHERE id in %(idlist)s'.format(table=self.dbtable),{'deprel':deprel,'idlist':self.search.idlist})
+        log('to be updated: {} database rows.'.format(self.dbcon.cur.rowcount))
+
+    def RunBatchUpdates(self)
+        """ Do the actual updating for functions such as DependentSameAsHead and DependentToHead """
+
+        log('Updating the database, this might take long.. ')
+        self.dbcon.BatchUpdate(table=dbtable, updates=updates)
+        log('Update done. This will potentially effect {} database rows.'.format(dbcon.cur.rowcount))
+        if error_sids:
+            log('Key errors with sids {} (total {})'.format(','.join(error_sids),len(error_sids)))
+
+    def DependentSameAsHead(self,dbtable,matchdep,headdep):
+        """Make the matched word the head and the 
+        head the dependent"""
+
+        log('Starting...')
+        contr_heads = list()
+        contr_deprels = list()
+        error_sids = list()
+        #########################################################################
+        for key, matches in thisSearch.matches.items():
+            for match in matches:
+                try:
+                    mhead = match.matchedsentence.words[match.matchedword.head]
+                    contr_deprels.append({'baseval':match.matchedword.dbid,'changedval':matchdep})
+                    contr_heads.append({'baseval':match.matchedword.dbid,'changedval':mhead.head})
+                except KeyError:
+                    error_sids.append(matchedsentence.sentence_id)
+        #########################################################################
+        updates = [{'updatedcolumn':'contr_deprel','basecolumn':'id','valuelist':contr_deprels},
+                   {'updatedcolumn':'contr_head','basecolumn':'id','valuelist':contr_heads}]
+        RunBatchUpdates(dbcon,updates,error_sids)
