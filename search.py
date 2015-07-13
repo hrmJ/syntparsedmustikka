@@ -11,7 +11,7 @@ import re
 from termcolor import colored
 import pickle
 #local modules
-from dbmodule import mydatabase
+from dbmodule import mydatabase, psycopg
 from menus import Menu, multimenu, yesnomenu 
 #classes
 
@@ -314,6 +314,21 @@ class Search:
                 idlist.append(match.matchedword.dbid)
         self.idlist = tuple(idlist)
         return self.idlist
+
+    def ListMatchLemmas(self):
+        """fetch ditinctly the lemmas from sl"""
+        #if the lemmas have not yet been listed:
+        try:
+            self.matchlemmas = self.matchlemmas
+        except AttributeError:
+            print('Fetching the lemmas, please wait...')
+            self.listMatchids()
+            con = psycopg(self.queried_db,'juho')
+            self.listMatchids()
+            sqlq = "SELECT DISTINCT lemma FROM {table} WHERE id in %(ids)s".format(table = self.queried_table)
+            ('Fetching all the source lemmas')
+            self.matchlemmas = con.query(sqlq,{'ids':self.idlist})
+
 
 class Match:
     """ 
