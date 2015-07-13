@@ -14,8 +14,8 @@ import pickle
 from dbmodule import mydatabase, psycopg
 from menus import Menu, multimenu, yesnomenu 
 from itertools import chain
+from progress.bar import Bar
 from texttable import Texttable, get_color_string, bcolors
-#classes
 
 class Db:
     """ A class to include some shared properties for the search and
@@ -383,6 +383,40 @@ class Search:
                 match.parallelcontext = self.parallel_aligns[align_id]
         print('Done.')
 
+    def CountMatches(self,filters=False):
+        """Count the number of matches and filter by criteria"""
+        self.matchcount = 0
+        for key, matches in self.matches.items():
+            for match in matches:
+                if filters:
+                    #Apply a filter:
+                    match.WillBeProcessed = True
+                    for attribute, value in filters.items():
+                        try:
+                            if getattr(match,attribute) != value:
+                                match.WillBeProcessed = False
+                        except AttributeError:
+                            #If the match object DOESNT have the attribute, accept it
+                            pass
+                    if match.WillBeProcessed:
+                        self.matchcount += 1
+                else:
+                    self.matchcount += 1
+
+
+
+    def AlignAtMatch(self):
+        """Semi-manually go through all the matches of the search
+        and pick the word that is the closest to the matching word of each match"""
+        #matchestoprocess.append(match)
+        self.CountMatches({'rejectreason':'','postprocessed':True,'aligned':False})
+        bar = Bar('Processing', max=self.matchcount)
+        for key, matches in self.matches.items():
+            for match in matches:
+                if match.WillBeProcessed:
+                    match.LocateTargetWord(self,bar)
+        bar.finish()
+
 class Match:
     """ 
     A match object contains ifromation about a concrete token that 
@@ -477,7 +511,7 @@ class Match:
         except KeyError:
             return False
 
-    def LocateTargetWord(self, search):
+    def LocateTargetWord(self, search,bar):
         """ask the user to locate the target work in the match and mark it in the database / search object
         The goal here is to give values to 3 attributes of the match:
         ============================
@@ -494,6 +528,9 @@ class Match:
         try:
             match_sentence_id = parallel_sentence_ids[sentence_in_segment]
         except KeyError:
+            #If there are less sentences in the target, start with the first sentence
+            match_sentence_id = parallel_sentence_ids[0]
+        except (KeyError, IndexError):
             #If there are less sentences in the target, start with the first sentence
             match_sentence_id = parallel_sentence_ids[0]
         #Reorder the parallel sentences so that the one that is the sameth as in the match will by tried first
@@ -519,6 +556,8 @@ class Match:
                             #Clear terminal output:
                             os.system('cls' if os.name == 'nt' else 'clear')
                             print('\n'*15)
+                            bar.next()
+                            print('\n'*2)
                             sentence.PrintTargetSuggestion(self.matchedsentence.printstring)
                             if parmenu.prompt_valid() == 'y':
                                 #save the information about the target word/sentence
@@ -534,6 +573,8 @@ class Match:
             sid = 1
             #Clear terminal output:
             os.system('cls' if os.name == 'nt' else 'clear')
+            bar.next()
+            print('\n'*2)
             for sentence_id, sentence in self.parallelcontext.items():
                 #print all the alternatives again:
                 sentence.BuildPrintString(word.tokenid)
@@ -541,6 +582,8 @@ class Match:
                 sentence.PrintTargetSuggestion(self.matchedsentence.printstring)
                 sentencemenu.validanswers[str(sid)] = sentence_id
                 sid += 1
+                if sid % 6 == 0:
+                    input('Long list of sentences, more to follow...')
             sentencemenu.prompt_valid('Which sentence is the closest match to the source sentence?')
             pickedsentence = self.parallelcontext[int(sentencemenu.validanswers[sentencemenu.answer])]
             #set the sentence as the matching one
@@ -556,7 +599,7 @@ class Match:
                 addmenu = multimenu({'y':'yes','n':'no'}, 'Should {} be added as another possinle translation for {}?'.format(self.parallelword.lemma, self.matchedword.lemma))
                 if addmenu.answer == 'y':
                     search.matchlemmas[self.matchedword.lemma].append(self.parallelword.lemma)
-
+        self.aligned = True
 
 class Sentence:
     """
@@ -685,7 +728,6 @@ class Sentence:
                 self.dependentDict_prints[str(tokenid)] = word.token
         self.dependentlist = dependents
 
-
 class TargetSentence(Sentence):
     """This is specially for the sentences in the parallel context. The main difference from 
     original sentences is that match"""
@@ -763,12 +805,6 @@ class TargetSentence(Sentence):
         #con.query('UPDATE {} SET tr_did = %(tr_dbid)s WHERE id = %(this_id)s'.format(parentSearch.queried_table),{'tr_dbid':targetword.dbid,'this_id':sourceword.dbid})
         self.targetword = tokenid
         
-
-
-
-
-
-
 class Word:
     """A word object containing all the morhpological and syntactic information"""
     def __init__(self,row):
