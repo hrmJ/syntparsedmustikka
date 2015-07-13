@@ -540,7 +540,7 @@ class Match:
                 parallel_sentence_ids_reordered.append(psid)
 
         self.BuildSentencePrintString()
-        parmenu = multimenu({'y':'yes','n':'no'})
+        parmenu = multimenu({'y':'yes','n':'no','s':'syntactically dissimilar'})
         parmenu.question = 'Is this the correct matching word?'
         found = False
         #Iterate over the paralallel sentences:
@@ -565,6 +565,12 @@ class Match:
                                 self.parallelword = word
                                 found = True
                                 break
+                            elif parmenu.answer =='s':
+                                self.parallelsentence = sentence
+                                self.parallelword = None
+                                found = True
+                                break
+
                 except KeyError:
                     input('There is no such lemma as <{}> listed in the lemmadict!'.format(self.matchedword.lemma))
         if not found:
