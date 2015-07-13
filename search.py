@@ -395,6 +395,7 @@ class Match:
         alignsegment = the segment the matching sentence is a part of
         matchid = the tokenid ('how manyth word/punct in the sentence?') of the word  that matched
         """
+        #import random;x= mySearch.matches[random.choice(list(mySearch.matches.keys()))][0]
         #self.text_id = text_id
         self.context = alignsegment
         self.matchedsentence = alignsegment[sentence_id]
@@ -455,7 +456,7 @@ class Match:
                 #Surround the match with <>
                 self.matchedsentence.printstring += spacechar + '<' + word.token  + '>'
                 self.matchedsentence.Headhlprintstring += spacechar + '<<' + word.token  + '>>Y'
-                self.matchedsentence.colorprintstring += spacechar + colored(word.token,'green')
+                self.matchedsentence.colorprintstring += spacechar + bcolors.GREEN + word.token + bcolors.ENDC 
             elif word.tokenid == self.matchedword.head:
                 self.matchedsentence.Headhlprintstring += spacechar + '<' + word.token  + '>X'
                 self.matchedsentence.printstring += spacechar + word.token
@@ -466,10 +467,16 @@ class Match:
                 self.matchedsentence.Headhlprintstring += spacechar + word.token
             self.matchedsentence.cleanprintstring += spacechar + word.token
 
-    def LocateTargetWord(self, matchlemmas):
+    def LocateTargetWord(self, search):
         """ask the user to locate the target work in the match and mark it in the database / search object
-        The goal here is to record the dbid of the word in the parallel segment
+        The goal here is to give values to 3 attributes of the match:
+        ============================
+        - parallelcontext (already given)
+        - parallelsentence
+        - parallelword
         """
+        self.parallelsentence = None
+        self.parallelword = None
         #First, find out how manyth sentence the matched word is located in in the source language:
         sentence_in_segment = list(self.context.keys()).index(self.matchedsentence.sentence_id)
         #Then, first try the sameth element in the tl segment's sentences
@@ -486,19 +493,62 @@ class Match:
                 parallel_sentence_ids_reordered.append(psid)
 
         self.BuildSentencePrintString()
-        #Iterate over the pralallel sentences:
+        parmenu = multimenu({'y':'yes','n':'no'})
+        parmenu.question = 'Is this the correct matching word?'
+        found = False
+        #Iterate over the paralallel sentences:
         for sentence_id in parallel_sentence_ids_reordered:
             sentence = self.parallelcontext[sentence_id]
             #iterate over words in this sentence
             for tokenid, word in sentence.words.items():
                 try:
-                    for matchlemma in matchlemmas[self.matchedword.lemma]:
+                    for matchlemma in search.matchlemmas[self.matchedword.lemma]:
                         #In a fixed order, check whether this word's lemma is listed as a possible translation
                         if word.lemma == matchlemma:
                             sentence.BuildPrintString(word.tokenid)
-                            sentence.PrintTargetSuggestion(self.matchedsentence.colorprintstring)
+                            #Clear terminal output:
+                            os.system('cls' if os.name == 'nt' else 'clear')
+                            print('\n'*15)
+                            sentence.PrintTargetSuggestion(self.matchedsentence.printstring)
+                            if parmenu.prompt_valid() == 'y':
+                                #save the information about the target word/sentence
+                                self.parallelsentence = sentence
+                                self.parallelword = word
+                                found = True
+                                break
                 except KeyError:
-                    input('There is no lemma <{}> listed in the lemmadict!'.format(self.matchedword.lemma))
+                    input('There is no such lemma as <{}> listed in the lemmadict!'.format(self.matchedword.lemma))
+        if not found:
+            #if nothing was found or nothing was an actual match
+            sentencemenu = multimenu({})
+            sid = 1
+            #Clear terminal output:
+            os.system('cls' if os.name == 'nt' else 'clear')
+            for sentence_id, sentence in self.parallelcontext.items():
+                #print all the alternatives again:
+                sentence.BuildPrintString(word.tokenid)
+                print('{}:{}'.format(sid,sentence_id))
+                sentence.PrintTargetSuggestion(self.matchedsentence.printstring)
+                sentencemenu.validanswers[str(sid)] = sentence_id
+                sid += 1
+            sentencemenu.prompt_valid('Which sentence is the closest match to the source sentence?')
+            pickedsentence = self.parallelcontext[int(sentencemenu.validanswers[sentencemenu.answer])]
+            #set the sentence as the matching one
+            self.parallelsentence = pickedsentence
+            wordmenu = multimenu({})
+            for tokenid, word in pickedsentence.words.items():
+                if word.token not in string.punctuation:
+                    wordmenu.validanswers[str(tokenid)] = word.token
+            wordmenu.cancel = 'No single word can be specified'
+            wordmenu.prompt_valid('Wich word is the closest match to {}?'.format(self.matchedword.token))
+            if wordmenu.answer != 'n':
+                self.parallelword = pickedsentence.words[int(wordmenu.answer)]
+                addmenu = multimenu({'y':'yes','n':'no'}, 'Should {} be added as another possinle translation for {}?'.format(self.parallelword.lemma, self.matchedword.lemma))
+                if addmenu.answer == 'y':
+                    search.matchlemmas[self.matchedword.lemma].append(self.parallelword.lemma)
+
+
+                
 
 
 class Sentence:
@@ -643,9 +693,9 @@ class TargetSentence(Sentence):
         """Constructs a printable sentence and highliths the candidate for target match
         """
         self.printstring = ''
+        self.colorprintstring = ''
         #create an string also without the higlight
         self.cleanprintstring = ''
-        self.Headhlprintstring = ''
         isqmark = False
         for idx in sorted(self.words.keys()):
             spacechar = ' '
@@ -682,7 +732,11 @@ class TargetSentence(Sentence):
             #if this word is the target candidate
             if word.tokenid == candidateid:
                 #paint the possible target word red
-                self.printstring += spacechar + colored(word.token, 'red')
+                self.colorprintstring += spacechar + bcolors.RED + word.token + bcolors.ENDC
+                self.printstring += spacechar + '<<' + word.token  + '>>'
+            else:
+                self.printstring += spacechar + word.token
+                self.colorprintstring += spacechar + word.token
             self.cleanprintstring += spacechar + word.token
 
     def PrintTargetSuggestion(self, sourcecontext):
@@ -691,9 +745,20 @@ class TargetSentence(Sentence):
         table = Texttable()
         table.set_cols_align(["l", "l"])
         table.set_cols_valign(["m", "m"])
-        table.add_rows([[self.printstring, sourcecontext]])
+        table.add_rows([['Original sentence','proposed sentence in the TL segment'],[get_color_string(bcolors.BLUE,sourcecontext), get_color_string(bcolors.RED,self.printstring)]])
         #print the suggestion as a table
         print(table.draw() + "\n")
+
+    def SetTargetWord(self,tokenid):
+        """Sets the target word"""
+        #save the information in the database
+        #con = psycopg(parentSearch.queried_db,'juho')
+        #con.query('UPDATE {} SET tr_did = %(tr_dbid)s WHERE id = %(this_id)s'.format(parentSearch.queried_table),{'tr_dbid':targetword.dbid,'this_id':sourceword.dbid})
+        self.targetword = tokenid
+        
+
+
+
 
 
 
