@@ -558,10 +558,6 @@ class Match:
                     search.matchlemmas[self.matchedword.lemma].append(self.parallelword.lemma)
 
 
-                
-
->>>>>>> bf7ea87f82079e42ac3d54d4ed58fb20993f615d
-
 class Sentence:
     """
     The sentence consists of words (which can actually also be punctuation marks).
