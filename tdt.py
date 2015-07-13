@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 from deptypetools import  LogNewDeprel, simpleupdate, makeSearch, log, DependentToHead, DependentSameAsHead, DepTypeUpdater
+import deptypetools
 from interface import printResults
 import rel_tdt
 import os.path
@@ -22,12 +23,12 @@ def obj(dbcon=False):
     
     """
 
-    updater = DepTypeUpDater(dbcon, 'fi_conll', 'Create the category of obj in the TDT data')
+    updater = deptypetools.DepTypeUpdater(dbcon, 'fi_conll', 'Create the category of obj in the TDT data')
+    #2. Nimeä dobj obj:ksi
     updater.rename('dobj','obj')
-
     #2. Infinitiivien subjektit, jotka voisi luokitella obj
-    thisSearch = makeSearch(database=dbcon.dbname, dbtable='fi_conll', ConditionColumns={'?feat':'%CASE_Acc%'}, headcond={'column':'deprel','values': ('iccomp',)})
-    DependentSameAsHead(dbcon=dbcon,thisSearch=thisSearch, dbtable='fi_conll', matchdep='obj')
+    updater.search = makeSearch(database=dbcon.dbname, dbtable='fi_conll', ConditionColumns={'?feat':'%CASE_Acc%'}, headcond={'column':'deprel','values': ('iccomp',)})
+    updater.Update(updateType='DependentOfSameAsHead',matchdep='obj', message='Making subjects of infinitives objects of the finite verb..')
 
 def rel(dbcon=False):
     """
@@ -66,9 +67,8 @@ def nommod(dbcon=False):
     
     """
 
-    LogNewDeprel('Create the category of nommod and nommod-own in the TDT data')
-    dbcon.query('UPDATE fi_conll SET contr_deprel = deprel WHERE deprel in %(deprel)s',{'deprel':('nommod','nommod-own')})
-    log('Copied the nommod and nommod-own categories from tdt ')
+    updater = deptypetools.DepTypeUpdater(dbcon, 'fi_conll', 'Create the category of nommod and nommod-own in the TDT data')
+    updater.UseOriginals(('nommod','nommod_own','punct','nsubj', 'ROOT'))
 
 def advmod(dbcon=False):
     """ Muokkaan SN-jäsennyksen obst-kategoriaa ja
@@ -77,11 +77,13 @@ def advmod(dbcon=False):
     obst-kategorian sanat, joiden sanaluokka on adverbi (ja jotka
     automaattisesti ovat myös verbin dependenttejä) ja TDT-jäsennyksestä ne
     advmod-kategorian sanat, jotka ovat verbin dependenttejä.
+
+    *juuri niin* -tapaukset: kun pääsana ei verbi ... attr?
     """
 
-    LogNewDeprel('Create the advmod category in tdt')
-    thisSearch = makeSearch(database=dbcon.dbname, dbtable='fi_conll', ConditionColumns={'deprel':('advmod',),'pos':('Adv',)}, headcond={'column':'pos','values': ('V',)})
-    simpleupdate(thisSearch,dbcon,deprel='advmod',dbtable='fi_conll')
+    updater = deptypetools.DepTypeUpdater(dbcon, 'fi_conll', 'Create the category of advmod  in the TDT data')
+    updater.search = makeSearch(database=dbcon.dbname, dbtable='fi_conll', ConditionColumns={'deprel':('advmod',),'pos':('Adv',)}, headcond={'column':'pos','values': ('V',)})
+    updater.simpleupdate(deprel='advmod')
 
 def infcomp(dbcon=False):
     """Muokkaan kontrastiivista analyysikerrosta varten SN-analyysiä siten,
@@ -113,16 +115,29 @@ def infcomp(dbcon=False):
 
     ks. github #22
 
+    Riippuvuusketjut muuttuvat ongelmallisiksi, jos on useampi infinitiiviriippuvuus
+    samassa lauseessa!!!
+    Mahdollisesti ratkaisua 
+    - päivittäessä tarkistaa tämän erikseen
+    - tempdeprel-kerros
+    - dbid contr_deprel-listassa
+    - muita..
+
+    TOISTAISEKSI pidetään pienempi paha, ja annetaan muiden riippuvuuksien edelleen
+    olla kiinni PÄÄVERBISSÄ. Tämä on lopulta vertailun mahdollistava ratkaisu, kun SN-
+    analyysissa ei useinkaan ole apuverbiä siinä missä se on tdt:ssä
+
+
     """
 
-    LogNewDeprel('Create the category of infcomp in the TDT data')
+    updater = deptypetools.DepTypeUpdater(dbcon, 'fi_conll', 'Create the category of infcomp in the TDT data')
     #1. iccomp- ja xcomp-tapaukset vain nimetään uudelleen infcomp:ksi
-    dbcon.query('UPDATE fi_conll SET contr_deprel = %(contrdep)s WHERE deprel in %(deprel)s ',{'contrdep':'infcomp','deprel':('iccomp','xcomp')})
+    #updater.rename(('iccomp','xcomp'),'infcomp',oldaslist=True)
     #2. neg, aux- ja auxpass-tapauksissa riippuvuussuunta pitää kääntää
-    thisSearch = makeSearch(database=dbcon.dbname,dbtable='fi_conll',  ConditionColumns={'deprel':('auxpass','aux','neg')})
-    DependentToHead(dbcon=dbcon,thisSearch=thisSearch,dbtable='fi_conll',matchdep='head',headdep='infcomp')
+    updater.search = makeSearch(database=dbcon.dbname,dbtable='fi_conll',  ConditionColumns={'deprel':('auxpass','aux','neg')})
+    updater.Update(updateType='DependentBecomesHead', headdep='infcomp')
     #3. Infinitiivimuotoiset Csubj-cop ja csubj (haverinen esim. 182)
-    dbcon.query('UPDATE fi_conll SET contr_deprel = %(contrdep)s WHERE deprel IN %(deprel)s AND feat LIKE %(feat)s',{'contrdep':'infcomp','deprel':('csubj-cop','csubj'),'feat':'%INF_Inf1'})
+    updater.updateByQuery(contr_deprel = 'infcomp', where='deprel IN %(deprel)s AND feat LIKE %(feat)s', valuedict={'deprel':('csubj-cop','csubj'),'feat':'%INF_Inf1'}, message='Making csubj-cop and csubj infcomp')
 
 def semsubj(dbcon=False):
     """Otan kontrastiivista analyysikerrosta varten käyttöön termin semsubj
@@ -145,9 +160,9 @@ def semsubj(dbcon=False):
     On huomioitava myös tapaukset, joissa ei ole genetiivimuotoista nsubjektia!
 
     """
-    LogNewDeprel('Create the semsubj category in SN')
-    thisSearch = makeSearch(database=dbcon.dbname,dbtable='fi_conll',  ConditionColumns={'deprel':('nsubj',),'?feat':'%CASE_Gen%'},headcond={'column':'pos','values':('V',)})
-    simpleupdate(thisSearch, dbcon, deprel='semsubj',dbtable='fi_conll')
+    updater = deptypetools.DepTypeUpdater(dbcon, 'fi_conll', 'Create the semsubj category in SN')
+    updater.search = makeSearch(database=dbcon.dbname,dbtable='fi_conll',  ConditionColumns={'deprel':('nsubj',),'?feat':'%CASE_Gen%'},headcond={'column':'pos','values':('V',)})
+    updater.simpleupdate(deprel='semsubj')
 
 def prdctv(dbcon=False):
     """Tämä tarkoittaa käytännössä sitä, että TDT-jäsennetyn aineiston
@@ -171,16 +186,16 @@ def prdctv(dbcon=False):
 
     """
 
-    LogNewDeprel('Create the prdctv category in tdt')
-    thisSearch = makeSearch(database=dbcon.dbname, dbtable='fi_conll', ConditionColumns={'deprel':('nsubj-cop',)})
+    updater = deptypetools.DepTypeUpdater(dbcon, 'fi_conll', 'Create the prdctv category in tdt')
+    updater.search = makeSearch(database=dbcon.dbname, dbtable='fi_conll', ConditionColumns={'deprel':('nsubj-cop',)})
     log('Change nsubj-cop to subj')
     #Change the deprel of nsubj-cop to always be nsubj
-    simpleupdate(thisSearch,dbcon,deprel='nsubj',dbtable='fi_conll')
+    updater.simpleupdate(deprel='nsubj')
     #Update the contrastive layer for nsubj-cop and cop
     nocopula = list()
     contr_heads = list()
     contr_deprels = list()
-    for key, matchlist in thisSearch.matches.items():
+    for key, matchlist in updater.search.matches.items():
         for match in matchlist:
             try:
                 prdctv = match.matchedsentence.words[match.matchedword.head]
@@ -231,9 +246,9 @@ def cop(dbcon=False):
     jäsennystapa sopii yhteen sen kanssa, miten SN-aineistossa usein analysoidaan
     vastaavantyyppisiä rakenteita."""
 
-    LogNewDeprel('Create the cop category in tdt')
-    thisSearch = makeSearch(database=dbcon.dbname, dbtable='fi_conll', ConditionColumns={'deprel':('cop',),'contr_dep':('gdep',)})
-    simpleupdate(thisSearch,dbcon,deprel='cop',dbtable='fi_conll')
+    updater = deptypetools.DepTypeUpdater(dbcon, 'fi_conll', 'Create the cop category in tdt')
+    updater.search = makeSearch(database=dbcon.dbname, dbtable='fi_conll', ConditionColumns={'deprel':('cop',),'contr_deprel':('gdep',)})
+    updater.simpleupdate(deprel='cop')
 
 def prtcl(dbcon=False):
     """
@@ -242,9 +257,9 @@ def prtcl(dbcon=False):
     kontrastiivisen analyysin prtcl-luokkaa.
     """
 
-    LogNewDeprel('Create the prtcl category in TDT')
-    thisSearch = makeSearch(database=dbcon.dbname, dbtable = 'fi_conll', ConditionColumns={'deprel':('prt',)})
-    simpleupdate(thisSearch, dbcon, deprel='prtcl',dbtable='fi_conll')
+    updater = deptypetools.DepTypeUpdater(dbcon, 'fi_conll', 'Create the prtcl category in TDT')
+    updater.search = makeSearch(database=dbcon.dbname, dbtable = 'fi_conll', ConditionColumns={'deprel':('prt',)})
+    updater.simpleupdate(deprel='prtcl')
 
 def cdep(dbcon=False):
     """
@@ -267,9 +282,9 @@ def cdep(dbcon=False):
     argumentti. Tarkempi informaatio ei sinänsä katoa, sillä se on edelleen läsnä
     kielikohtaisissa jäsennyksissä.
     """
-    LogNewDeprel('Create the cdep category in TDT')
-    thisSearch = makeSearch(database=dbcon.dbname, dbtable = 'fi_conll', ConditionColumns={'deprel':('advcl','ccomp')})
-    simpleupdate(thisSearch, dbcon, deprel='cdep',dbtable='fi_conll')
+    updater = deptypetools.DepTypeUpdater(dbcon, 'fi_conll', 'Create the cdep category in TDT')
+    updater.search = makeSearch(database=dbcon.dbname, dbtable = 'fi_conll', ConditionColumns={'deprel':('advcl','ccomp')})
+    updater.simpleupdate(deprel='cdep')
 
 def adpos(dbcon=False):
     """
@@ -283,10 +298,10 @@ def adpos(dbcon=False):
     adpositiorakenteita, jotka on analysoitu квазиагент-luokkaan.
     """
 
-    LogNewDeprel('Create the adpos category in TDT')
+    updater = deptypetools.DepTypeUpdater(dbcon, 'fi_conll', 'Create the adpos category in TDT')
     #Käännä riippuvuus ja tee entisestä pääsanasta adpos
-    thisSearch = makeSearch(database=dbcon.dbname,dbtable='fi_conll',  ConditionColumns={'deprel':('adpos',)})
-    DependentToHead(dbcon=dbcon,thisSearch=thisSearch,dbtable='fi_conll',matchdep='head',headdep='adpos')
+    updater.search = makeSearch(database=dbcon.dbname,dbtable='fi_conll',  ConditionColumns={'deprel':('adpos',)})
+    updater.Update(updateType='DependentBecomesHead',matchdep='head',headdep='adpos')
 
 def attr(dbcon=False):
     """Kaikkiin kielen tilanteisiin tarkoitettujen jäsenninten on luonnollisesti pyrittävä mahdollisimman
@@ -300,9 +315,9 @@ def attr(dbcon=False):
     kontrastiiviseen analyysikerrokseen muodostuu erittäin suuri alempien dependenssitasojen luokka, jota
     merkitään nimityksellä attr."""
 
-    LogNewDeprel('create the attr category in TDT')
-    thisSearch = makeSearch(database=dbcon.dbname, dbtable='fi_conll', ConditionColumns={'deprel':('amod','det','quantmod','poss')})
-    simpleupdate(thisSearch,dbcon,deprel='attr',dbtable='fi_conll')
+    updater = deptypetools.DepTypeUpdater(dbcon, 'fi_conll', 'create the attr category in TDT')
+    updater.search = makeSearch(database=dbcon.dbname, dbtable='fi_conll', ConditionColumns={'deprel':('amod','det','quantmod','poss')})
+    updater.simpleupdate(deprel='attr')
 
 def conj(dbcon=False):
     """
@@ -328,12 +343,12 @@ def conj(dbcon=False):
     rinnastuskonjunktioita, luokitellaan conj-kategoriaan.
 
     """
-    LogNewDeprel('Create the conj category in TDT')
-    thisSearch = makeSearch(database=dbcon.dbname, dbtable='fi_conll', ConditionColumns={'deprel':('conj','parataxis')})
-    simpleupdate(thisSearch,dbcon,deprel='conj',dbtable='fi_conll')
+    updater = deptypetools.DepTypeUpdater(dbcon, 'fi_conll', 'Create the conj category in TDT')
+    updater.search = makeSearch(database=dbcon.dbname, dbtable='fi_conll', ConditionColumns={'deprel':('conj','parataxis')})
+    updater.simpleupdate(deprel='conj')
     LogNewDeprel('Create the cc category in TDT')
-    thisSearch = makeSearch(database=dbcon.dbname, dbtable='fi_conll', ConditionColumns={'deprel':('cc',)})
-    simpleupdate(thisSearch,dbcon,deprel='cc',dbtable='fi_conll')
+    updater.search = makeSearch(database=dbcon.dbname, dbtable='fi_conll', ConditionColumns={'deprel':('cc',)})
+    updater.simpleupdate(deprel='cc')
 
 def fixChains(dbcon=False):
     """Lopuksi saattaa olla tarve korjata joitakin vääriä
@@ -343,4 +358,4 @@ def fixChains(dbcon=False):
 
     LogNewDeprel('Fix auxes to infcomp')
     dbcon.query('UPDATE fi_conll SET contr_deprel = %(contrdep)s WHERE  contr_deprel IN %(oldcontrdep)s',{'contrdep':'infcomp','oldcontrdep':('aux','auxpass','neg')})
-    logging.info('to be updated: {} database rows.'.format(dbcon.cur.rowcount))
+    log('to be updated: {} database rows.'.format(dbcon.cur.rowcount))

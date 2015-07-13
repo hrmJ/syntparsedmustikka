@@ -27,21 +27,21 @@ def createContrastiveLayer(con):
     #sn.attr(con)
     #sn.nommod(con)
     #TDT:----------------------------------------
-    #tdt.gdep(con)
+    tdt.gdep(con)
     tdt.rel(con)
-    #tdt.obj(con)
-    #tdt.nsubj(con)
-    #tdt.nommod(con)
-    #tdt.advmod(con)
-    #tdt.infcomp(con)
-    #tdt.prtcl(con)
-    #tdt.prdctv(con)
-    #tdt.semsubj(con)
-    #tdt.cop(con)
-    #tdt.attr(con)
-    #tdt.cdep
-    #tdt.conj
-    #tdt.fixChains(con) # last
+    tdt.obj(con)
+    tdt.nsubj(con)
+    tdt.nommod(con)
+    tdt.advmod(con)
+    tdt.infcomp(con)
+    tdt.prtcl(con)
+    tdt.prdctv(con)
+    tdt.semsubj(con)
+    tdt.cop(con)
+    tdt.attr(con)
+    tdt.cdep(con)
+    tdt.conj(con)
+    tdt.fixChains(con) # last
 
     # Commit:
     con.connection.commit()

@@ -73,6 +73,8 @@ class Search:
         self.queried_table = Db.searched_table
         #Change the default connection:
         Db.con = mydatabase(queried_db,'juho')
+        #Initialize a log for errors associated with this search
+        self.errorLog = ''
 
     def Save(self):
         """Save the search object as a pickle file"""
@@ -120,8 +122,8 @@ class Search:
         The search.subquery attribute can be any query that selects a group of align_ids
         From the syntpar...databases
         """
-        sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id"
-        sqlq = "SELECT {0} FROM {1} WHERE align_id in ({2}) order by align_id, id".format(sql_cols, Db.searched_table, self.subquery)
+        sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id, contr_deprel, contr_head"
+        sqlq = "SELECT {0} FROM {1} WHERE align_id in ({2}) AND text_id = 5 order by align_id, id".format(sql_cols, Db.searched_table, self.subquery)
         wordrows = Db.con.dictquery(sqlq,self.subqueryvalues)
         print('Analyzing...')
         self.pickFromAlign_ids(wordrows)
@@ -396,6 +398,13 @@ class Match:
                 self.matchedsentence.Headhlprintstring += spacechar + word.token
             self.matchedsentence.cleanprintstring += spacechar + word.token
 
+    def CatchHead(self):
+        """Store the matches head in a separate object,if possible. If not, return the sentence's id"""
+        try:
+            self.headword = self.matchedsentence.words[self.matchedword.head]
+            return True
+        except KeyError:
+            return False
 
 class Sentence:
     """
@@ -538,6 +547,7 @@ class Word:
         self.sourcetextid = row["text_id"]
         #The general id in the db conll table
         self.dbid =  row["id"]
+        self.contr_deprel =  row["contr_deprel"]
 
     def printAttributes(self):
         print('Attributes of the word:\n token = {} \n lemma = {} \n feat = {} \n  pos = {}'.format(self.token,self.lemma,self.feat,self.pos))
