@@ -13,6 +13,7 @@ class Menu:
             self.answer=input(question)
             while self.answer not in self.validanswers.keys():
                 self.answer = input("Please give a valid answer.\n {}".format(question))
+            return self.answer
 
     def prompt(self,definedquestion=''):
             if definedquestion:

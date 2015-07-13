@@ -13,6 +13,8 @@ import pickle
 #local modules
 from dbmodule import mydatabase, psycopg
 from menus import Menu, multimenu, yesnomenu 
+from itertools import chain
+from texttable import Texttable, get_color_string, bcolors
 #classes
 
 class Db:
@@ -125,6 +127,8 @@ class Search:
         wordrows = Db.con.dictquery(sqlq,self.subqueryvalues)
         print('Analyzing...')
         self.pickFromAlign_ids(wordrows)
+
+
 
     def pickFromAlign_ids(self, wordrows):
         """Process the data from database query
@@ -320,6 +324,8 @@ class Search:
         #if the lemmas have not yet been listed:
         try:
             self.matchlemmas = self.matchlemmas
+            if not self.matchlemmas:
+                raise(AttributeError)
         except AttributeError:
             print('Fetching the lemmas, please wait...')
             self.listMatchids()
@@ -327,8 +333,53 @@ class Search:
             self.listMatchids()
             sqlq = "SELECT DISTINCT lemma FROM {table} WHERE id in %(ids)s".format(table = self.queried_table)
             ('Fetching all the source lemmas')
-            self.matchlemmas = con.query(sqlq,{'ids':self.idlist})
+            self.matchlemmas = con.FetchQuery(sqlq,{'ids':self.idlist})
+            self.matchlemmas = list(chain.from_iterable(self.matchlemmas))
 
+    def ListMatchLemmaTranslations(self):
+        """
+        Ask the user to specify probable translation for each lemma of the matches in the search.
+        
+        This is a rather temporary method that will be removed and made database-driven when I have time"""
+        self.ListMatchLemmas()
+        matchlemmadict = dict()
+        askmenu =  multimenu({'n':'insert next possible match in target language','q':'Finnish inserting possible matches for this word'})
+        for lemma in self.matchlemmas:
+            matchlemmadict[lemma] = list()
+            while askmenu.prompt_valid(definedquestion = 'Source lemma: {}'.format(lemma)) == 'n':
+                matchlemmadict[lemma].append(input('Give the possible matching lemma:\n>'))
+        self.matchlemmas = matchlemmadict
+
+
+
+    def FindParallelSegmentsAfterwards(self):
+        """This is used for searches done in the phase of development where originally 
+        only one language is retrieved"""
+
+        #Set the right target language
+        if self.queried_table == 'fi_conll':
+            self.parallel_table = 'ru_conll'
+        elif self.queried_table == 'ru_conll':
+            self.parallel_table = 'fi_conll'
+
+        sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id, contr_deprel, contr_head"
+        sqlq = "SELECT {0} FROM {1} WHERE align_id in %(ids)s order by align_id, id".format(sql_cols, self.parallel_table)
+        print('Quering the database, this might take a while...')
+        wordrows = Db.con.dictquery(sqlq,{'ids':tuple(self.matches.keys())})
+        print('Analyzing...')
+        #for matchindex, matches in self.matches.items():
+        self.parallel_aligns = dict()
+        for wordrow in wordrows:
+            if wordrow['align_id'] not in self.parallel_aligns:
+                self.parallel_aligns[wordrow['align_id']] = dict()
+            if wordrow['sentence_id'] not in self.parallel_aligns[wordrow['align_id']]:
+                self.parallel_aligns[wordrow['align_id']][wordrow['sentence_id']] = TargetSentence(wordrow['sentence_id'])
+            self.parallel_aligns[wordrow['align_id']][wordrow['sentence_id']].words[wordrow['tokenid']] = Word(wordrow)
+        print('Assign the correct target segment for each match...')
+        for align_id, matches in self.matches.items():
+            for match in matches:
+                match.parallelcontext = self.parallel_aligns[align_id]
+        print('Done.')
 
 class Match:
     """ 
@@ -364,6 +415,7 @@ class Match:
         self.matchedsentence.printstring = ''
         #create an string also without the higlight
         self.matchedsentence.cleanprintstring = ''
+        self.matchedsentence.colorprintstring = ''
         self.matchedsentence.Headhlprintstring = ''
         isqmark = False
         for idx in sorted(self.matchedsentence.words.keys()):
@@ -403,13 +455,50 @@ class Match:
                 #Surround the match with <>
                 self.matchedsentence.printstring += spacechar + '<' + word.token  + '>'
                 self.matchedsentence.Headhlprintstring += spacechar + '<<' + word.token  + '>>Y'
+                self.matchedsentence.colorprintstring += spacechar + colored(word.token,'green')
             elif word.tokenid == self.matchedword.head:
                 self.matchedsentence.Headhlprintstring += spacechar + '<' + word.token  + '>X'
                 self.matchedsentence.printstring += spacechar + word.token
+                self.matchedsentence.colorprintstring += spacechar + word.token
             else:
                 self.matchedsentence.printstring += spacechar + word.token
+                self.matchedsentence.colorprintstring += spacechar + word.token
                 self.matchedsentence.Headhlprintstring += spacechar + word.token
             self.matchedsentence.cleanprintstring += spacechar + word.token
+
+    def LocateTargetWord(self, matchlemmas):
+        """ask the user to locate the target work in the match and mark it in the database / search object
+        The goal here is to record the dbid of the word in the parallel segment
+        """
+        #First, find out how manyth sentence the matched word is located in in the source language:
+        sentence_in_segment = list(self.context.keys()).index(self.matchedsentence.sentence_id)
+        #Then, first try the sameth element in the tl segment's sentences
+        parallel_sentence_ids = list(self.parallelcontext.keys())
+        try:
+            match_sentence_id = parallel_sentence_ids[sentence_in_segment]
+        except KeyError:
+            #If there are less sentences in the target, start with the first sentence
+            match_sentence_id = parallel_sentence_ids[0]
+        #Reorder the parallel sentences so that the one that is the sameth as in the match will by tried first
+        parallel_sentence_ids_reordered = [match_sentence_id]
+        for psid in parallel_sentence_ids:
+            if psid != match_sentence_id:
+                parallel_sentence_ids_reordered.append(psid)
+
+        self.BuildSentencePrintString()
+        #Iterate over the pralallel sentences:
+        for sentence_id in parallel_sentence_ids_reordered:
+            sentence = self.parallelcontext[sentence_id]
+            #iterate over words in this sentence
+            for tokenid, word in sentence.words.items():
+                try:
+                    for matchlemma in matchlemmas[self.matchedword.lemma]:
+                        #In a fixed order, check whether this word's lemma is listed as a possible translation
+                        if word.lemma == matchlemma:
+                            sentence.BuildPrintString(word.tokenid)
+                            sentence.PrintTargetSuggestion(self.matchedsentence.colorprintstring)
+                except KeyError:
+                    input('There is no lemma <{}> listed in the lemmadict!'.format(self.matchedword.lemma))
 
 
 class Sentence:
@@ -539,6 +628,75 @@ class Sentence:
                 self.dependentDict_prints[str(tokenid)] = word.token
         self.dependentlist = dependents
 
+
+class TargetSentence(Sentence):
+    """This is specially for the sentences in the parallel context. The main difference from 
+    original sentences is that match"""
+    def __init__(self, sentence_id):
+        self.sentence_id = sentence_id
+        #initialize a dict of words. The word's ids in the sentence will be used as keys
+        self.words = dict()
+        #By default, the sentence's matchids attribute is an empty list = no matches in this sentence
+        self.targetword = None
+
+    def BuildPrintString(self, candidateid):
+        """Constructs a printable sentence and highliths the candidate for target match
+        """
+        self.printstring = ''
+        #create an string also without the higlight
+        self.cleanprintstring = ''
+        self.Headhlprintstring = ''
+        isqmark = False
+        for idx in sorted(self.words.keys()):
+            spacechar = ' '
+            word = self.words[idx]
+            try:
+                previous_word = self.words[idx-1]
+                #if previous tag is a word:
+                if previous_word.pos != 'Punct' and previous_word.token not in string.punctuation:
+                    #...and the current tag is a punctuation mark. Notice that exception is made for hyphens, since in mustikka they are often used as dashes
+                    if word.token in string.punctuation and word.token != '-':
+                        #..don't insert whitespace
+                        spacechar = ''
+                        #except if this is the first quotation mark
+                        if word.token == '\"' and not isqmark:
+                            isqmark = True
+                            spacechar = ' '
+                        elif word.token == '\"' and isqmark:
+                            isqmark = False
+                            spacechar = ''
+                #if previous tag was not a word
+                elif previous_word.token in string.punctuation:
+                    #...and this tag is a punctuation mark
+                    if (word.token in string.punctuation and word.token != '-' and word.token != '\"') or isqmark:
+                        #..don't insert whitespace
+                        spacechar = ''
+                    if previous_word.token == '\"':
+                        spacechar = ''
+                        isqmark = True
+                    else:
+                        spacechar = ' '
+            except:
+                #if this is the first word
+                spacechar = ''
+            #if this word is the target candidate
+            if word.tokenid == candidateid:
+                #paint the possible target word red
+                self.printstring += spacechar + colored(word.token, 'red')
+            self.cleanprintstring += spacechar + word.token
+
+    def PrintTargetSuggestion(self, sourcecontext):
+        """Print, for the user to compare, a context:"""
+        #Initialize table printer
+        table = Texttable()
+        table.set_cols_align(["l", "l"])
+        table.set_cols_valign(["m", "m"])
+        table.add_rows([[self.printstring, sourcecontext]])
+        #print the suggestion as a table
+        print(table.draw() + "\n")
+
+
+
 class Word:
     """A word object containing all the morhpological and syntactic information"""
     def __init__(self,row):
@@ -556,3 +714,7 @@ class Word:
 
     def printAttributes(self):
         print('Attributes of the word:\n token = {} \n lemma = {} \n feat = {} \n  pos = {}'.format(self.token,self.lemma,self.feat,self.pos))
+
+
+######################################################################
+

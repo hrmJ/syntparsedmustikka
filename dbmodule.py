@@ -23,6 +23,16 @@ class psycopg:
             print("Somerthing wrong with the query")
             print ("Psql gives the error: {}".format(e.pgerror))
 
+    def FetchQuery(self, SQL,valuetuple=("empty",)):
+        " Query with a non-dictionary cursor "
+        try:
+            self.cur.execute(SQL, valuetuple)
+            return self.cur.fetchall()
+        except psycopg2.Error as e:
+            print("Something wrong with the query")
+            print(SQL)
+            print ("Psql gives the error: {}".format(e.pgerror))
+
     def BatchUpdate(self,table,updates):
         """Do updates for large amounts of data
         ===================================================
