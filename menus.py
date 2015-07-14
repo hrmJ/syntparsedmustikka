@@ -9,6 +9,7 @@ class Menu:
             if definedquestion:
                 self.question = definedquestion
             if len(self.validanswers) > 10:
+                dontchangequestion=False
                 #If there are lots of options, arrange them in columns:
                 colcount = 0
                 optioncols = list()
@@ -26,7 +27,13 @@ class Menu:
                         colaligns.append("l") 
                 table.set_cols_align(colaligns)
                 table.add_rows([optioncols])
-                print(table.draw() + "\n")
+                try:
+                    print(table.draw() + "\n")
+                except ValueError:
+                    options = '\n                '.join("{!s}: {!s}".format(key,val) for (key,val) in sorted(self.validanswers.items()))
+                    question = "{}\n{}{}\n>".format(self.question,'                ',options)
+                    dontchangequestion = True
+                #############
                 try:
                     cancelletter = 'n'
                     while cancelletter in self.validanswers:
@@ -36,7 +43,8 @@ class Menu:
                 except AttributeError:
                     print('nn: none of these')
                     self.validanswers.update({'nn':'cancelled'})
-                question = self.question + "\n>"
+                if not dontchangequestion:
+                    question = self.question + "\n>"
             else:
                 #Make a printable string from the dict:
                 options = '\n                '.join("{!s}: {!s}".format(key,val) for (key,val) in sorted(self.validanswers.items()))

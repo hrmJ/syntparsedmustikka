@@ -16,6 +16,9 @@ from menus import Menu, multimenu, yesnomenu
 from itertools import chain
 from progress.bar import Bar
 from texttable import Texttable, get_color_string, bcolors
+import time
+import datetime
+from statistics import mean
 
 class Db:
     """ A class to include some shared properties for the search and
@@ -411,10 +414,24 @@ class Search:
         #matchestoprocess.append(match)
         self.CountMatches({'rejectreason':'','postprocessed':True,'aligned':False})
         bar = Bar('Processing', max=self.matchcount)
+        elapsedtimes = list()
+        done = 0
         for key, matches in self.matches.items():
             for match in matches:
                 if match.WillBeProcessed:
-                    match.LocateTargetWord(self,bar)
+                    start = time.time()
+                    #####
+                    match.LocateTargetWord(self)
+                    #####
+                    elapsedtimes.append(time.time() - start)
+                    avgtime = mean(elapsedtimes)
+                    done +=1
+                    timetogo = str(datetime.timedelta(seconds=(self.matchcount-done)*int(avgtime)))
+                    pace = str(int(60/avgtime*10)) + '/10 min'
+                    bar.next()
+                    text = colored('\nTime used for the most recent: {}','red') + colored('\n\Current pace: {}', 'green') + colored('\nWith this pace you have {} left\n','blue')
+                    print(text.format(elapsedtimes[-1],pace,timetogo))
+                    input('...')
         bar.finish()
 
 class Match:
@@ -511,7 +528,7 @@ class Match:
         except KeyError:
             return False
 
-    def LocateTargetWord(self, search,bar):
+    def LocateTargetWord(self, search):
         """ask the user to locate the target work in the match and mark it in the database / search object
         The goal here is to give values to 3 attributes of the match:
         ============================
@@ -521,15 +538,27 @@ class Match:
         """
         self.parallelsentence = None
         self.parallelword = None
+        #1. Reorder the sentences i the parlallel segment
+        parallel_sentence_ids = self.SortTargetSentences()
+        #2. Iterate over the paralallel sentences: 
+        if not self.EvaluateTargetSentences(parallel_sentence_ids,search):
+            #If no direct match, decide which sentence in the target segment matches the closest
+            self.parallelsentence = self.PickTargetSentence()
+            if self.PickTargetWord():
+                #Add or don't add the picked word to possible translations if the user picked a word
+                addmenu = multimenu({'y':'yes','n':'no'}, 'Should {} be added as another possinle translation for {}?'.format(self.parallelword.lemma, self.matchedword.lemma))
+                if addmenu.answer == 'y':
+                    search.matchlemmas[self.matchedword.lemma].append(self.parallelword.lemma)
+        #Mark this aligned
+        self.aligned = True
+
+    def SortTargetSentences(self):
         #First, find out how manyth sentence the matched word is located in in the source language:
         sentence_in_segment = list(self.context.keys()).index(self.matchedsentence.sentence_id)
         #Then, first try the sameth element in the tl segment's sentences
         parallel_sentence_ids = list(self.parallelcontext.keys())
         try:
             match_sentence_id = parallel_sentence_ids[sentence_in_segment]
-        except KeyError:
-            #If there are less sentences in the target, start with the first sentence
-            match_sentence_id = parallel_sentence_ids[0]
         except (KeyError, IndexError):
             #If there are less sentences in the target, start with the first sentence
             match_sentence_id = parallel_sentence_ids[0]
@@ -538,13 +567,16 @@ class Match:
         for psid in parallel_sentence_ids:
             if psid != match_sentence_id:
                 parallel_sentence_ids_reordered.append(psid)
+        return parallel_sentence_ids_reordered
 
+    def EvaluateTargetSentences(self, parallel_sentence_ids, search):
+        """Iterate over the sentences that have a word speficied as a possible translation"""
+        #Initialize menus etc
         self.BuildSentencePrintString()
         parmenu = multimenu({'y':'yes','n':'no','s':'syntactically dissimilar'})
         parmenu.question = 'Is this the correct matching word?'
-        found = False
-        #Iterate over the paralallel sentences:
-        for sentence_id in parallel_sentence_ids_reordered:
+        #Loop:
+        for sentence_id in parallel_sentence_ids:
             sentence = self.parallelcontext[sentence_id]
             #iterate over words in this sentence
             for tokenid, word in sentence.words.items():
@@ -556,56 +588,56 @@ class Match:
                             #Clear terminal output:
                             os.system('cls' if os.name == 'nt' else 'clear')
                             print('\n'*15)
-                            bar.next()
-                            print('\n'*2)
                             sentence.PrintTargetSuggestion(self.matchedsentence.printstring)
                             if parmenu.prompt_valid() == 'y':
                                 #save the information about the target word/sentence
                                 self.parallelsentence = sentence
                                 self.parallelword = word
-                                found = True
-                                break
+                                return True
                             elif parmenu.answer =='s':
                                 self.parallelsentence = sentence
                                 self.parallelword = None
-                                found = True
-                                break
-
+                                return True
                 except KeyError:
                     input('There is no such lemma as <{}> listed in the lemmadict!'.format(self.matchedword.lemma))
-        if not found:
-            #if nothing was found or nothing was an actual match
-            sentencemenu = multimenu({})
-            sid = 1
-            #Clear terminal output:
-            os.system('cls' if os.name == 'nt' else 'clear')
-            bar.next()
-            print('\n'*2)
-            for sentence_id, sentence in self.parallelcontext.items():
-                #print all the alternatives again:
-                sentence.BuildPrintString(word.tokenid)
-                print('{}:{}'.format(sid,sentence_id))
-                sentence.PrintTargetSuggestion(self.matchedsentence.printstring)
-                sentencemenu.validanswers[str(sid)] = sentence_id
-                sid += 1
-                if sid % 6 == 0:
-                    input('Long list of sentences, more to follow...')
-            sentencemenu.prompt_valid('Which sentence is the closest match to the source sentence?')
-            pickedsentence = self.parallelcontext[int(sentencemenu.validanswers[sentencemenu.answer])]
-            #set the sentence as the matching one
-            self.parallelsentence = pickedsentence
-            wordmenu = multimenu({})
-            for tokenid, word in pickedsentence.words.items():
-                if word.token not in string.punctuation:
-                    wordmenu.validanswers[str(tokenid)] = word.token
-            wordmenu.cancel = 'No single word can be specified'
-            wordmenu.prompt_valid('Wich word is the closest match to {}?'.format(self.matchedword.token))
-            if wordmenu.answer != 'n':
-                self.parallelword = pickedsentence.words[int(wordmenu.answer)]
-                addmenu = multimenu({'y':'yes','n':'no'}, 'Should {} be added as another possinle translation for {}?'.format(self.parallelword.lemma, self.matchedword.lemma))
-                if addmenu.answer == 'y':
-                    search.matchlemmas[self.matchedword.lemma].append(self.parallelword.lemma)
-        self.aligned = True
+        #If nothing was accepted, return false
+        return False
+
+    def PickTargetSentence(self):
+        """Prints out a menu of all the target sentences"""
+        #if nothing was found or nothing was an actual match
+        sentencemenu = multimenu({})
+        sid = 1
+        #Clear terminal output:
+        os.system('cls' if os.name == 'nt' else 'clear')
+        for sentence_id, sentence in self.parallelcontext.items():
+            #print all the alternatives again:
+            sentence.BuildPrintString()
+            print('{}:{}'.format(sid,sentence_id))
+            sentence.PrintTargetSuggestion(self.matchedsentence.printstring)
+            sentencemenu.validanswers[str(sid)] = sentence_id
+            sid += 1
+            if sid % 6 == 0:
+                input('Long list of sentences, more to follow...')
+        sentencemenu.prompt_valid('Which sentence is the closest match to the source sentence?')
+        #return the answer:
+        return self.parallelcontext[int(sentencemenu.validanswers[sentencemenu.answer])]
+
+    def PickTargetWord(self):
+        """Picks a word from the selected target sentence as the closest match (or picks none)"""
+        wordmenu = multimenu({})
+        for tokenid, word in self.parallelsentence.words.items():
+            if word.token not in string.punctuation:
+                wordmenu.validanswers[str(tokenid)] = word.token
+        wordmenu.cancel = 'No single word can be specified'
+        wordmenu.prompt_valid('Wich word is the closest match to {}?'.format(self.matchedword.token))
+        if wordmenu.answer != 'n':
+            #SET the parallel word:
+            self.parallelword = self.parallelsentence.words[int(wordmenu.answer)]
+            return True
+            #######
+        else:
+            return False
 
 class Sentence:
     """
@@ -744,7 +776,7 @@ class TargetSentence(Sentence):
         #By default, the sentence's matchids attribute is an empty list = no matches in this sentence
         self.targetword = None
 
-    def BuildPrintString(self, candidateid):
+    def BuildPrintString(self, candidateid=0):
         """Constructs a printable sentence and highliths the candidate for target match
         """
         self.printstring = ''
@@ -793,6 +825,9 @@ class TargetSentence(Sentence):
                 self.printstring += spacechar + word.token
                 self.colorprintstring += spacechar + word.token
             self.cleanprintstring += spacechar + word.token
+            if candidateid == 0:
+                self.printstring = self.cleanprintstring
+                self.colorprintstring = self.cleanprintstring
 
     def PrintTargetSuggestion(self, sourcecontext):
         """Print, for the user to compare, a context:"""
