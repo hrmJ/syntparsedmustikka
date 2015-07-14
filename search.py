@@ -576,30 +576,27 @@ class Match:
         parmenu = multimenu({'y':'yes','n':'no','s':'syntactically dissimilar'})
         parmenu.question = 'Is this the correct matching word?'
         #Loop:
-        for sentence_id in parallel_sentence_ids:
-            sentence = self.parallelcontext[sentence_id]
-            #iterate over words in this sentence
-            for tokenid, word in sentence.words.items():
-                try:
-                    for matchlemma in search.matchlemmas[self.matchedword.lemma]:
-                        #In a fixed order, check whether this word's lemma is listed as a possible translation
-                        if word.lemma == matchlemma:
-                            sentence.BuildPrintString(word.tokenid)
-                            #Clear terminal output:
-                            os.system('cls' if os.name == 'nt' else 'clear')
-                            print('\n'*15)
-                            sentence.PrintTargetSuggestion(self.matchedsentence.printstring)
-                            if parmenu.prompt_valid() == 'y':
-                                #save the information about the target word/sentence
-                                self.parallelsentence = sentence
-                                self.parallelword = word
-                                return True
-                            elif parmenu.answer =='s':
-                                self.parallelsentence = sentence
-                                self.parallelword = None
-                                return True
-                except KeyError:
-                    input('There is no such lemma as <{}> listed in the lemmadict!'.format(self.matchedword.lemma))
+        for matchlemma in search.matchlemmas[self.matchedword.lemma]:
+            #In a fixed order, check whether this word's lemma is listed as a possible translation
+            for sentence_id in parallel_sentence_ids:
+                sentence = self.parallelcontext[sentence_id]
+                for tokenid, word in sentence.words.items():
+                    #iterate over words in this sentence
+                    if word.lemma == matchlemma:
+                        sentence.BuildPrintString(word.tokenid)
+                        #Clear terminal output:
+                        os.system('cls' if os.name == 'nt' else 'clear')
+                        print('\n'*15)
+                        sentence.PrintTargetSuggestion(self.matchedsentence.printstring)
+                        if parmenu.prompt_valid() == 'y':
+                            #save the information about the target word/sentence
+                            self.parallelsentence = sentence
+                            self.parallelword = word
+                            return True
+                        elif parmenu.answer =='s':
+                            self.parallelsentence = sentence
+                            self.parallelword = None
+                            return True
         #If nothing was accepted, return false
         return False
 
