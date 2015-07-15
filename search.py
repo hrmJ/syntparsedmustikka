@@ -18,7 +18,7 @@ from progress.bar import Bar
 from texttable import Texttable, get_color_string, bcolors
 import time
 import datetime
-from statistics import mean
+from statistics import mean, median
 
 class Db:
     """ A class to include some shared properties for the search and
@@ -431,15 +431,8 @@ class Search:
                     #####
                     match.LocateTargetWord(self)
                     #####
-                    elapsedtimes.append(time.time() - start)
-                    avgtime = mean(elapsedtimes)
                     done +=1
-                    timetogo = str(datetime.timedelta(seconds=(self.matchcount-done)*int(avgtime)))
-                    pace = str(int(60/avgtime*10)) + '/10 min'
-                    bar.next()
-                    text = colored('\nTime used for the most recent: {}','red') + colored('\n\Current pace: {}', 'green') + colored('\nWith this pace you have {} left\n','blue')
-                    print(text.format(elapsedtimes[-1],pace,timetogo))
-                    input('...')
+                    elapsedtimes = PrintTimeInformation(elapsedtimes, start,done,self.matchcount,bar)
         bar.finish()
 
 class Match:
@@ -873,3 +866,16 @@ class Word:
 
 ######################################################################
 
+def PrintTimeInformation(elapsedtimes,start,done,matchcount,bar):
+    """ Print information about the manual annotations etc"""
+    #Clear terminal output:
+    os.system('cls' if os.name == 'nt' else 'clear')
+    elapsedtimes.append(time.time() - start)
+    #Remove the longest and two shortest times
+    avgtime = mean(elapsedtimes)
+    timetogo = str(datetime.timedelta(seconds=(matchcount-done)*int(avgtime)))
+    pace = str(int(60/avgtime*10)) + '/10 min'
+    text = colored('\nTime used for the most recent: {}','red') + colored('\n\Current pace: {}', 'green') + colored('\nWith this pace you have {} left\n','blue')
+    bar.next()
+    input(text.format(elapsedtimes[-1],pace,timetogo))
+    return elapsedtimes
