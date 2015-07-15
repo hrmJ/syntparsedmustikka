@@ -13,6 +13,7 @@ class psycopg:
        self.connection = psycopg2.connect("dbname='{}' user='{}'".format(dbname, username))
        self.connection.autocommit = autocom
        self.cur = self.connection.cursor()
+       self.dictcur = self.connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
        self.dbname = dbname
 
     def query(self, SQL, valuetuple=("empty",)):
@@ -23,11 +24,16 @@ class psycopg:
             print("Somerthing wrong with the query")
             print ("Psql gives the error: {}".format(e.pgerror))
 
-    def FetchQuery(self, SQL,valuetuple=("empty",)):
+
+    def FetchQuery(self, SQL,valuetuple=("empty",),usedict=False):
         " Query with a non-dictionary cursor "
         try:
-            self.cur.execute(SQL, valuetuple)
-            return self.cur.fetchall()
+            if usedict:
+                self.dictcur.execute(SQL, valuetuple)
+                return self.dictcur.fetchall()
+            else:
+                self.cur.execute(SQL, valuetuple)
+                return self.cur.fetchall()
         except psycopg2.Error as e:
             print("Something wrong with the query")
             print(SQL)

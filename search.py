@@ -360,6 +360,8 @@ class Search:
     def FindParallelSegmentsAfterwards(self):
         """This is used for searches done in the phase of development where originally 
         only one language is retrieved"""
+        #Make sure the search is connected to the right database:
+        con = psycopg(self.queried_db,'juho')
 
         #Set the right target language
         if self.queried_table == 'fi_conll':
@@ -370,7 +372,7 @@ class Search:
         sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id, contr_deprel, contr_head"
         sqlq = "SELECT {0} FROM {1} WHERE align_id in %(ids)s order by align_id, id".format(sql_cols, self.parallel_table)
         print('Quering the database, this might take a while...')
-        wordrows = Db.con.dictquery(sqlq,{'ids':tuple(self.matches.keys())})
+        wordrows = con.FetchQuery(sqlq,{'ids':tuple(self.matches.keys())},usedict=True)
         print('Analyzing...')
         #for matchindex, matches in self.matches.items():
         self.parallel_aligns = dict()
@@ -412,6 +414,12 @@ class Search:
         """Semi-manually go through all the matches of the search
         and pick the word that is the closest to the matching word of each match"""
         #matchestoprocess.append(match)
+        #Test if potential translations already listed
+        try:
+            if not 'dict' in str(type(self.matchlemmas)):
+                self.ListMatchLemmaTranslations()
+        except AttributeError:
+                self.ListMatchLemmaTranslations()
         self.CountMatches({'rejectreason':'','postprocessed':True,'aligned':False})
         bar = Bar('Processing', max=self.matchcount)
         elapsedtimes = list()

@@ -11,3 +11,5 @@ menu.viewsavedsearches()
 #Fetch all the source lemmas
 mySearch = search.Search.all_searches[0]
 
+#search.Db.con = mydatabase(input('write the name of database you want to connect to),'juho')
+
