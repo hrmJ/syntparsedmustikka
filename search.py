@@ -433,6 +433,9 @@ class Search:
                     #####
                     done +=1
                     elapsedtimes = PrintTimeInformation(elapsedtimes, start,done,self.matchcount,bar)
+                    cont = input('Press enter to continue or s to save the search object')
+                    if cont == 's':
+                        self.Save()
         bar.finish()
 
 class Match:
@@ -877,5 +880,5 @@ def PrintTimeInformation(elapsedtimes,start,done,matchcount,bar):
     pace = str(int(60/avgtime*10)) + '/10 min'
     text = colored('\nTime used for the most recent: {}','red') + colored('\n\Current pace: {}', 'green') + colored('\nWith this pace you have {} left\n','blue')
     bar.next()
-    input(text.format(elapsedtimes[-1],pace,timetogo))
+    print(text.format(elapsedtimes[-1],pace,timetogo))
     return elapsedtimes
