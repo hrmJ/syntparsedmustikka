@@ -640,6 +640,42 @@ class Match:
         else:
             return False
 
+    def DefinePositionMatch(self):
+        """Define what part of the match is the direct  dependent of a verb etc"""
+        self.positionmatchword = self.matchedword
+        self.CatchHead()
+        if self.headword.pos in ('S'):
+            #if the match is actually a dependent of a pronoun
+            # LIST all the other possible cases as well!
+            self.positionmatchword = self.headword
+            self.headword = self.matchedsentence.words[self.positionmatchword.head]
+
+    def DefinePosition1(self):
+        """Define, whether the match is located clause-initially"""
+        self.DefinePositionMatch()
+        self.matchedsentence.listDependents(self.headword.tokenid)
+        initialword = False
+        #make an ordered list of the dependents of matche's head
+        dep_ids = sorted(map(int,self.matchedsentence.dependentDict))
+        #First assume that this IS a clause-initial element
+        self.clauseinitial = True
+        #Now test, if this word precedes the head
+        if self.positionmatchword.tokenid > self.headword.tokenid:
+            self.clauseinitial = False
+        #Test, it this word precedes other dependents of the head:
+        while self.positionmatchword.tokenid > min(dep_ids) and self.clauseinitial:
+            if self.matchedsentence.words[dep_ids[0]].pos in ('C','Q') or self.matchedsentence.words[dep_ids[0]].token in string.punctuation:
+                #If there is a word before the match but it is a conjunction or a punctuation mark, try the next one
+                del dep_ids[0]
+            else:
+                #if there is a preceding word that doesn't match the above defined condition, mark this as a non-initial
+                self.clauseinitial = False
+                break
+
+
+
+        
+
 class Sentence:
     """
     The sentence consists of words (which can actually also be punctuation marks).
@@ -882,3 +918,7 @@ def PrintTimeInformation(elapsedtimes,start,done,matchcount,bar):
     bar.next()
     print(text.format(elapsedtimes[-1],pace,timetogo))
     return elapsedtimes
+
+def DefineHeadOfMatchPhrase(word):
+    """Define what part of the match is dependent of a verb etc"""
+    pass
