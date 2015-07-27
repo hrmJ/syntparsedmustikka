@@ -652,25 +652,32 @@ class Match:
 
     def DefinePosition1(self):
         """Define, whether the match is located clause-initially"""
-        self.DefinePositionMatch()
-        self.matchedsentence.listDependents(self.headword.tokenid)
-        initialword = False
-        #make an ordered list of the dependents of matche's head
-        dep_ids = sorted(map(int,self.matchedsentence.dependentDict))
-        #First assume that this IS a clause-initial element
-        self.clauseinitial = True
-        #Now test, if this word precedes the head
-        if self.positionmatchword.tokenid > self.headword.tokenid:
-            self.clauseinitial = False
-        #Test, it this word precedes other dependents of the head:
-        while self.positionmatchword.tokenid > min(dep_ids) and self.clauseinitial:
-            if self.matchedsentence.words[dep_ids[0]].pos in ('C','Q') or self.matchedsentence.words[dep_ids[0]].token in string.punctuation:
-                #If there is a word before the match but it is a conjunction or a punctuation mark, try the next one
-                del dep_ids[0]
-            else:
-                #if there is a preceding word that doesn't match the above defined condition, mark this as a non-initial
-                self.clauseinitial = False
+        #1. Find out the first word of the clause the match is located in
+        wkeys = sorted(map(int,self.matchedsentence.words))
+        tokenid = self.matchedword.tokenid
+        while not FirstWordOfClause(self.matchedsentence.words[tokenid]):
+            tokenid -= 1
+            if tokenid < min(wkeys):
+                # if this is the first word of the whole sentence
                 break
+        #2. Find out what's between the punctuation mark / conjunction / sentence border and the match
+        #First, assume this is NOT clause-initial
+        self.clauseinitial = False
+        tokenids = [wkeys.index(tokenid)+1:wkeys.index(self.matchedword.tokenid)-1]
+        #If nothing between the word following the border marker 
+        if not tokenids:
+            self.clauseinitial = True
+        else:
+            for tokenid in tokenids:
+                word = self.matchedsentence.words[tokenid]
+                if word.head != match.matchedword.tokenid and x=0 and y=0:
+                    self.clauseinitial = False
+
+        #self.BuildSentencePrintString()
+        #print(self.matchedsentence.printstring)
+        #print(self.matchedsentence.words[tokenid].token)
+        #print(tokenid)
+
 
 
 
@@ -922,3 +929,10 @@ def PrintTimeInformation(elapsedtimes,start,done,matchcount,bar):
 def DefineHeadOfMatchPhrase(word):
     """Define what part of the match is dependent of a verb etc"""
     pass
+
+def FirstWordOfClause(word):
+    """Define, if this is potentially the first word of a clause"""
+    if word.token in string.punctuation or \
+    word.pos in ('C'):
+        return True
+    return False
