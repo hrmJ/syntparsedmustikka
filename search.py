@@ -652,31 +652,32 @@ class Match:
 
     def DefinePosition1(self):
         """Define, whether the match is located clause-initially"""
+        self.DefinePositionMatch()
         #1. Find out the first word of the clause the match is located in
         wkeys = sorted(map(int,self.matchedsentence.words))
-        tokenid = self.matchedword.tokenid
+        tokenid = self.positionmatchword.tokenid
         while not FirstWordOfClause(self.matchedsentence.words[tokenid]):
             tokenid -= 1
             if tokenid < min(wkeys):
                 # if this is the first word of the whole sentence
                 break
         #2. Find out what's between the punctuation mark / conjunction / sentence border and the match
-        #First, assume this is NOT clause-initial
-        self.clauseinitial = False
-        tokenids = [wkeys.index(tokenid)+1:wkeys.index(self.matchedword.tokenid)-1]
-        #If nothing between the word following the border marker 
-        if not tokenids:
-            self.clauseinitial = True
-        else:
-            for tokenid in tokenids:
-                word = self.matchedsentence.words[tokenid]
-                if word.head != match.matchedword.tokenid and x=0 and y=0:
-                    self.clauseinitial = False
-
-        #self.BuildSentencePrintString()
-        #print(self.matchedsentence.printstring)
-        #print(self.matchedsentence.words[tokenid].token)
-        #print(tokenid)
+        #First, assume this IS clause-initial
+        self.clauseinitial = True
+        clauseborder = wkeys.index(tokenid)+1
+        matchindex = wkeys.index(self.positionmatchword.tokenid)-1
+        tokenids = wkeys[clauseborder:matchindex]
+        for tokenid in tokenids:
+        #if there is a word between the bmarker and the match, assume that the match is not clause-initial self.clauseinitial = False
+            self.clauseinitial = False
+            word = self.matchedsentence.words[tokenid]
+            if word.head == self.positionmatchword.tokenid:
+                #except if this is a depent of the match
+                self.clauseinitial = True
+        self.BuildSentencePrintString()
+        print(self.matchedsentence.printstring)
+        print(self.matchedsentence.words[tokenid].token)
+        print(tokenid)
 
 
 
