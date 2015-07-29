@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 #Import modules
 import codecs
+import random
 import csv
 import sys
 import os
@@ -355,8 +356,6 @@ class Search:
                 matchlemmadict[lemma].append(input('Give the possible matching lemma:\n>'))
         self.matchlemmas = matchlemmadict
 
-
-
     def FindParallelSegmentsAfterwards(self):
         """This is used for searches done in the phase of development where originally 
         only one language is retrieved"""
@@ -408,8 +407,6 @@ class Search:
                 else:
                     self.matchcount += 1
 
-
-
     def AlignAtMatch(self):
         """Semi-manually go through all the matches of the search
         and pick the word that is the closest to the matching word of each match"""
@@ -437,6 +434,10 @@ class Search:
                     if cont == 's':
                         self.Save()
         bar.finish()
+
+    def PickRandomMatch(self):
+        """Return a random match"""
+        return self.matches[random.choice(list(self.matches.keys()))][0]
 
 class Match:
     """ 
@@ -654,35 +655,34 @@ class Match:
         """Define, whether the match is located clause-initially"""
         self.DefinePositionMatch()
         #1. Find out the first word of the clause the match is located in
-        wkeys = sorted(map(int,self.matchedsentence.words))
-        tokenid = self.positionmatchword.tokenid
-        while not FirstWordOfClause(self.matchedsentence.words[tokenid]):
-            tokenid -= 1
-            if tokenid < min(wkeys):
+        tokenids = sorted(map(int,self.matchedsentence.words))
+        this_tokenid = self.positionmatchword.tokenid
+        while not FirstWordOfClause(self.matchedsentence.words[this_tokenid]) and this_tokenid > min(tokenids):
+            this_tokenid -= 1
+            if this_tokenid < min(tokenids):
                 # if this is the first word of the whole sentence
                 break
         #2. Find out what's between the punctuation mark / conjunction / sentence border and the match
         #First, assume this IS clause-initial
         self.clauseinitial = True
-        clauseborder = wkeys.index(tokenid)+1
-        matchindex = wkeys.index(self.positionmatchword.tokenid)-1
-        tokenids = wkeys[clauseborder:matchindex]
-        for tokenid in tokenids:
-        #if there is a word between the bmarker and the match, assume that the match is not clause-initial self.clauseinitial = False
+        clauseborder = tokenids.index(this_tokenid)+1
+        matchindex = tokenids.index(self.positionmatchword.tokenid)-1
+        tokenids_beforematch = tokenids[clauseborder:matchindex]
+        #import ipdb; ipdb.set_trace()
+        for tokenid in tokenids_beforematch:
+            #if there is a word between the bmarker and the match, assume that the match is not clause-initial self.clauseinitial = False
             self.clauseinitial = False
             word = self.matchedsentence.words[tokenid]
-            if word.head == self.positionmatchword.tokenid:
+            if word.head == self.positionmatchword.tokenid \
+                or word.pos == 'C':
                 #except if this is a depent of the match
                 self.clauseinitial = True
+            else:
+                #If all the above tests fail, then assume that there is a word before the match in the clause
+                break
         self.BuildSentencePrintString()
         print(self.matchedsentence.printstring)
-        print(self.matchedsentence.words[tokenid].token)
-        print(tokenid)
-
-
-
-
-        
+        print(self.clauseinitial)
 
 class Sentence:
     """
