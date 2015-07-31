@@ -811,6 +811,17 @@ class Sentence:
                 self.dependentDict_prints[str(tokenid)] = word.token
         self.dependentlist = dependents
 
+    def FirstWordOfCurrentClause(self, currentword):
+        """Return the first word of the clause specified by a word"""
+        self.tokenids = sorted(map(int,self.words))
+        this_tokenid = currentword.tokenid
+        while not FirstWordOfClause(self.words[this_tokenid]) and this_tokenid > min(tokenids):
+            this_tokenid -= 1
+            if this_tokenid < min(tokenids):
+                # if this is the first word of the whole sentence
+                break
+        return this_tokenid
+
 class TargetSentence(Sentence):
     """This is specially for the sentences in the parallel context. The main difference from 
     original sentences is that match"""
@@ -931,9 +942,34 @@ def DefineHeadOfMatchPhrase(word):
     """Define what part of the match is dependent of a verb etc"""
     pass
 
+def IsThisClauseInitial(mword, msentence):
+    """Define, whether the match is located clause-initially"""
+    msentence.FirstWordOfCurrentClause(mword)
+    #2. Find out what's between the punctuation mark / conjunction / sentence border and the match
+    #First, assume this IS clause-initial
+    clauseinitial = True
+    clauseborder = msentence.tokenids.index(this_tokenid)+1
+    matchindex = msentence.tokenids.index(self.positionmatchword.tokenid)-1
+    tokenids_beforematch = msentence.tokenids[clauseborder:matchindex]
+    #import ipdb; ipdb.set_trace()
+    for tokenid in tokenids_beforematch:
+        #if there is a word between the bmarker and the match, assume that the match is not clause-initial self.clauseinitial = False
+        clauseinitial = False
+        word = msentence.words[tokenid]
+        if word.head == mword.tokenid \
+            or word.pos == 'C':
+            #except if this is a depent of the match
+            clauseinitial = True
+        else:
+            #If all the above tests fail, then assume that there is a word before the match in the clause
+            break
+    return clauseinitial
+
 def FirstWordOfClause(word):
     """Define, if this is potentially the first word of a clause"""
     if word.token in string.punctuation or \
     word.pos in ('C'):
         return True
     return False
+
+
