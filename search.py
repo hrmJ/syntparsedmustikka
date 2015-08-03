@@ -527,14 +527,30 @@ class Match:
         """Store the matches head in a separate object,if possible. If not, return the sentence's id"""
         try:
             self.headword = self.matchedsentence.words[self.matchedword.head]
+            try:
+                #try to define the head of the head
+                self.headshead = self.matchedsentence.words[self.headword.head]
+            except KeyError:
+                self.headshead = None
         except KeyError:
+            self.headword = None
             return False
+
+        #For parallel contexts: ================================================
+
         if self.parallelword:
             #if there is a parallel context
             try:
                 self.parallel_headword = self.parallelsentence.words[self.parallelword.head]
+                try:
+                    #try to define the head of the head
+                    self.parallel_headshead = self.parallelsentence.words[self.parallel_headword.head]
+                except KeyError:
+                    self.parallel_headshead = None
             except KeyError:
-                pass
+                self.parallel_headword = None
+
+
         # If headword (for the source context) succesfully defined, return true
         return True
 
@@ -649,20 +665,32 @@ class Match:
     def DefinePositionMatch(self):
         """Define what part of the match is the direct  dependent of a verb etc"""
         self.positionmatchword = self.matchedword
-        if self.parallelword:
-            #If there is a comparable parallel context
-            self.parallel_positionword = self.parallelword
         #Check the words head
         self.CatchHead()
         if self.headword.pos in ('S'):
             #if the match is actually a dependent of a pronoun
             # LIST all the other possible cases as well!
             self.positionmatchword = self.headword
-            self.headword = self.matchedsentence.words[self.positionmatchword.head]
-            if self.parallelword:
-                #If there is a comparable parallel context
+        elif self.headshead:
+            if self.headshead.pos in ('S'):
+                #or if the match's head  is actually a dependent of a pronoun
+                self.positionmatchword = self.headshead
+        self.headword = self.matchedsentence.words[self.positionmatchword.head]
+
+        # =========================================================================0
+
+        if self.parallelword:
+            #If there is a comparable parallel context
+            self.parallel_positionword = self.parallelword
+            if self.parallel_headword.pos in ('S'):
+                #if the match is actually a dependent of a pronoun
                 self.parallel_positionword = self.parallel_headword
-                self.parallel_headword = self.parallelsentence.words[self.parallel_positionword.head]
+            elif self.parallel_headshead:
+                if self.parallel_headshead.pos in ('S'):
+                    #or if the match's head  is actually a dependent of a pronoun
+                    self.parallel_positionword = self.parallel_headshead
+            #set the head for the position word
+            self.parallel_headword = self.parallelsentence.words[self.parallel_positionword.head]
 
     def DefinePosition1(self):
         """Define, whether the match is located clause-initially, clause-finally or in the middle"""
@@ -961,6 +989,10 @@ def IsThisClauseInitial(mword, msentence):
     #2. Find out what's between the punctuation mark / conjunction / sentence border and the match
     #First, assume this IS clause-initial
     clauseinitial = True
+    #import ipdb; ipdb.set_trace()
+    if (mword.tokenid + 1 == max(msentence.tokenids) or mword.tokenid == max(msentence.tokenids)) and msentence.words[mword.tokenid + 1].token in string.punctuation:
+        #A hacky fix to prevent sentence-final items being anayzed as clause-initial
+        return False
     if this_tokenid == min(msentence.tokenids):
         #If this is the first clause of the sentence
         clauseborder = 0
@@ -998,7 +1030,6 @@ def IsThisClauseFinal(mword, msentence):
 
     #First, assume this IS clause-final
     clausefinal = True
-    import ipdb; ipdb.set_trace()
     for tokenid in tokenids_aftermatch:
         #if there is a word between the bmarker and the match, assume that the match is not clause-final 
         clausefinal = False
