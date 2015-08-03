@@ -529,9 +529,16 @@ class Match:
         """Store the matches head in a separate object,if possible. If not, return the sentence's id"""
         try:
             self.headword = self.matchedsentence.words[self.matchedword.head]
-            return True
         except KeyError:
             return False
+        if self.parallelword:
+            #if there is a parallel context
+            try:
+                self.parallel_headword = self.parallelsentence.words[self.parallelword.head]
+            except KeyError:
+                pass
+        # If headword (for the source context) succesfully defined, return true
+        return True
 
     def LocateTargetWord(self, search):
         """ask the user to locate the target work in the match and mark it in the database / search object
@@ -644,45 +651,36 @@ class Match:
     def DefinePositionMatch(self):
         """Define what part of the match is the direct  dependent of a verb etc"""
         self.positionmatchword = self.matchedword
+        if self.parallelword:
+            #If there is a comparable parallel context
+            self.parallel_positionword = self.parallelword
+        #Check the words head
         self.CatchHead()
         if self.headword.pos in ('S'):
             #if the match is actually a dependent of a pronoun
             # LIST all the other possible cases as well!
             self.positionmatchword = self.headword
             self.headword = self.matchedsentence.words[self.positionmatchword.head]
+            if self.parallelword:
+                #If there is a comparable parallel context
+                self.parallel_positionword = self.parallel_headword
+                self.parallel_headword = self.parallelsentence.words[self.parallel_positionword.head]
 
     def DefinePosition1(self):
-        """Define, whether the match is located clause-initially"""
+        """Define, whether the match is located clause-initially, clause-finally or in the middle"""
         self.DefinePositionMatch()
-        #1. Find out the first word of the clause the match is located in
-        tokenids = sorted(map(int,self.matchedsentence.words))
-        this_tokenid = self.positionmatchword.tokenid
-        while not FirstWordOfClause(self.matchedsentence.words[this_tokenid]) and this_tokenid > min(tokenids):
-            this_tokenid -= 1
-            if this_tokenid < min(tokenids):
-                # if this is the first word of the whole sentence
-                break
-        #2. Find out what's between the punctuation mark / conjunction / sentence border and the match
-        #First, assume this IS clause-initial
-        self.clauseinitial = True
-        clauseborder = tokenids.index(this_tokenid)+1
-        matchindex = tokenids.index(self.positionmatchword.tokenid)-1
-        tokenids_beforematch = tokenids[clauseborder:matchindex]
-        #import ipdb; ipdb.set_trace()
-        for tokenid in tokenids_beforematch:
-            #if there is a word between the bmarker and the match, assume that the match is not clause-initial self.clauseinitial = False
-            self.clauseinitial = False
-            word = self.matchedsentence.words[tokenid]
-            if word.head == self.positionmatchword.tokenid \
-                or word.pos == 'C':
-                #except if this is a depent of the match
-                self.clauseinitial = True
+        #For the source segment
+        if IsThisClauseInitial(self.positionmatchword, self.matchedsentence):
+            self.sourcepos1 = 'clause-initial'
+        else:
+            self.sourcepos1 = 'middle'
+        #For the target segment
+        if self.parallelword:
+            if IsThisClauseInitial(self.parallel_positionword, self.parallelsentence):
+                self.targetpos1 = 'clause-initial'
             else:
-                #If all the above tests fail, then assume that there is a word before the match in the clause
-                break
-        self.BuildSentencePrintString()
-        print(self.matchedsentence.printstring)
-        print(self.clauseinitial)
+                self.targetpos1 = 'middle'
+
 
 class Sentence:
     """
@@ -815,9 +813,9 @@ class Sentence:
         """Return the first word of the clause specified by a word"""
         self.tokenids = sorted(map(int,self.words))
         this_tokenid = currentword.tokenid
-        while not FirstWordOfClause(self.words[this_tokenid]) and this_tokenid > min(tokenids):
+        while not FirstWordOfClause(self.words[this_tokenid]) and this_tokenid > min(self.tokenids):
             this_tokenid -= 1
-            if this_tokenid < min(tokenids):
+            if this_tokenid == min(self.tokenids):
                 # if this is the first word of the whole sentence
                 break
         return this_tokenid
@@ -944,21 +942,25 @@ def DefineHeadOfMatchPhrase(word):
 
 def IsThisClauseInitial(mword, msentence):
     """Define, whether the match is located clause-initially"""
-    msentence.FirstWordOfCurrentClause(mword)
+    this_tokenid = msentence.FirstWordOfCurrentClause(mword)
     #2. Find out what's between the punctuation mark / conjunction / sentence border and the match
     #First, assume this IS clause-initial
     clauseinitial = True
-    clauseborder = msentence.tokenids.index(this_tokenid)+1
-    matchindex = msentence.tokenids.index(self.positionmatchword.tokenid)-1
+    if this_tokenid == min(msentence.tokenids):
+        #If this is the first clause of the sentence
+        clauseborder = 0
+    else:
+        clauseborder = msentence.tokenids.index(this_tokenid)+1
+    matchindex = msentence.tokenids.index(mword.tokenid)
     tokenids_beforematch = msentence.tokenids[clauseborder:matchindex]
     #import ipdb; ipdb.set_trace()
     for tokenid in tokenids_beforematch:
-        #if there is a word between the bmarker and the match, assume that the match is not clause-initial self.clauseinitial = False
+        #if there is a word between the bmarker and the match, assume that the match is not clause-initial 
         clauseinitial = False
         word = msentence.words[tokenid]
         if word.head == mword.tokenid \
             or word.pos == 'C':
-            #except if this is a depent of the match
+            #except if this is a depent of the match or a conjunction
             clauseinitial = True
         else:
             #If all the above tests fail, then assume that there is a word before the match in the clause
