@@ -134,8 +134,6 @@ class Search:
         print('Analyzing...')
         self.pickFromAlign_ids(wordrows)
 
-
-
     def pickFromAlign_ids(self, wordrows):
         """Process the data from database query
         This is done word by word."""
@@ -672,15 +670,18 @@ class Match:
         #For the source segment
         if IsThisClauseInitial(self.positionmatchword, self.matchedsentence):
             self.sourcepos1 = 'clause-initial'
+        elif IsThisClauseFinal(self.positionmatchword, self.matchedsentence):
+            self.sourcepos1 = 'clause-final'
         else:
             self.sourcepos1 = 'middle'
         #For the target segment
         if self.parallelword:
             if IsThisClauseInitial(self.parallel_positionword, self.parallelsentence):
                 self.targetpos1 = 'clause-initial'
+            elif IsThisClauseFinal(self.parallel_positionword, self.parallelsentence):
+                self.targetpos1 = 'clause-final'
             else:
                 self.targetpos1 = 'middle'
-
 
 class Sentence:
     """
@@ -813,7 +814,7 @@ class Sentence:
         """Return the first word of the clause specified by a word"""
         self.tokenids = sorted(map(int,self.words))
         this_tokenid = currentword.tokenid
-        while not FirstWordOfClause(self.words[this_tokenid]) and this_tokenid > min(self.tokenids):
+        while not FirstWordOfClause(self, self.words[this_tokenid]) and this_tokenid > min(self.tokenids):
             this_tokenid -= 1
             if this_tokenid == min(self.tokenids):
                 # if this is the first word of the whole sentence
@@ -826,7 +827,7 @@ class Sentence:
         this_tokenid = currentword.tokenid
         #Move forward from the current word to reach either end of sentence or a marker for the beginning of a new clause
         #How to deal with relative clauses in the middle of a sentence?
-        while not FirstWordOfClause(self.words[this_tokenid]) and this_tokenid < max(self.tokenids):
+        while not FirstWordOfClause(self, self.words[this_tokenid]) and this_tokenid < max(self.tokenids):
             this_tokenid += 1
             if this_tokenid == max(self.tokenids):
                 # if this is the last word of the whole sentence
@@ -972,8 +973,7 @@ def IsThisClauseInitial(mword, msentence):
         #if there is a word between the bmarker and the match, assume that the match is not clause-initial 
         clauseinitial = False
         word = msentence.words[tokenid]
-        if word.head == mword.tokenid \
-            or word.pos == 'C':
+        if word.head == mword.tokenid:
             #except if this is a depent of the match or a conjunction
             clauseinitial = True
         else:
@@ -993,28 +993,63 @@ def IsThisClauseFinal(mword, msentence):
         #If this is the last clause of the sentence
         tokenids_aftermatch = msentence.tokenids[matchindex:]
     else:
-        lastwordindex = msentence.tokenids.index(this_tokenid) + 1 
+        lastwordindex = msentence.tokenids.index(last_tokenid) + 1 
         tokenids_aftermatch = msentence.tokenids[matchindex:lastwordindex]
 
     #First, assume this IS clause-final
     clausefinal = True
-    #import ipdb; ipdb.set_trace()
     for tokenid in tokenids_aftermatch:
         #if there is a word between the bmarker and the match, assume that the match is not clause-final 
         clausefinal = False
         word = msentence.words[tokenid]
-        if word.head == mword.tokenid \
-            or word.pos == 'C':
+        if word.head == mword.tokenid:
             #except if this is a depent of the match or a conjunction
             clausefinal = True
+            #Special conditions:
+            if word.deprel == 'nommod' and mword.deprel == 'dobj':
+                #in TDT there are errors with OSMAs, this is a try to fix some of them
+                clausefinal = False
         else:
             #If all the above tests fail, then assume that there is a word before the match in the clause
             break
     return clausefinal
 
-def FirstWordOfClause(word):
+def FirstWordOfClause(sentence, word):
     """Define, if this is potentially the first word of a clause"""
-    if word.token in string.punctuation or \
-    word.pos in ('C'):
-        return True
+    if word.token in string.punctuation or word.pos in ('C'):
+        if word.lemma == 'ja' or word.lemma == 'и':
+            #The conjunctions ja and i are problematic since they don't always begin a new clause
+            if IsThisAClause(sentence,word):
+                #if a potential clause beginning with 'ja' or 'i' has a verb, think of it as a clause
+                return True
+            #In addition, the borders of a relative clause might be problematic
+        else:
+            return True
+    return False
+
+def IsThisAClause(sentence, conjunction):
+    """The conjunctions ja and i are problematic since they don't always begin a new clause. this
+    is a method to try to define, whether something beginning with ja or i is actually  a clause.
+    This method defines a potential clause not a clause if *no verb is found* (finite or infinite)
+    """
+    #Loop over the rest of the tokens in the sentence
+    #x = mySearch.PickRandomMatch();x.DefinePosition1();x.sourcepos1;x.targetpos1
+    for tokenid in sentence.tokenids[sentence.tokenids.index(conjunction.tokenid) + 1:]:
+        import ipdb; ipdb.set_trace()
+        word = sentence.words[tokenid]
+        if word.pos == 'V':
+            #If a verb is found -> a clause
+            try:
+                headword = sentence.words[word.head]
+                if headword.pos == 'N' and ('INF' in word.feat or 'PCP_' in word.feat or 'Vmps' in word.feat or 'Vmpp' in word.feat):
+                    #... unless the verb is governed by a noun and the verb is an infinite form
+                    pass
+                else:
+                    return True
+            except KeyError:
+                pass
+        if word.token in string.punctuation or word.pos in ('C'):
+            #if the border of the next clause was reached and no Verb found -> not counted as a clause
+            return False
+    #If the end of the sentence was reached -> not counted as a clause
     return False
