@@ -820,6 +820,20 @@ class Sentence:
                 break
         return this_tokenid
 
+    def LastWordOfCurrentClause(self, currentword):
+        """Return the last word of the clause specified by a word"""
+        self.tokenids = sorted(map(int,self.words))
+        this_tokenid = currentword.tokenid
+        #Move forward from the current word to reach either end of sentence or a marker for the beginning of a new clause
+        #How to deal with relative clauses in the middle of a sentence?
+        while not FirstWordOfClause(self.words[this_tokenid]) and this_tokenid < max(self.tokenids):
+            this_tokenid += 1
+            if this_tokenid == max(self.tokenids):
+                # if this is the last word of the whole sentence
+                return this_tokenid
+        #If a marker for the next clause was met, assume that the previous word was the last of the current clause:
+        return this_tokenid - 1
+
 class TargetSentence(Sentence):
     """This is specially for the sentences in the parallel context. The main difference from 
     original sentences is that match"""
@@ -967,11 +981,40 @@ def IsThisClauseInitial(mword, msentence):
             break
     return clauseinitial
 
+def IsThisClauseFinal(mword, msentence):
+    """Define, whether the match is located clause-initially"""
+    last_tokenid = msentence.LastWordOfCurrentClause(mword)
+    if mword.tokenid == last_tokenid:
+        # If this is the absolute final word of the clause, return true
+        return True
+    # If not,  find out what's between the match and a punctuation mark / conjunction / sentence border 
+    matchindex = msentence.tokenids.index(mword.tokenid) + 1 
+    if last_tokenid == max(msentence.tokenids):
+        #If this is the last clause of the sentence
+        tokenids_aftermatch = msentence.tokenids[matchindex:]
+    else:
+        lastwordindex = msentence.tokenids.index(this_tokenid) + 1 
+        tokenids_aftermatch = msentence.tokenids[matchindex:lastwordindex]
+
+    #First, assume this IS clause-final
+    clausefinal = True
+    #import ipdb; ipdb.set_trace()
+    for tokenid in tokenids_aftermatch:
+        #if there is a word between the bmarker and the match, assume that the match is not clause-final 
+        clausefinal = False
+        word = msentence.words[tokenid]
+        if word.head == mword.tokenid \
+            or word.pos == 'C':
+            #except if this is a depent of the match or a conjunction
+            clausefinal = True
+        else:
+            #If all the above tests fail, then assume that there is a word before the match in the clause
+            break
+    return clausefinal
+
 def FirstWordOfClause(word):
     """Define, if this is potentially the first word of a clause"""
     if word.token in string.punctuation or \
     word.pos in ('C'):
         return True
     return False
-
-
