@@ -437,6 +437,10 @@ class Search:
         """Return a random match"""
         return self.matches[random.choice(list(self.matches.keys()))][0]
 
+    def InsertTmeToResults(self):
+        """Insert to exzternal database"""
+        pass
+
 class Match:
     """ 
     A match object contains ifromation about a concrete token that 
@@ -1083,3 +1087,4 @@ def IsThisAClause(sentence, conjunction):
             return False
     #If the end of the sentence was reached -> not counted as a clause
     return False
+
