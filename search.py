@@ -998,12 +998,13 @@ def IsThisClauseFinal(mword, msentence):
 
     #First, assume this IS clause-final
     clausefinal = True
+    import ipdb; ipdb.set_trace()
     for tokenid in tokenids_aftermatch:
         #if there is a word between the bmarker and the match, assume that the match is not clause-final 
         clausefinal = False
         word = msentence.words[tokenid]
-        if word.head == mword.tokenid:
-            #except if this is a depent of the match or a conjunction
+        if word.head == mword.tokenid or word.token in string.punctuation:
+            #except if this is a depent of the match or a punctuation mark
             clausefinal = True
             #Special conditions:
             if word.deprel == 'nommod' and mword.deprel == 'dobj':
@@ -1033,9 +1034,7 @@ def IsThisAClause(sentence, conjunction):
     This method defines a potential clause not a clause if *no verb is found* (finite or infinite)
     """
     #Loop over the rest of the tokens in the sentence
-    #x = mySearch.PickRandomMatch();x.DefinePosition1();x.sourcepos1;x.targetpos1
     for tokenid in sentence.tokenids[sentence.tokenids.index(conjunction.tokenid) + 1:]:
-        import ipdb; ipdb.set_trace()
         word = sentence.words[tokenid]
         if word.pos == 'V':
             #If a verb is found -> a clause
