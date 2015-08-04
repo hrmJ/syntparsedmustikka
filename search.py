@@ -188,7 +188,6 @@ class Search:
             for matchid in self.aligns[alignkey][sentence_id].matchids:
                 self.matches[alignkey].append(Match(self.aligns[alignkey],matchid,sentence_id))
 
-
     def evaluateWordrow(self, word,sentence):
         'Test a word (in a sentence) according to criteria'
         if self.searchtype == 'phd':
@@ -439,7 +438,62 @@ class Search:
 
     def InsertTmeToResults(self):
         """Insert to exzternal database"""
-        pass
+        #Set parameters for source and target languages
+        if self.queried_table == 'fi_conll':
+            sl = 'fi'
+            tl = 'ru'
+        elif self.queried_table == 'ru_conll':
+            sl = 'ru'
+            tl = 'fi'
+
+        #Get all the matches that have not been rejected but have been aligned
+        self.CountMatches({'rejectreason':'','postprocessed':True,'aligned':True})
+        #Connect to dbs
+        con = psycopg('results','juho')
+        con2 = psycopg(self.queried_db,'juho')
+        all_texts = con2.FetchQuery('SELECT id, title, origtitle, author, translator, origyear, transyear FROM text_ids',usedict=True)
+
+        #Set the values
+        rowlist = list()
+        bar = Bar('Preparing and analyzing the data', max=self.matchcount)
+        for align_id, matchlist in self.matches.items():
+            for match in matchlist:
+                if match.WillBeProcessed:
+                    #create a string for the align unit and the sentences
+                    match.BuildContextString()
+                    match.DefinePosition1()
+                    metadata = GetMetadata(match.matchedword.text_id,all_texts)
+                    row['sl'] = sl
+                    row['tl'] = tl
+                    row['sl_sentence'] = match.matchedsentence.printstring
+                    row['tl_sentence'] = SetUncertainAttribute('',match,'parallelsentence','printstring')
+                    row['slpos'] = match.sourcepos1
+                    row['tlpos'] = SetUncertainAttribute('none',match,'targetpos1')
+                    try:
+                        if match.parallelword:
+                            row['poschange'] = DefinePosChange(match.sourcepos1,match.targetpos1)
+                        else:
+                            #If no parallel context, use 9 as value
+                            row['poschange'] = 9
+                    except AttributeError:
+                            row['poschange'] = 9
+                    row['sl_cleansentence'] = match.matchedsentence.cleanprintstring
+                    row['tl_cleansentence'] = SetUncertainAttribute('',match,'parallelsentence','cleanprintstring')
+                    row['sl_context'] = match.slcontextstring
+                    row['tl_context'] = SetUncertainAttribute('',match,'tlcontextstring')
+                    row['slmatchid'] = match.matchedword.dbid
+                    row['tlmatchid'] = SetUncertainAttribute(0,match,'parallelword','dbid')
+                    row['text_id'] = match.sourcetextid
+                    row['author'] = metadata['author']
+                    row['work'] = metadata['origtitle']
+                    row['origyear'] = metadata['origyear']
+                    row['transyear'] = metadata['transyear']
+                    rowlist.append(row)
+                    bar.next()
+        print('Inserting to database..')
+        con.BatchInsert('tme',rowlist)
+        print('Done. Inserted {} rows.'.format(con.cur.rowcount))
+
 
 class Match:
     """ 
@@ -470,62 +524,35 @@ class Match:
         self.postprocessed = True
         self.rejectreason = rejectreason
 
+    def BuildContextString(self):
+        """Build a string containing all the sentences int the align unit the match is found in"""
+        self.slcontextstring = ''
+        for sentence_id, sentence in self.context.items():
+            if sentence_id == self.matchedsentence.sentence_id:
+                sentence.BuildHighlightedPrintString(self.matchedword)
+            else:
+                sentence.buildPrintString()
+            self.slcontextstring += sentence.printstring
+        #If a parallel context exists, do the same:
+        try:
+            if self.parallelcontext:
+                for sentence_id, sentence in self.parallelcontext.items():
+                    if sentence_id == self.parallelsentence.sentence_id:
+                        sentence.BuildHighlightedPrintString(self.parallelword)
+                    else:
+                        sentence.buildPrintString()
+                    self.tlcontextstring += sentence.printstring
+            else:
+                #if no parallel context, leave empty
+                self.tlcontextstring = ''
+        except AttributeError:
+            self.tlcontextstring = ''
+
+
     def BuildSentencePrintString(self):
         """Constructs a printable sentence and highliths the match
         """
-        self.matchedsentence.printstring = ''
-        #create an string also without the higlight
-        self.matchedsentence.cleanprintstring = ''
-        self.matchedsentence.colorprintstring = ''
-        self.matchedsentence.Headhlprintstring = ''
-        isqmark = False
-        for idx in sorted(self.matchedsentence.words.keys()):
-            spacechar = ' '
-            word = self.matchedsentence.words[idx]
-            try:
-                previous_word = self.matchedsentence.words[idx-1]
-                #if previous tag is a word:
-                if previous_word.pos != 'Punct' and previous_word.token not in string.punctuation:
-                    #...and the current tag is a punctuation mark. Notice that exception is made for hyphens, since in mustikka they are often used as dashes
-                    if word.token in string.punctuation and word.token != '-':
-                        #..don't insert whitespace
-                        spacechar = ''
-                        #except if this is the first quotation mark
-                        if word.token == '\"' and not isqmark:
-                            isqmark = True
-                            spacechar = ' '
-                        elif word.token == '\"' and isqmark:
-                            isqmark = False
-                            spacechar = ''
-                #if previous tag was not a word
-                elif previous_word.token in string.punctuation:
-                    #...and this tag is a punctuation mark
-                    if (word.token in string.punctuation and word.token != '-' and word.token != '\"') or isqmark:
-                        #..don't insert whitespace
-                        spacechar = ''
-                    if previous_word.token == '\"':
-                        spacechar = ''
-                        isqmark = True
-                    else:
-                        spacechar = ' '
-            except:
-                #if this is the first word
-                spacechar = ''
-            #if this word is a match:
-            if word.tokenid == self.matchedword.tokenid:
-                #Surround the match with <>
-                self.matchedsentence.printstring += spacechar + '<' + word.token  + '>'
-                self.matchedsentence.Headhlprintstring += spacechar + '<<' + word.token  + '>>Y'
-                self.matchedsentence.colorprintstring += spacechar + bcolors.GREEN + word.token + bcolors.ENDC 
-            elif word.tokenid == self.matchedword.head:
-                self.matchedsentence.Headhlprintstring += spacechar + '<' + word.token  + '>X'
-                self.matchedsentence.printstring += spacechar + word.token
-                self.matchedsentence.colorprintstring += spacechar + word.token
-            else:
-                self.matchedsentence.printstring += spacechar + word.token
-                self.matchedsentence.colorprintstring += spacechar + word.token
-                self.matchedsentence.Headhlprintstring += spacechar + word.token
-            self.matchedsentence.cleanprintstring += spacechar + word.token
+        self.matchedsentence.BuildHighlightedPrintString(self.matchedword)
 
     def CatchHead(self):
         """Store the matches head in a separate object,if possible. If not, return the sentence's id"""
@@ -727,6 +754,63 @@ class Sentence:
         self.words = dict()
         #By default, the sentence's matchids attribute is an empty list = no matches in this sentence
         self.matchids = list()
+
+    def BuildHighlightedPrintString(self,matchedword):
+        """Constructs a printable sentence and highliths the match
+        """
+        self.printstring = ''
+        #create an string also without the higlight
+        self.cleanprintstring = ''
+        self.colorprintstring = ''
+        self.Headhlprintstring = ''
+        isqmark = False
+        for idx in sorted(self.words.keys()):
+            spacechar = ' '
+            word = self.words[idx]
+            try:
+                previous_word = self.words[idx-1]
+                #if previous tag is a word:
+                if previous_word.pos != 'Punct' and previous_word.token not in string.punctuation:
+                    #...and the current tag is a punctuation mark. Notice that exception is made for hyphens, since in mustikka they are often used as dashes
+                    if word.token in string.punctuation and word.token != '-':
+                        #..don't insert whitespace
+                        spacechar = ''
+                        #except if this is the first quotation mark
+                        if word.token == '\"' and not isqmark:
+                            isqmark = True
+                            spacechar = ' '
+                        elif word.token == '\"' and isqmark:
+                            isqmark = False
+                            spacechar = ''
+                #if previous tag was not a word
+                elif previous_word.token in string.punctuation:
+                    #...and this tag is a punctuation mark
+                    if (word.token in string.punctuation and word.token != '-' and word.token != '\"') or isqmark:
+                        #..don't insert whitespace
+                        spacechar = ''
+                    if previous_word.token == '\"':
+                        spacechar = ''
+                        isqmark = True
+                    else:
+                        spacechar = ' '
+            except:
+                #if this is the first word
+                spacechar = ''
+            #if this word is a match:
+            if word.tokenid == matchedword.tokenid:
+                #Surround the match with <>
+                self.printstring += spacechar + '<' + word.token  + '>'
+                self.Headhlprintstring += spacechar + '<<' + word.token  + '>>Y'
+                self.colorprintstring += spacechar + bcolors.GREEN + word.token + bcolors.ENDC 
+            elif word.tokenid == matchedword.head:
+                self.Headhlprintstring += spacechar + '<' + word.token  + '>X'
+                self.printstring += spacechar + word.token
+                self.colorprintstring += spacechar + word.token
+            else:
+                self.printstring += spacechar + word.token
+                self.colorprintstring += spacechar + word.token
+                self.Headhlprintstring += spacechar + word.token
+            self.cleanprintstring += spacechar + word.token
 
     def buildPrintString(self):
         """Constructs a printable sentence"""
@@ -1087,4 +1171,39 @@ def IsThisAClause(sentence, conjunction):
             return False
     #If the end of the sentence was reached -> not counted as a clause
     return False
+
+def DefinePosChange(spos,tpos):
+    """GIve a numeric representation to changes in tme position"""
+    if spos == tlpos:
+        return 0
+    elif spos == 'clause-initial' and tpos == 'middle':
+        return 1
+    elif spos == 'clause-initial' and tpos == 'clause-final':
+        return 2
+    elif spos == 'clause-final' and tpos == 'middle':
+        return -1
+    elif spos == 'clause-final' and tpos == 'clause-final':
+        return -2
+
+def SetUncertainAttribute(nullvalue, thisobject, attribute1, attribute2=''):
+    """asdd"""
+    if attribute2:
+        try:
+            obj = getattr(thisobject,attribute1)
+            return  getattr(obj, attribute2)
+        except AttributeError:
+            return nullvalue
+    else:
+        try:
+            return  getattr(thisobject, attribute1)
+        except AttributeError:
+            return nullvalue
+
+def GetMetadata(text_id, metadata):
+    """Get metadata for insertion to the results db"""
+    for mdrow in metadata:
+        if text_id == mdrow['id']:
+            return mdrow
+    return None
+
 
