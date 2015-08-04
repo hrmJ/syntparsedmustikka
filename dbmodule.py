@@ -8,7 +8,6 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
 class psycopg:
-
     def __init__(self,dbname,username,autocom=False):
        self.connection = psycopg2.connect("dbname='{}' user='{}'".format(dbname, username))
        self.connection.autocommit = autocom
@@ -80,6 +79,31 @@ class psycopg:
 
         self.cur.execute(sql, queryvalues)
 
+    def BatchInsert(self, table, columns, rowlist):
+        """Perform a multirow insert. This is much simpler than the batch updater method.
+        - columns: a list containing the names of the columns that will be inserted
+        - rowlist: a list, in which each item is a tuple of values to be inserted on a row
+        """
+        sql = "INSERT INTO {table} ({columns}) VALUES\n".format(table=table, columns=', '.join(columns))
+        rindex = 0
+        sqlvals = dict()
+        values = ''
+        for row in rowlist:
+            # update the row index
+            rowref = "r{}".format(rindex)
+            rindex += 1
+            # update the  sql string; on first time don't add a comma
+            if values:
+                values += ",\n"
+            values +=  "%({thisrow})s".format(thisrow=rowref)
+            #----- 
+            sqlvals[rowref] = row
+        #execute
+        self.query(sql + values, sqlvals)
+        self.connection.commit()
+
+
+
 
 class mydatabase:
     """Establish a connection to database and create two cursors for use"""
@@ -129,7 +153,6 @@ class mydatabase:
             print("Somerthing wrong with the query")
             print(SQL)
             print ("Psql gives the error: {}".format(e.pgerror))
-
 
 def CreateSQLAsession(dbname):
     """Create a temporal session object"""
