@@ -79,16 +79,21 @@ class psycopg:
 
         self.cur.execute(sql, queryvalues)
 
-    def BatchInsert(self, table, columns, rowlist):
+    def BatchInsert(self, table, rowlist):
         """Perform a multirow insert. This is much simpler than the batch updater method.
-        - columns: a list containing the names of the columns that will be inserted
-        - rowlist: a list, in which each item is a tuple of values to be inserted on a row
+        - table : the name of the target table of the insertion
+        - rowlist: a list of dicts. Each dict must have the same keys. The keys are column names, values column values.
         """
+        columns = rowlist[0].keys()
         sql = "INSERT INTO {table} ({columns}) VALUES\n".format(table=table, columns=', '.join(columns))
         rindex = 0
         sqlvals = dict()
         values = ''
         for row in rowlist:
+            rowvalues = list()
+            for column in columns:
+                rowvalues.append(row[column])
+            rowvalues = tuple(rowvalues)
             # update the row index
             rowref = "r{}".format(rindex)
             rindex += 1
@@ -97,7 +102,7 @@ class psycopg:
                 values += ",\n"
             values +=  "%({thisrow})s".format(thisrow=rowref)
             #----- 
-            sqlvals[rowref] = row
+            sqlvals[rowref] = rowvalues
         #execute
         self.query(sql + values, sqlvals)
         self.connection.commit()
