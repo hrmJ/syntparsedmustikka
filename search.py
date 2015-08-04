@@ -456,43 +456,49 @@ class Search:
         #Set the values
         rowlist = list()
         bar = Bar('Preparing and analyzing the data', max=self.matchcount)
+        errorcount=0
         for align_id, matchlist in self.matches.items():
             for match in matchlist:
                 if match.WillBeProcessed:
                     #create a string for the align unit and the sentences
-                    match.BuildContextString()
-                    match.DefinePosition1()
-                    metadata = GetMetadata(match.matchedword.text_id,all_texts)
-                    row['sl'] = sl
-                    row['tl'] = tl
-                    row['sl_sentence'] = match.matchedsentence.printstring
-                    row['tl_sentence'] = SetUncertainAttribute('',match,'parallelsentence','printstring')
-                    row['slpos'] = match.sourcepos1
-                    row['tlpos'] = SetUncertainAttribute('none',match,'targetpos1')
-                    try:
-                        if match.parallelword:
-                            row['poschange'] = DefinePosChange(match.sourcepos1,match.targetpos1)
-                        else:
-                            #If no parallel context, use 9 as value
-                            row['poschange'] = 9
-                    except AttributeError:
-                            row['poschange'] = 9
-                    row['sl_cleansentence'] = match.matchedsentence.cleanprintstring
-                    row['tl_cleansentence'] = SetUncertainAttribute('',match,'parallelsentence','cleanprintstring')
-                    row['sl_context'] = match.slcontextstring
-                    row['tl_context'] = SetUncertainAttribute('',match,'tlcontextstring')
-                    row['slmatchid'] = match.matchedword.dbid
-                    row['tlmatchid'] = SetUncertainAttribute(0,match,'parallelword','dbid')
-                    row['text_id'] = match.sourcetextid
-                    row['author'] = metadata['author']
-                    row['work'] = metadata['origtitle']
-                    row['origyear'] = metadata['origyear']
-                    row['transyear'] = metadata['transyear']
-                    rowlist.append(row)
+                    if match.DefinePosition1():
+                        match.BuildContextString()
+                        row = dict()
+                        metadata = GetMetadata(match.matchedword.sourcetextid,all_texts)
+                        row['sl'] = sl
+                        row['tl'] = tl
+                        row['sl_sentence'] = match.matchedsentence.printstring
+                        row['tl_sentence'] = SetUncertainAttribute('',match,'parallelsentence','printstring')
+                        row['slpos'] = match.sourcepos1
+                        row['tlpos'] = SetUncertainAttribute('none',match,'targetpos1')
+                        try:
+                            if match.parallelword:
+                                row['poschange'] = DefinePosChange(match.sourcepos1,match.targetpos1)
+                            else:
+                                #If no parallel context, use 9 as value
+                                row['poschange'] = 9
+                        except AttributeError:
+                                row['poschange'] = 9
+                        row['sl_cleansentence'] = match.matchedsentence.cleanprintstring
+                        row['tl_cleansentence'] = SetUncertainAttribute('',match,'parallelsentence','cleanprintstring')
+                        row['sl_context'] = match.slcontextstring
+                        row['tl_context'] = SetUncertainAttribute('',match,'tlcontextstring')
+                        row['slmatchid'] = match.matchedword.dbid
+                        row['tlmatchid'] = SetUncertainAttribute(0,match,'parallelword','dbid')
+                        row['text_id'] = match.sourcetextid
+                        row['author'] = metadata['author']
+                        row['work'] = metadata['origtitle']
+                        row['origyear'] = metadata['origyear']
+                        row['transyear'] = metadata['transyear']
+                        row['translator'] = metadata['translator']
+                        rowlist.append(row)
+                    else:
+                        errorcount += 1
                     bar.next()
-        print('Inserting to database..')
+        print('\nInserting to database.. ({} errors in processing matches)'.format(errorcount))
         con.BatchInsert('tme',rowlist)
         print('Done. Inserted {} rows.'.format(con.cur.rowcount))
+        
 
 
 class Match:
@@ -695,52 +701,74 @@ class Match:
 
     def DefinePositionMatch(self):
         """Define what part of the match is the direct  dependent of a verb etc"""
-        self.positionmatchword = self.matchedword
-        #Check the words head
-        self.CatchHead()
-        if self.headword.pos in ('S'):
-            #if the match is actually a dependent of a pronoun
-            # LIST all the other possible cases as well!
-            self.positionmatchword = self.headword
-        elif self.headshead:
-            if self.headshead.pos in ('S'):
-                #or if the match's head  is actually a dependent of a pronoun
-                self.positionmatchword = self.headshead
-        self.headword = self.matchedsentence.words[self.positionmatchword.head]
-
-        # =========================================================================0
-
-        if self.parallelword:
-            #If there is a comparable parallel context
-            self.parallel_positionword = self.parallelword
-            if self.parallel_headword.pos in ('S'):
+        try:
+            self.positionmatchword = self.matchedword
+            #Check the words head
+            self.CatchHead()
+            if self.headword.pos in ('S'):
                 #if the match is actually a dependent of a pronoun
-                self.parallel_positionword = self.parallel_headword
-            elif self.parallel_headshead:
-                if self.parallel_headshead.pos in ('S'):
+                # LIST all the other possible cases as well!
+                self.positionmatchword = self.headword
+            elif self.headshead:
+                if self.headshead.pos in ('S'):
                     #or if the match's head  is actually a dependent of a pronoun
-                    self.parallel_positionword = self.parallel_headshead
-            #set the head for the position word
-            self.parallel_headword = self.parallelsentence.words[self.parallel_positionword.head]
+                    self.positionmatchword = self.headshead
+            try:
+                self.headword = self.matchedsentence.words[self.positionmatchword.head]
+            except KeyError:
+                #FOR SN idiotism...
+                self.headword = None
+
+            # =========================================================================0
+
+            if self.parallelword:
+                #If there is a comparable parallel context
+                self.parallel_positionword = self.parallelword
+                if self.parallel_headword.pos in ('S'):
+                    #if the match is actually a dependent of a pronoun
+                    self.parallel_positionword = self.parallel_headword
+                elif self.parallel_headshead:
+                    if self.parallel_headshead.pos in ('S'):
+                        #or if the match's head  is actually a dependent of a pronoun
+                        self.parallel_positionword = self.parallel_headshead
+                #set the head for the position word
+                try:
+                    self.parallel_headword = self.parallelsentence.words[self.parallel_positionword.head]
+                except KeyError:
+                    #FOR SN idiotism...
+                    self.parallel_headword = None
+
+            #If no errors, return true
+            return True
+
+        except AttributeError:
+            #If something wrong, return false
+            return False
+        except KeyError:
+            #If something wrong, return false
+            return False
 
     def DefinePosition1(self):
         """Define, whether the match is located clause-initially, clause-finally or in the middle"""
-        self.DefinePositionMatch()
-        #For the source segment
-        if IsThisClauseInitial(self.positionmatchword, self.matchedsentence):
-            self.sourcepos1 = 'clause-initial'
-        elif IsThisClauseFinal(self.positionmatchword, self.matchedsentence):
-            self.sourcepos1 = 'clause-final'
-        else:
-            self.sourcepos1 = 'middle'
-        #For the target segment
-        if self.parallelword:
-            if IsThisClauseInitial(self.parallel_positionword, self.parallelsentence):
-                self.targetpos1 = 'clause-initial'
-            elif IsThisClauseFinal(self.parallel_positionword, self.parallelsentence):
-                self.targetpos1 = 'clause-final'
+        if self.DefinePositionMatch():
+            #For the source segment
+            if IsThisClauseInitial(self.positionmatchword, self.matchedsentence):
+                self.sourcepos1 = 'clause-initial'
+            elif IsThisClauseFinal(self.positionmatchword, self.matchedsentence):
+                self.sourcepos1 = 'clause-final'
             else:
-                self.targetpos1 = 'middle'
+                self.sourcepos1 = 'middle'
+            #For the target segment
+            if self.parallelword:
+                if IsThisClauseInitial(self.parallel_positionword, self.parallelsentence):
+                    self.targetpos1 = 'clause-initial'
+                elif IsThisClauseFinal(self.parallel_positionword, self.parallelsentence):
+                    self.targetpos1 = 'clause-final'
+                else:
+                    self.targetpos1 = 'middle'
+            return True
+        else:
+            return False
 
 class Sentence:
     """
@@ -1078,6 +1106,8 @@ def IsThisClauseInitial(mword, msentence):
     #First, assume this IS clause-initial
     clauseinitial = True
     #import ipdb; ipdb.set_trace()
+    if mword.tokenid == max(msentence.tokenids):
+        return False
     if (mword.tokenid + 1 == max(msentence.tokenids) or mword.tokenid == max(msentence.tokenids)) and msentence.words[mword.tokenid + 1].token in string.punctuation:
         #A hacky fix to prevent sentence-final items being anayzed as clause-initial
         return False
@@ -1172,17 +1202,17 @@ def IsThisAClause(sentence, conjunction):
     #If the end of the sentence was reached -> not counted as a clause
     return False
 
-def DefinePosChange(spos,tpos):
+def DefinePosChange(slpos,tlpos):
     """GIve a numeric representation to changes in tme position"""
-    if spos == tlpos:
+    if slpos == tlpos:
         return 0
-    elif spos == 'clause-initial' and tpos == 'middle':
+    elif slpos == 'clause-initial' and tlpos == 'middle':
         return 1
-    elif spos == 'clause-initial' and tpos == 'clause-final':
+    elif slpos == 'clause-initial' and tlpos == 'clause-final':
         return 2
-    elif spos == 'clause-final' and tpos == 'middle':
+    elif slpos == 'clause-final' and tlpos == 'middle':
         return -1
-    elif spos == 'clause-final' and tpos == 'clause-final':
+    elif slpos == 'clause-final' and tlpos == 'clause-final':
         return -2
 
 def SetUncertainAttribute(nullvalue, thisobject, attribute1, attribute2=''):
