@@ -491,6 +491,8 @@ class Search:
                         row['origyear'] = metadata['origyear']
                         row['transyear'] = metadata['transyear']
                         row['translator'] = metadata['translator']
+                        row['headlemma'] = SetUncertainAttribute('',match,'headword','lemma')
+                        row['matchlemma'] = match.matchedword.lemma
                         rowlist.append(row)
                     else:
                         errorcount += 1
@@ -499,8 +501,6 @@ class Search:
         con.BatchInsert('tme',rowlist)
         print('Done. Inserted {} rows.'.format(con.cur.rowcount))
         
-
-
 class Match:
     """ 
     A match object contains ifromation about a concrete token that 
@@ -1212,8 +1212,10 @@ def DefinePosChange(slpos,tlpos):
         return 2
     elif slpos == 'clause-final' and tlpos == 'middle':
         return -1
-    elif slpos == 'clause-final' and tlpos == 'clause-final':
+    elif slpos == 'clause-final' and tlpos == 'clause-initial':
         return -2
+    else:
+        return 9
 
 def SetUncertainAttribute(nullvalue, thisobject, attribute1, attribute2=''):
     """asdd"""
@@ -1235,5 +1237,4 @@ def GetMetadata(text_id, metadata):
         if text_id == mdrow['id']:
             return mdrow
     return None
-
 
