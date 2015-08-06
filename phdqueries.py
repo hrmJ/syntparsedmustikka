@@ -176,7 +176,7 @@ def tmevalues(lang):
         deprel= ('nsubj','nsubj-cop','ROOT')
     elif lang == 'ru':
         deprel= ('предик','дат-субъект')
-    allwords = Csvlist('/home/juho/phdmanuscript/clausinittime/tme_{}.csv'.format(lang))
+    allwords = Csvlist('/home/juho/phdmanuscript/articles/clausinittime/data/tme_{}.csv'.format(lang))
     ConditionColumns = list()
     for row in allwords.aslist:
         ConditionColumns.append({'lemma':(row[0],), '!deprel':deprel})

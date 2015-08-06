@@ -498,6 +498,16 @@ class Search:
                             row['tl_inversion'] = IsThisInverted2(match.parallelword,match.parallelsentence)
                         else:
                             row['tl_inversion'] = None
+                        row['sl_firstlemmaofthisclause'] = FirstLemmaOfCurrentClause(match.matchedsentence,match.matchedword)
+                        if match.parallelword:
+                            row['tl_firstlemmaofthisclause'] = FirstLemmaOfCurrentClause(match.parallelsentence,match.parallelword)
+                        else:
+                            row['tl_firstlemmaofthisclause'] = None
+                        row['sl_firstlemmaofnextclause'] = FirstLemmaOfNextClause(match.matchedsentence,match.matchedword)
+                        if match.parallelword:
+                            row['tl_firstlemmaofnextclause'] = FirstLemmaOfNextClause(match.parallelsentence,match.parallelword)
+                        else:
+                            row['tl_firstlemmaofnextclause'] = None
                         rowlist.append(row)
                     else:
                         errorcount += 1
@@ -985,6 +995,7 @@ class Sentence:
         #If a marker for the next clause was met, assume that the previous word was the last of the current clause:
         return this_tokenid - 1
 
+
 class TargetSentence(Sentence):
     """This is specially for the sentences in the parallel context. The main difference from 
     original sentences is that match"""
@@ -1200,9 +1211,14 @@ def IsThisInverted2(mword, msentence):
     verbs_tokenid = None
     for tokenid in msentence.tokenids[lb_index:rb_index]:
         word = msentence.words[tokenid]
-        if word.deprel in ('nsubj','предик'):
+        if word.deprel in ('nsubj','предик','дат-субъект'):
             subjects_tokenid = tokenid
-        if word.feat[0:3] == 'Vmi' or ItemInString(['MOOD_Ind','MOOD_Imprt','MOOD_Pot','MOOD_Cond'],word.feat):
+            #ALSO use the headtest:
+            subjectshead = msentence.words[word.head]
+            if subjectshead.tokenid < word.tokenid and subjectshead.pos == 'V' and 'INF' not in subjectshead.feat:
+                return 1
+            #-----------------------
+        if word.feat[0:3] in ('Vmi','Vmm') or ItemInString(['MOOD_Ind','MOOD_Imprt','MOOD_Pot','MOOD_Cond'],word.feat):
             verbs_tokenid = tokenid
     if subjects_tokenid and verbs_tokenid:
         if subjects_tokenid > verbs_tokenid:
@@ -1248,6 +1264,27 @@ def IsThisAClause(sentence, conjunction):
             return False
     #If the end of the sentence was reached -> not counted as a clause
     return False
+
+def FirstLemmaOfCurrentClause(sentence, currentword):
+    """Return the lemma of the first lexical word object of the clause"""
+    first_tokenid = sentence.FirstWordOfCurrentClause(currentword)
+    firstword = sentence.words[first_tokenid]
+    while firstword.token in string.punctuation:
+        first_tokenid += 1
+        firstword = sentence.words[first_tokenid]
+    return firstword.lemma
+
+def FirstLemmaOfNextClause(sentence, currentword):
+    """Return the lemma of the first lexical word object of the clause"""
+    last_tokenid = sentence.LastWordOfCurrentClause(currentword)
+    try:
+        lastword = sentence.words[last_tokenid + 1]
+        while lastword.token in string.punctuation:
+            last_tokenid += 1
+            lastword = sentence.words[last_tokenid]
+    except KeyError:
+        return None
+    return lastword.lemma
 
 def DefinePosChange(slpos,tlpos):
     """GIve a numeric representation to changes in tme position"""

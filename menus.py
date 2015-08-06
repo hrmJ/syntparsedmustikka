@@ -8,7 +8,7 @@ class Menu:
     def prompt_valid(self,definedquestion=''):
             if definedquestion:
                 self.question = definedquestion
-            if len(self.validanswers) > 10:
+            if len(self.validanswers) > 10 and 'n' not in self.validanswers:
                 dontchangequestion=False
                 #If there are lots of options, arrange them in columns:
                 colcount = 0
