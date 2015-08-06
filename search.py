@@ -493,6 +493,11 @@ class Search:
                         row['translator'] = metadata['translator']
                         row['headlemma'] = SetUncertainAttribute('',match,'headword','lemma')
                         row['matchlemma'] = match.matchedword.lemma
+                        row['sl_inversion'] = IsThisInverted(match.matchedword,match.matchedsentence)
+                        if match.parallelword:
+                            row['tl_inversion'] = IsThisInverted(match.parallelword,match.parallelsentence)
+                        else:
+                            row['tl_inversion'] = None
                         rowlist.append(row)
                     else:
                         errorcount += 1
@@ -770,6 +775,7 @@ class Match:
         else:
             return False
 
+
 class Sentence:
     """
     The sentence consists of words (which can actually also be punctuation marks).
@@ -955,7 +961,7 @@ class Sentence:
         self.dependentlist = dependents
 
     def FirstWordOfCurrentClause(self, currentword):
-        """Return the first word of the clause specified by a word"""
+        """Return the tokenid of the first word of the clause specified by a word"""
         self.tokenids = sorted(map(int,self.words))
         this_tokenid = currentword.tokenid
         while not FirstWordOfClause(self, self.words[this_tokenid]) and this_tokenid > min(self.tokenids):
@@ -1163,6 +1169,23 @@ def IsThisClauseFinal(mword, msentence):
             #If all the above tests fail, then assume that there is a word before the match in the clause
             break
     return clausefinal
+
+def IsThisInverted(mword, msentence):
+    """examine, wthere a clause has inverted (vs) order"""
+    left_border = msentence.FirstWordOfCurrentClause(mword)
+    right_border = msentence.LastWordOfCurrentClause(mword)
+    lb_index = msentence.tokenids.index(left_border)
+    rb_index = msentence.tokenids.index(right_border)
+    if rb_index < max(msentence.tokenids):
+        #if this is not the last word of the sentence, include it in the clause
+        rb_index += 1
+    for tokenid in msentence.tokenids[lb_index:rb_index]:
+        word = msentence.words[tokenid]
+        if word.deprel in ('nsubj','предик'):
+            subjectshead = msentence.words[word.head]
+            if subjectshead.tokenid < word.tokenid and subjectshead.pos == 'V':
+                return 1
+    return 0
 
 def FirstWordOfClause(sentence, word):
     """Define, if this is potentially the first word of a clause"""
