@@ -10,6 +10,7 @@ class Featset:
         self.PronAcc =  self.createPronSet(cases = ('a',))
         self.PronDat =  self.createPronSet(cases = ('d',))
         self.inf = ('Vmn----a-e','Vmn----a-p')
+        #self.fin = ('Vmip3s-a-e')
         #Pronouns
 
 

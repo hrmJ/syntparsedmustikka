@@ -493,9 +493,9 @@ class Search:
                         row['translator'] = metadata['translator']
                         row['headlemma'] = SetUncertainAttribute('',match,'headword','lemma')
                         row['matchlemma'] = match.matchedword.lemma
-                        row['sl_inversion'] = IsThisInverted(match.matchedword,match.matchedsentence)
+                        row['sl_inversion'] = IsThisInverted2(match.matchedword,match.matchedsentence)
                         if match.parallelword:
-                            row['tl_inversion'] = IsThisInverted(match.parallelword,match.parallelsentence)
+                            row['tl_inversion'] = IsThisInverted2(match.parallelword,match.parallelsentence)
                         else:
                             row['tl_inversion'] = None
                         rowlist.append(row)
@@ -1187,6 +1187,30 @@ def IsThisInverted(mword, msentence):
                 return 1
     return 0
 
+def IsThisInverted2(mword, msentence):
+    """examine, wthere a clause has inverted (vs) order. Don't rely on dependency but try to find a finite verb"""
+    left_border = msentence.FirstWordOfCurrentClause(mword)
+    right_border = msentence.LastWordOfCurrentClause(mword)
+    lb_index = msentence.tokenids.index(left_border)
+    rb_index = msentence.tokenids.index(right_border)
+    if rb_index < max(msentence.tokenids):
+        #if this is not the last word of the sentence, include it in the clause
+        rb_index += 1
+    subjects_tokenid = None
+    verbs_tokenid = None
+    for tokenid in msentence.tokenids[lb_index:rb_index]:
+        word = msentence.words[tokenid]
+        if word.deprel in ('nsubj','предик'):
+            subjects_tokenid = tokenid
+        if word.feat[0:3] == 'Vmi' or ItemInString(['MOOD_Ind','MOOD_Imprt','MOOD_Pot','MOOD_Cond'],word.feat):
+            verbs_tokenid = tokenid
+    if subjects_tokenid and verbs_tokenid:
+        if subjects_tokenid > verbs_tokenid:
+            #if there is a subject and a finite verb and the verb precedes the subject, return 1
+            return 1
+    #Otherwise return 0
+    return 0
+
 def FirstWordOfClause(sentence, word):
     """Define, if this is potentially the first word of a clause"""
     if word.token in string.punctuation or word.pos in ('C'):
@@ -1261,3 +1285,9 @@ def GetMetadata(text_id, metadata):
             return mdrow
     return None
 
+def ItemInString(stringlist,string):
+    """Return true if one of the items in a list is in the string"""
+    for item in stringlist:
+        if item in string:
+            return True
+    return False
