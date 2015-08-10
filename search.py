@@ -1177,6 +1177,15 @@ def IsThisClauseFinal(mword, msentence):
                 #in TDT there are errors with OSMAs, this is a try to fix some of them
                 clausefinal = False
         else:
+            try:
+                #special case: Russian "minut na sem" expressions
+                plusone = msentence.words[tokenids_aftermatch[tokenid+1]]
+                plustwo = msentence.words[tokenids_aftermatch[tokenid+2]]
+                if plusone.lemma in ('на','в') and plustwo.pos == 'M' and tokenid+2 == max(tokenids):
+                    clausefinal = True
+                    break
+            except IndexError:
+                pass
             #If all the above tests fail, then assume that there is a word before the match in the clause
             break
     return clausefinal
