@@ -494,19 +494,41 @@ class Search:
                         row['headlemma'] = SetUncertainAttribute('',match,'headword','lemma')
                         row['matchlemma'] = match.matchedword.lemma
                         #---------------------------------------------------------
+                        firstwordofcurrent = FirstLemmaOfCurrentClause(match.matchedsentence,match.matchedword)
+                        firstwordofnext = FirstLemmaOfNextClause(match.matchedsentence,match.matchedword)
+                        if not firstwordofnext:
+                            firstposofnext = None
+                            firstlemmaofnext = None
+                        else:
+                            firstposofnext = firstwordofnext.pos
+                            firstlemmaofnext = firstwordofnext.lemma
+                        row['sl_firstlemmaofthisclause'] = firstwordofcurrent.lemma
+                        row['sl_firstlemmaofnextclause'] = firstlemmaofnext
+                        row['sl_firstposofthisclause'] = firstwordofcurrent.pos
+                        row['sl_firstposofnextclause'] = firstposofnext
                         row['sl_inversion'] = IsThisInverted2(match.matchedword,match.matchedsentence)
-                        row['sl_firstlemmaofthisclause'] = FirstLemmaOfCurrentClause(match.matchedsentence,match.matchedword)
-                        row['sl_firstlemmaofnextclause'] = FirstLemmaOfNextClause(match.matchedsentence,match.matchedword)
                         row['sl_matchcase'] = DefineCase(match.matchedword,sl)
                         if match.parallelword:
+                            firstwordofcurrent = FirstLemmaOfCurrentClause(match.parallelsentence, match.parallelword)
+                            firstwordofnext = FirstLemmaOfNextClause(match.parallelsentence, match.parallelword)
+                            if not firstwordofnext:
+                                firstposofnext = None
+                                firstlemmaofnext = None
+                            else:
+                                firstposofnext = firstwordofnext.pos
+                                firstlemmaofnext = firstwordofnext.lemma
+                            row['tl_firstlemmaofthisclause'] = firstwordofcurrent.lemma
+                            row['tl_firstlemmaofnextclause'] = firstlemmaofnext
+                            row['tl_firstposofthisclause'] = firstwordofcurrent.pos
+                            row['tl_firstposofnextclause'] = firstposofnext
                             row['tl_inversion'] = IsThisInverted2(match.parallelword,match.parallelsentence)
-                            row['tl_firstlemmaofthisclause'] = FirstLemmaOfCurrentClause(match.parallelsentence,match.parallelword)
-                            row['tl_firstlemmaofnextclause'] = FirstLemmaOfNextClause(match.parallelsentence,match.parallelword)
                             row['tl_matchcase'] = DefineCase(match.parallelword,tl)
                         else:
-                            row['tl_inversion'] = None
                             row['tl_firstlemmaofthisclause'] = None
-                            row['tl_firstlemmaofnextclause'] = FirstLemmaOfNextClause(match.parallelsentence,match.parallelword)
+                            row['tl_firstlemmaofnextclause'] = None
+                            row['tl_firstposofthisclause'] = None
+                            row['tl_firstposofnextclause'] = None
+                            row['tl_inversion'] = None
                             row['tl_matchcase'] = None
                         rowlist.append(row)
                     else:
@@ -1275,16 +1297,16 @@ def IsThisAClause(sentence, conjunction):
     return False
 
 def FirstLemmaOfCurrentClause(sentence, currentword):
-    """Return the lemma of the first lexical word object of the clause"""
+    """Return the word object of the first lexical word object of the clause"""
     first_tokenid = sentence.FirstWordOfCurrentClause(currentword)
     firstword = sentence.words[first_tokenid]
     while firstword.token in string.punctuation:
         first_tokenid += 1
         firstword = sentence.words[first_tokenid]
-    return firstword.lemma
+    return firstword
 
 def FirstLemmaOfNextClause(sentence, currentword):
-    """Return the lemma of the first lexical word object of the clause"""
+    """Return the word object of the first lexical word object of the clause"""
     last_tokenid = sentence.LastWordOfCurrentClause(currentword)
     try:
         lastword = sentence.words[last_tokenid + 1]
@@ -1293,7 +1315,7 @@ def FirstLemmaOfNextClause(sentence, currentword):
             lastword = sentence.words[last_tokenid]
     except KeyError:
         return None
-    return lastword.lemma
+    return lastword
 
 def DefinePosChange(slpos,tlpos):
     """GIve a numeric representation to changes in tme position"""
