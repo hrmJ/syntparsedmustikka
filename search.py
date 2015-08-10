@@ -493,21 +493,21 @@ class Search:
                         row['translator'] = metadata['translator']
                         row['headlemma'] = SetUncertainAttribute('',match,'headword','lemma')
                         row['matchlemma'] = match.matchedword.lemma
+                        #---------------------------------------------------------
                         row['sl_inversion'] = IsThisInverted2(match.matchedword,match.matchedsentence)
+                        row['sl_firstlemmaofthisclause'] = FirstLemmaOfCurrentClause(match.matchedsentence,match.matchedword)
+                        row['sl_firstlemmaofnextclause'] = FirstLemmaOfNextClause(match.matchedsentence,match.matchedword)
+                        row['sl_matchcase'] = DefineCase(match.matchedword,sl)
                         if match.parallelword:
                             row['tl_inversion'] = IsThisInverted2(match.parallelword,match.parallelsentence)
+                            row['tl_firstlemmaofthisclause'] = FirstLemmaOfCurrentClause(match.parallelsentence,match.parallelword)
+                            row['tl_firstlemmaofnextclause'] = FirstLemmaOfNextClause(match.parallelsentence,match.parallelword)
+                            row['tl_matchcase'] = DefineCase(match.parallelword,tl)
                         else:
                             row['tl_inversion'] = None
-                        row['sl_firstlemmaofthisclause'] = FirstLemmaOfCurrentClause(match.matchedsentence,match.matchedword)
-                        if match.parallelword:
-                            row['tl_firstlemmaofthisclause'] = FirstLemmaOfCurrentClause(match.parallelsentence,match.parallelword)
-                        else:
                             row['tl_firstlemmaofthisclause'] = None
-                        row['sl_firstlemmaofnextclause'] = FirstLemmaOfNextClause(match.matchedsentence,match.matchedword)
-                        if match.parallelword:
                             row['tl_firstlemmaofnextclause'] = FirstLemmaOfNextClause(match.parallelsentence,match.parallelword)
-                        else:
-                            row['tl_firstlemmaofnextclause'] = None
+                            row['tl_matchcase'] = None
                         rowlist.append(row)
                     else:
                         errorcount += 1
@@ -1337,3 +1337,20 @@ def ItemInString(stringlist,string):
         if item in string:
             return True
     return False
+
+def DefineCase(word, lang):
+    """Catch the case from the lemmatizers' output"""
+
+    if word.pos in ('N','A'):
+        if lang=='fi':
+            try:
+                p = re.compile('CASE_([a-z]+)',re.IGNORECASE)
+                m = p.search(word.feat)
+                return m.group(1)
+            except AttributeError:
+                return None
+        if lang=='ru':
+            return word.feat[4:5]
+    else:
+        return None
+
