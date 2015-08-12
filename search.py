@@ -791,7 +791,7 @@ class Match:
             #For the source segment
             if IsThisClauseInitial(self.positionmatchword, self.matchedsentence):
                 self.sourcepos1 = 'clause-initial'
-            elif IsThisClauseFinal(self.positionmatchword, self.matchedsentence):
+            elif IsThisClauseFinal(self.positionmatchword, self.matchedsentence, self.matchedword):
                 self.sourcepos1 = 'clause-final'
             else:
                 self.sourcepos1 = 'middle'
@@ -799,7 +799,7 @@ class Match:
             if self.parallelword:
                 if IsThisClauseInitial(self.parallel_positionword, self.parallelsentence):
                     self.targetpos1 = 'clause-initial'
-                elif IsThisClauseFinal(self.parallel_positionword, self.parallelsentence):
+                elif IsThisClauseFinal(self.parallel_positionword, self.parallelsentence, self.parallelword):
                     self.targetpos1 = 'clause-final'
                 else:
                     self.targetpos1 = 'middle'
@@ -1144,7 +1144,6 @@ def IsThisClauseInitial(mword, msentence):
     #2. Find out what's between the punctuation mark / conjunction / sentence border and the match
     #First, assume this IS clause-initial
     clauseinitial = True
-    #import ipdb; ipdb.set_trace()
     if mword.tokenid == max(msentence.tokenids):
         return False
     if (mword.tokenid + 1 == max(msentence.tokenids) or mword.tokenid == max(msentence.tokenids)) and msentence.words[mword.tokenid + 1].token in string.punctuation:
@@ -1157,7 +1156,6 @@ def IsThisClauseInitial(mword, msentence):
         clauseborder = msentence.tokenids.index(this_tokenid)+1
     matchindex = msentence.tokenids.index(mword.tokenid)
     tokenids_beforematch = msentence.tokenids[clauseborder:matchindex]
-    #import ipdb; ipdb.set_trace()
     for tokenid in tokenids_beforematch:
         #if there is a word between the bmarker and the match, assume that the match is not clause-initial 
         clauseinitial = False
@@ -1170,7 +1168,7 @@ def IsThisClauseInitial(mword, msentence):
             break
     return clauseinitial
 
-def IsThisClauseFinal(mword, msentence):
+def IsThisClauseFinal(mword, msentence, actualmatchword):
     """Define, whether the match is located clause-initially"""
     last_tokenid = msentence.LastWordOfCurrentClause(mword)
     if mword.tokenid == last_tokenid:
@@ -1198,6 +1196,25 @@ def IsThisClauseFinal(mword, msentence):
             if word.deprel == 'nommod' and mword.deprel == 'dobj':
                 #in TDT there are errors with OSMAs, this is a try to fix some of them
                 clausefinal = False
+        elif word.token == 'назад':
+            #special case: Russian nazad as the last word of clause
+            if tokenid -1 == mword.tokenid:
+                clausefinal = True
+            else:
+                #a hack for possible tomu nazad... let pjat nazad... cases:
+                try:
+                    prev1 = msentence.words[tokenid-1]
+                    prev2 = msentence.words[tokenid-2]
+                    if prev1.token in ('тому') and prev2.tokenid == mword.tokenid:
+                        clausefinal = True
+                    if prev1.pos in ('M','N') and prev2.tokenid == mword.tokenid:
+                        clausefinal = True
+                except:
+                    clausefinal = False
+        elif mword.pos == 'S' and tokenid > mword.tokenid and word.head != mword.tokenid:
+            #special case: russian preposition that govern the match wich has its OWN dependents
+            if word.head == actualmatchword.tokenid:
+                clausefinal = True
         else:
             try:
                 #special case: Russian "minut na sem" expressions
