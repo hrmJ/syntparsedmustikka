@@ -787,6 +787,8 @@ class Match:
 
     def DefinePosition1(self):
         """Define, whether the match is located clause-initially, clause-finally or in the middle"""
+        #if self.matchedword.dbid == 531109:
+        #    import ipdb; ipdb.set_trace()
         if self.DefinePositionMatch():
             #For the source segment
             if IsThisClauseInitial(self.positionmatchword, self.matchedsentence):
@@ -1168,7 +1170,7 @@ def IsThisClauseInitial(mword, msentence):
 
 def IsThisClauseFinal(mword, msentence, actualmatchword):
     """Define, whether the match is located clause-initially"""
-    if mword.dbid == 531109:
+    if mword.dbid == 531108:
         import ipdb; ipdb.set_trace()
     last_tokenid = msentence.LastWordOfCurrentClause(mword)
     if mword.tokenid == last_tokenid:
@@ -1195,7 +1197,7 @@ def IsThisClauseFinal(mword, msentence, actualmatchword):
             #Special conditions:
             if word.deprel == 'nommod' and mword.deprel == 'dobj':
                 #in TDT there are errors with OSMAs, this is a try to fix some of them
-                clausefinal = False
+                break
         elif word.token == 'назад':
             #special case: Russian nazad as the last word of clause
             if tokenid -1 == mword.tokenid:
@@ -1226,6 +1228,9 @@ def IsThisClauseFinal(mword, msentence, actualmatchword):
             except IndexError:
                 pass
             #If all the above tests fail, then assume that there is a word before the match in the clause
+            break
+        if not clausefinal:
+            #If there was a word after the tested word and it didn't match any conditions, break the loop
             break
     return clausefinal
 
