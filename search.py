@@ -807,7 +807,6 @@ class Match:
         else:
             return False
 
-
 class Sentence:
     """
     The sentence consists of words (which can actually also be punctuation marks).
@@ -1017,7 +1016,6 @@ class Sentence:
         #If a marker for the next clause was met, assume that the previous word was the last of the current clause:
         return this_tokenid - 1
 
-
 class TargetSentence(Sentence):
     """This is specially for the sentences in the parallel context. The main difference from 
     original sentences is that match"""
@@ -1160,8 +1158,8 @@ def IsThisClauseInitial(mword, msentence):
         #if there is a word between the bmarker and the match, assume that the match is not clause-initial 
         clauseinitial = False
         word = msentence.words[tokenid]
-        if word.head == mword.tokenid:
-            #except if this is a depent of the match or a conjunction
+        if word.head == mword.tokenid and word.lemma not in ('tosin') and word.deprel not in ('cop','nsubj-cop'):
+            #except if this is a depent of the match or a conjunction.. See also the hack above for some unwanted dependents
             clauseinitial = True
         else:
             #If all the above tests fail, then assume that there is a word before the match in the clause
@@ -1170,6 +1168,8 @@ def IsThisClauseInitial(mword, msentence):
 
 def IsThisClauseFinal(mword, msentence, actualmatchword):
     """Define, whether the match is located clause-initially"""
+    if mword.dbid == 531109:
+        import ipdb; ipdb.set_trace()
     last_tokenid = msentence.LastWordOfCurrentClause(mword)
     if mword.tokenid == last_tokenid:
         # If this is the absolute final word of the clause, return true
