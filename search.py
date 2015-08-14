@@ -508,6 +508,7 @@ class Search:
                         row['sl_firstposofnextclause'] = firstposofnext
                         row['sl_inversion'] = IsThisInverted2(match.matchedword,match.matchedsentence)
                         row['sl_matchcase'] = DefineCase(match.matchedword,sl)
+                        row['sl_morphinfo'] = DefineMorphology(match.matchedword,sl)
                         if match.parallelword:
                             firstwordofcurrent = FirstLemmaOfCurrentClause(match.parallelsentence, match.parallelword)
                             firstwordofnext = FirstLemmaOfNextClause(match.parallelsentence, match.parallelword)
@@ -523,6 +524,7 @@ class Search:
                             row['tl_firstposofnextclause'] = firstposofnext
                             row['tl_inversion'] = IsThisInverted2(match.parallelword,match.parallelsentence)
                             row['tl_matchcase'] = DefineCase(match.parallelword,tl)
+                            row['tl_morphinfo'] = DefineMorphology(match.parallelword,tl)
                         else:
                             row['tl_firstlemmaofthisclause'] = None
                             row['tl_firstlemmaofnextclause'] = None
@@ -530,6 +532,7 @@ class Search:
                             row['tl_firstposofnextclause'] = None
                             row['tl_inversion'] = None
                             row['tl_matchcase'] = None
+                            row['tl_morphinfo'] = None
                         rowlist.append(row)
                     else:
                         errorcount += 1
@@ -601,6 +604,7 @@ class Match:
         """Store the matches head in a separate object,if possible. If not, return the sentence's id"""
         try:
             self.headword = self.matchedsentence.words[self.matchedword.head]
+            self.matchedword.headword = self.matchedsentence.words[self.matchedword.head]
             try:
                 #try to define the head of the head
                 self.headshead = self.matchedsentence.words[self.headword.head]
@@ -608,6 +612,7 @@ class Match:
                 self.headshead = None
         except KeyError:
             self.headword = None
+            self.matchedword.headword = None
             return False
 
         #For parallel contexts: ================================================
@@ -616,6 +621,7 @@ class Match:
             #if there is a parallel context
             try:
                 self.parallel_headword = self.parallelsentence.words[self.parallelword.head]
+                self.parallelword.headword = self.parallelsentence.words[self.parallelword.head]
                 try:
                     #try to define the head of the head
                     self.parallel_headshead = self.parallelsentence.words[self.parallel_headword.head]
@@ -623,6 +629,7 @@ class Match:
                     self.parallel_headshead = None
             except KeyError:
                 self.parallel_headword = None
+                self.parallelword.headword = None
 
 
         # If headword (for the source context) succesfully defined, return true
@@ -1170,8 +1177,8 @@ def IsThisClauseInitial(mword, msentence):
 
 def IsThisClauseFinal(mword, msentence, actualmatchword):
     """Define, whether the match is located clause-initially"""
-    if mword.dbid == 531108:
-        import ipdb; ipdb.set_trace()
+    #if mword.dbid == 531108:
+    #    import ipdb; ipdb.set_trace()
     last_tokenid = msentence.LastWordOfCurrentClause(mword)
     if mword.tokenid == last_tokenid:
         # If this is the absolute final word of the clause, return true
@@ -1395,6 +1402,26 @@ def DefineCase(word, lang):
                 return None
         if lang=='ru':
             return word.feat[4:5]
+    else:
+        return None
+
+def DefineMorphology(word, lang):
+    """Catch the case from the lemmatizers' output"""
+
+    if word.pos in ('N','A'):
+        if lang=='fi':
+            return DefineCase(word,lang)
+        if lang=='ru':
+            #import ipdb; ipdb.set_trace()
+            try:
+                if word.headword.pos == 'S':
+                    #if preposition as head
+                    return '{}_{}'.format(word.headword.lemma,word.feat[4:5])
+            except:
+                pass
+            #if no preposition as head:
+            return word.feat[4:5]
+
     else:
         return None
 
