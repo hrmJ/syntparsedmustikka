@@ -469,6 +469,8 @@ class Search:
                         row['tl'] = tl
                         row['sl_sentence'] = match.matchedsentence.printstring
                         row['tl_sentence'] = SetUncertainAttribute('',match,'parallelsentence','printstring')
+                        row['sl_clause'] = match.matchedclause.printstring
+                        row['tl_clause'] = SetUncertainAttribute('',match,'parallelclause','printstring')
                         row['slpos'] = match.sourcepos1
                         row['tlpos'] = SetUncertainAttribute('none',match,'targetpos1')
                         try:
@@ -485,6 +487,8 @@ class Search:
                         row['tl_context'] = SetUncertainAttribute('',match,'tlcontextstring')
                         row['slmatchid'] = match.matchedword.dbid
                         row['tlmatchid'] = SetUncertainAttribute(0,match,'parallelword','dbid')
+                        row['sl_hasneg'] = match.matchedclause.hasneg
+                        row['tl_hasneg'] = SetUncertainAttribute(0,match,'parallelclause','hasneg')
                         row['text_id'] = match.sourcetextid
                         row['author'] = metadata['author']
                         row['work'] = metadata['origtitle']
@@ -574,6 +578,8 @@ class Match:
         """Build a string containing all the sentences int the align unit the match is found in"""
         self.slcontextstring = ''
         for sentence_id, sentence in self.context.items():
+            #Create a clause object for the clause containing the matched word
+            self.matchedclause = Clause(self.matchedsentence, self.matchedword)
             if sentence_id == self.matchedsentence.sentence_id:
                 sentence.BuildHighlightedPrintString(self.matchedword)
             else:
@@ -582,6 +588,8 @@ class Match:
         #If a parallel context exists, do the same:
         try:
             if self.parallelcontext:
+                #Create a clause object for the clause containing the parallel word
+                self.parallelclause = Clause(self.parallelsentence, self.parallelword)
                 for sentence_id, sentence in self.parallelcontext.items():
                     if sentence_id == self.parallelsentence.sentence_id:
                         sentence.BuildHighlightedPrintString(self.parallelword)
@@ -754,8 +762,8 @@ class Match:
                 # LIST all the other possible cases as well!
                 self.positionmatchword = self.headword
             elif self.headshead:
-                if self.headshead.pos in ('S'):
-                    #or if the match's head  is actually a dependent of a pronoun
+                if self.headshead.pos in ('S') and self.headword.pos != 'V':
+                    #or if the match's head  is actually a dependent of a pronoun (AND the match's head is not a verb)
                     self.positionmatchword = self.headshead
             try:
                 self.headword = self.matchedsentence.words[self.positionmatchword.head]
@@ -772,7 +780,7 @@ class Match:
                     #if the match is actually a dependent of a pronoun
                     self.parallel_positionword = self.parallel_headword
                 elif self.parallel_headshead:
-                    if self.parallel_headshead.pos in ('S'):
+                    if self.parallel_headshead.pos in ('S') and self.parallel_headword.pos != 'V':
                         #or if the match's head  is actually a dependent of a pronoun
                         self.parallel_positionword = self.parallel_headshead
                 #set the head for the position word
@@ -794,7 +802,7 @@ class Match:
 
     def DefinePosition1(self):
         """Define, whether the match is located clause-initially, clause-finally or in the middle"""
-        #if self.matchedword.dbid == 531109:
+        #if self.matchedword.dbid ==  166728:
         #    import ipdb; ipdb.set_trace()
         if self.DefinePositionMatch():
             #For the source segment
@@ -1025,6 +1033,34 @@ class Sentence:
         #If a marker for the next clause was met, assume that the previous word was the last of the current clause:
         return this_tokenid - 1
 
+class Clause(Sentence):
+    """An attemp to separate clauses from sentences"""
+    def __init__(self, sentence, word):
+        first_tokenid = sentence.FirstWordOfCurrentClause(word)
+        last_tokenid = sentence.LastWordOfCurrentClause(word)
+        leftborder = sentence.tokenids.index(first_tokenid)
+        rightborder = sentence.tokenids.index(last_tokenid)+1
+        self.words = dict()
+        self.deprels = list()
+        word_idx = 1
+        clause_tokenids = sentence.tokenids[leftborder:rightborder]
+        for tokenid in clause_tokenids:
+            self.words[word_idx] = sentence.words[tokenid]
+            self.deprels.append(sentence.words[tokenid].deprel)
+            word_idx += 1
+        self.BuildHighlightedPrintString(word)
+        self.HasNeg()
+
+    def HasNeg(self):
+        neglemmas = ('не','нет','ei')
+        self.hasneg = 0
+        for tokenid, word in self.words.items():
+            if word.lemma in neglemmas:
+                self.hasneg = 1
+                break
+
+
+
 class TargetSentence(Sentence):
     """This is specially for the sentences in the parallel context. The main difference from 
     original sentences is that match"""
@@ -1147,6 +1183,8 @@ def DefineHeadOfMatchPhrase(word):
 
 def IsThisClauseInitial(mword, msentence):
     """Define, whether the match is located clause-initially"""
+    #if mword.dbid == 166728:
+    #    import ipdb; ipdb.set_trace()
     this_tokenid = msentence.FirstWordOfCurrentClause(mword)
     #2. Find out what's between the punctuation mark / conjunction / sentence border and the match
     #First, assume this IS clause-initial
