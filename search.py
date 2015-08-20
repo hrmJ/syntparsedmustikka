@@ -757,8 +757,8 @@ class Match:
             self.positionmatchword = self.matchedword
             #Check the words head
             self.CatchHead()
-            if self.headword.pos in ('S'):
-                #if the match is actually a dependent of a pronoun
+            if self.headword.pos in ('S') or self.headword.token == 'aikana':
+                #if the match is actually a dependent of a pronoun (or the Finnish 'aikana')
                 # LIST all the other possible cases as well!
                 self.positionmatchword = self.headword
             elif self.headshead:
@@ -805,6 +805,8 @@ class Match:
         #if self.matchedword.dbid ==  166728:
         #    import ipdb; ipdb.set_trace()
         if self.DefinePositionMatch():
+            #list the words dependents
+            self.positionmatchword.ListDependentsRecursive(self.matchedsentence)
             #For the source segment
             if IsThisClauseInitial(self.positionmatchword, self.matchedsentence):
                 self.sourcepos1 = 'clause-initial'
@@ -814,6 +816,8 @@ class Match:
                 self.sourcepos1 = 'middle'
             #For the target segment
             if self.parallelword:
+                #list the words dependents
+                self.parallel_positionword.ListDependentsRecursive(self.parallelsentence)
                 if IsThisClauseInitial(self.parallel_positionword, self.parallelsentence):
                     self.targetpos1 = 'clause-initial'
                 elif IsThisClauseFinal(self.parallel_positionword, self.parallelsentence, self.parallelword):
@@ -1244,7 +1248,8 @@ def IsThisClauseInitial(mword, msentence):
         #if there is a word between the bmarker and the match, assume that the match is not clause-initial 
         clauseinitial = False
         word = msentence.words[tokenid]
-        if word.head == mword.tokenid and word.lemma not in ('tosin') and word.deprel not in ('cop','nsubj-cop'):
+        if any([word.head == mword.tokenid, word.tokenid in mword.rdeplist]) and word.lemma not in ('tosin') and word.deprel not in ('cop','nsubj-cop'):
+            #the  rdeplist thing helps to scan dependents pf dependents
             #except if this is a depent of the match or a conjunction.. See also the hack above for some unwanted dependents
             clauseinitial = True
         else:
