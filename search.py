@@ -1371,7 +1371,7 @@ def IsThisInverted2(mword, msentence):
 
 def FirstWordOfClause(sentence, word):
     """Define, if this is potentially the first word of a clause"""
-    if word.token in string.punctuation or word.pos in ('C'):
+    if word.token in string.punctuation or word.pos in ('C') or word.token=='ettei':
         if word.lemma == 'ja' or word.lemma == 'и':
             #The conjunctions ja and i are problematic since they don't always begin a new clause
             if IsThisAClause(sentence,word):
