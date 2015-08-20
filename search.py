@@ -1008,6 +1008,7 @@ class Sentence:
                 self.dependentDict_prints[str(tokenid)] = word.token
         self.dependentlist = dependents
 
+
     def FirstWordOfCurrentClause(self, currentword):
         """Return the tokenid of the first word of the clause specified by a word"""
         self.tokenids = sorted(map(int,self.words))
@@ -1159,6 +1160,44 @@ class Word:
 
     def printAttributes(self):
         print('Attributes of the word:\n token = {} \n lemma = {} \n feat = {} \n  pos = {}'.format(self.token,self.lemma,self.feat,self.pos))
+
+    def ListDependents(self, sentence):
+        """return a list of dependents of the specified word"""
+        dependents = list()
+        for tokenid, word in sentence.words.items():
+            if word.head == self.tokenid:
+                dependents.append(word)
+        self.dependentlist = dependents
+        #If there were'nt any dependents, return false
+        return dependents
+
+    def HasHead(self,sentence):
+        self.hashead = True
+        for tokenid, word in sentence.words.items():
+            if word.tokenid == self.head:
+                self.hashead = False
+
+    def ListDependentsRecursive(self, sentence):
+        """return a recursive list of dependents of the specified word"""
+        self.ListDependents(sentence)
+        self.rdeplist = defaultdict(list)
+        for dep1 in self.dependentlist:
+            #The direct dependents of the word
+            self.rdeplist[dep1.tokenid] = dep1
+            dep1.ListDependents(sentence)
+            for dep2 in dep1.dependentlist:
+                #The dependents of the dependents of the word
+                self.rdeplist[dep2.tokenid] = dep2
+                dep2.ListDependents(sentence)
+                for dep3 in dep2.dependentlist:
+                    #The dependents of the dependents of the dependents of the word
+                    self.rdeplist[dep3.tokenid] = dep3
+                    dep3.ListDependents(sentence)
+                    for dep4 in dep3.dependentlist:
+                        #The dependents of the dependents of the....
+                        self.rdeplist[dep4.tokenid] = dep4
+                        dep4.ListDependents(sentence)
+
 
 
 ######################################################################
