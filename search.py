@@ -537,6 +537,8 @@ class Search:
                             row['tl_inversion'] = None
                             row['tl_matchcase'] = None
                             row['tl_morphinfo'] = None
+                        #---- Some more complicated values:
+                        match.DistanceInformation()
                         rowlist.append(row)
                     else:
                         errorcount += 1
@@ -587,7 +589,7 @@ class Match:
             self.slcontextstring += sentence.printstring
         #If a parallel context exists, do the same:
         try:
-            if self.parallelcontext:
+            if self.parallelword:
                 #Create a clause object for the clause containing the parallel word
                 self.parallelclause = Clause(self.parallelsentence, self.parallelword)
                 for sentence_id, sentence in self.parallelcontext.items():
@@ -830,33 +832,28 @@ class Match:
 
     def DistanceInformation(self):
         """Calculate distances between elements in the clause of the match"""
-        #1. Words between the match and the finite verb
-        phraselastid = self.positionmatchword.tokenid
-        if self.positionmatchword.ListDependents(self.matchedclause):
-            #If there are depentendts of the posmatch, get the furthest right dependent
-            for dep in self.positionmatchword.dependentlist:
-                if dep.tokenid > phraselastid:
-                    phraselastid = dep.tokenid
-        self.matchedclause.FirstFiniteVerb()
-        #count the distances
-        if phraselastid > self.matchedclause.finiteverbid:
-            self.verbdist_byword = phraselastid - self.matchedclause.finiteverbid
-        elif phraselastid < self.matchedclause.finiteverbid:
-            self.verbdist_byword = self.matchedclause.finiteverbid - phraselastid
+        #self.DefinePosition1()
+        #self.BuildContextString()
+        #-----
+        languages = [{'word':self.positionmatchword,'clause':self.matchedclause,'lname':'sl'}]
+        self.verbdist_byword = dict()
+        self.headdist_bydependents = dict()
+        if self.parallelcontext:
+            #if there is a parallel context, analyze that, too
+            try:
+                languages.append({'word':self.parallel_positionword,'clause':self.parallelclause,'lname':'tl'})
+            except AttributeError:
+                pass
+        for language in languages:
+            if language['clause'].FirstFiniteVerb():
+                #1.1: distance between the first finite verb and the posmatch
+                #Note: -1 from the result of the defining function
+                self.verbdist_byword[language['lname']] = language['clause'].DefineDistanceFromFiniteVerb(language['word']) - 1 
+            if language['word'].CatchHead(self.matchedsentence):
+                #1.2: how many dependents of the same level are there between the word and its head
+                self.headdist_bydependents[language['lname']] = language['clause'].DefineDistanceOfCodependents(language['word'])
 
-        #2. codependents between the head and the positionmatchword
-        self.positionmatchword.headword.ListDependents(self.matchedclause)
-        self.codepsbetween = 0
-        headid = self.positionmatchword.headword.tokenid 
-        if self.positionmatchword.tokenid > headid:
-            for codep in self.positionmatchword.headword.dependentlist:
-                if codep.tokenid > headid and codep.tokenid < self.positionmatchword.tokenid:
-                    self.codepsbetween += 1
-        elif self.positionmatchword.tokenid < headid:
-            for codep in self.positionmatchword.headword.dependentlist:
-                if codep.tokenid < headid and codep.tokenid > self.positionmatchword.tokenid:
-                    self.codepsbetween += 1
-
+        return True
 
 class Sentence:
     """
@@ -1098,12 +1095,48 @@ class Clause(Sentence):
         """Get the tokenid of the first finite ver in the clause"""
         for tokenid in sorted(map(int,self.words)):
             if IsThisFiniteVerb(self.words[tokenid]):
-                self.finiteverbid = tokenid
+                self.finiteverbid = self.words[tokenid].tokenid
                 return True
         #If no finite verb, return False
         self.finiteverbid = None
         return False
 
+    def DefineDistanceFromFiniteVerb(self,mword):
+        """Return the distance between a word and the first finite verb of the clause"""
+        if mword.tokenid > self.finiteverbid:
+            after_finite = True
+        elif mword.tokenid < self.finiteverbid:
+            after_finite = False
+        phraseborder = mword.tokenid
+        if mword.ListDependents(self):
+            #If there are depentendts of the posmatch, get the furthest right/left dependent
+            for dep in mword.dependentlist:
+                if after_finite:
+                    if dep.tokenid < phraseborder:
+                        phraseborder = dep.tokenid
+                else:
+                    if dep.tokenid > phraseborder:
+                        phraseborder = dep.tokenid
+        #count the distances
+        if phraseborder > self.finiteverbid:
+            return phraseborder - self.finiteverbid
+        elif phraseborder < self.finiteverbid:
+            return self.finiteverbid - phraseborder
+
+    def DefineDistanceOfCodependents(self,mword):
+        """Return how many dependents of the same level there are between a word and its head"""
+        mword.headword.ListDependents(self)
+        codepsbetween = 0
+        headid = mword.headword.tokenid 
+        if mword.tokenid > headid:
+            for codep in mword.headword.dependentlist:
+                if codep.tokenid > headid and codep.tokenid < mword.tokenid:
+                    codepsbetween += 1
+        elif mword.tokenid < headid:
+            for codep in mword.headword.dependentlist:
+                if codep.tokenid < headid and codep.tokenid > mword.tokenid:
+                    codepsbetween += 1
+        return codepsbetween
 
 class TargetSentence(Sentence):
     """This is specially for the sentences in the parallel context. The main difference from 
@@ -1240,6 +1273,19 @@ class Word:
                         #The dependents of the dependents of the....
                         self.rdeplist[dep4.tokenid] = dep4
                         dep4.ListDependents(sentence)
+
+
+
+    def CatchHead(self, sentence):
+        """Store the words head in a separate object,if possible."""
+        try:
+            self.headword = sentence.words[self.head]
+        except KeyError:
+            self.headword = None
+            return False
+
+        # If headword succesfully defined, return true
+        return True
 
 
 ######################################################################
