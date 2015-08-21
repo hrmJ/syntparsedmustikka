@@ -828,6 +828,35 @@ class Match:
         else:
             return False
 
+    def DistanceInformation(self):
+        """Calculate distances between elements in the clause of the match"""
+        #1. Words between the match and the finite verb
+        phraselastid = self.positionmatchword.tokenid
+        if self.positionmatchword.ListDependents(self.matchedclause):
+            #If there are depentendts of the posmatch, get the furthest right dependent
+            for dep in self.positionmatchword.dependentlist:
+                if dep.tokenid > phraselastid:
+                    phraselastid = dep.tokenid
+        self.matchedclause.FirstFiniteVerb()
+        #count the distances
+        if phraselastid > self.matchedclause.finiteverbid:
+            self.verbdist_byword = phraselastid - self.matchedclause.finiteverbid
+        elif phraselastid < self.matchedclause.finiteverbid:
+            self.verbdist_byword = self.matchedclause.finiteverbid - phraselastid
+
+        #2. codependents between the head and the positionmatchword
+        self.positionmatchword.headword.ListDependents(self.matchedclause)
+        self.codepsbetween = 0
+        headid = self.positionmatchword.headword.tokenid 
+        if self.positionmatchword.tokenid > headid:
+            for codep in self.positionmatchword.headword.dependentlist:
+                if codep.tokenid > headid and codep.tokenid < self.positionmatchword.tokenid:
+                    self.codepsbetween += 1
+        elif self.positionmatchword.tokenid < headid:
+            for codep in self.positionmatchword.headword.dependentlist:
+                if codep.tokenid < headid and codep.tokenid > self.positionmatchword.tokenid:
+                    self.codepsbetween += 1
+
 
 class Sentence:
     """
@@ -1065,13 +1094,15 @@ class Clause(Sentence):
                 self.hasneg = 1
                 break
 
-    def ElementsBetween(self):
-        pass
-
     def FirstFiniteVerb(self):
         """Get the tokenid of the first finite ver in the clause"""
         for tokenid in sorted(map(int,self.words)):
-            word = self.words[tokenid]
+            if IsThisFiniteVerb(self.words[tokenid]):
+                self.finiteverbid = tokenid
+                return True
+        #If no finite verb, return False
+        self.finiteverbid = None
+        return False
 
 
 class TargetSentence(Sentence):
