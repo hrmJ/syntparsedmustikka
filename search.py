@@ -828,6 +828,7 @@ class Match:
         else:
             return False
 
+
 class Sentence:
     """
     The sentence consists of words (which can actually also be punctuation marks).
@@ -1064,6 +1065,13 @@ class Clause(Sentence):
                 self.hasneg = 1
                 break
 
+    def ElementsBetween(self):
+        pass
+
+    def FirstFiniteVerb(self):
+        """Get the tokenid of the first finite ver in the clause"""
+        for tokenid in sorted(map(int,self.words)):
+            word = self.words[tokenid]
 
 
 class TargetSentence(Sentence):
@@ -1201,7 +1209,6 @@ class Word:
                         #The dependents of the dependents of the....
                         self.rdeplist[dep4.tokenid] = dep4
                         dep4.ListDependents(sentence)
-
 
 
 ######################################################################
@@ -1360,7 +1367,7 @@ def IsThisInverted2(mword, msentence):
             if subjectshead.tokenid < word.tokenid and subjectshead.pos == 'V' and 'INF' not in subjectshead.feat:
                 return 1
             #-----------------------
-        if word.feat[0:3] in ('Vmi','Vmm') or ItemInString(['MOOD_Ind','MOOD_Imprt','MOOD_Pot','MOOD_Cond'],word.feat):
+        if IsThisFiniteVerb(word):
             verbs_tokenid = tokenid
     if subjects_tokenid and verbs_tokenid:
         if subjects_tokenid > verbs_tokenid:
@@ -1506,4 +1513,11 @@ def DefineMorphology(word, lang):
 
     else:
         return None
+
+def IsThisFiniteVerb(word):
+    """Return true if the word object is by its feat a finite verb form"""
+    if word.feat[0:3] in ('Vmi','Vmm') or ItemInString(['MOOD_Ind','MOOD_Imprt','MOOD_Pot','MOOD_Cond'],word.feat):
+        return True
+    else:
+        return False
 
