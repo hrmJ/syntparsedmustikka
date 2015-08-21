@@ -539,6 +539,14 @@ class Search:
                             row['tl_morphinfo'] = None
                         #---- Some more complicated values:
                         match.DistanceInformation()
+                        row['sl_verbdist'] = None
+                        row['tl_verbdist'] = None
+                        row['sl_headdist'] = None
+                        row['tl_headdist'] = None
+                        for langstatus, value in match.verbdist_byword.items():
+                            row[langstatus + "_verbdist"] = value
+                        for langstatus, value in match.headdist_bydependents.items():
+                            row[langstatus + "_headdist"] = value
                         rowlist.append(row)
                     else:
                         errorcount += 1
@@ -848,7 +856,10 @@ class Match:
             if language['clause'].FirstFiniteVerb():
                 #1.1: distance between the first finite verb and the posmatch
                 #Note: -1 from the result of the defining function
-                self.verbdist_byword[language['lname']] = language['clause'].DefineDistanceFromFiniteVerb(language['word']) - 1 
+                try:
+                    self.verbdist_byword[language['lname']] = language['clause'].DefineDistanceFromFiniteVerb(language['word']) - 1 
+                except TypeError:
+                    import ipdb; ipdb.set_trace()
             if language['word'].CatchHead(self.matchedsentence):
                 #1.2: how many dependents of the same level are there between the word and its head
                 self.headdist_bydependents[language['lname']] = language['clause'].DefineDistanceOfCodependents(language['word'])
@@ -1103,6 +1114,8 @@ class Clause(Sentence):
 
     def DefineDistanceFromFiniteVerb(self,mword):
         """Return the distance between a word and the first finite verb of the clause"""
+        #if mword.dbid == 442568:
+        #    import ipdb; ipdb.set_trace()
         if mword.tokenid > self.finiteverbid:
             after_finite = True
         elif mword.tokenid < self.finiteverbid:
@@ -1111,12 +1124,14 @@ class Clause(Sentence):
         if mword.ListDependents(self):
             #If there are depentendts of the posmatch, get the furthest right/left dependent
             for dep in mword.dependentlist:
-                if after_finite:
-                    if dep.tokenid < phraseborder:
-                        phraseborder = dep.tokenid
-                else:
-                    if dep.tokenid > phraseborder:
-                        phraseborder = dep.tokenid
+                if dep.tokenid != self.finiteverbid:
+                    #avoid weird cases where verb depends on the adverbial
+                    if after_finite:
+                        if dep.tokenid < phraseborder:
+                            phraseborder = dep.tokenid
+                    else:
+                        if dep.tokenid > phraseborder:
+                            phraseborder = dep.tokenid
         #count the distances
         if phraseborder > self.finiteverbid:
             return phraseborder - self.finiteverbid
