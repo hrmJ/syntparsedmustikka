@@ -513,6 +513,8 @@ class Search:
                         row['sl_inversion'] = IsThisInverted2(match.matchedword,match.matchedsentence)
                         row['sl_matchcase'] = DefineCase(match.matchedword,sl)
                         row['sl_morphinfo'] = DefineMorphology(match.matchedword,sl)
+                        row['sl_coordcombined'] = match.matchedclause.MarkIfCombinedCoord(match.positionmatchword)
+                        row['sl_headfeat'] = SetUncertainAttribute('',match.positionmatchword,'headword','feat')
                         if match.parallelword:
                             firstwordofcurrent = FirstLemmaOfCurrentClause(match.parallelsentence, match.parallelword)
                             firstwordofnext = FirstLemmaOfNextClause(match.parallelsentence, match.parallelword)
@@ -529,6 +531,8 @@ class Search:
                             row['tl_inversion'] = IsThisInverted2(match.parallelword,match.parallelsentence)
                             row['tl_matchcase'] = DefineCase(match.parallelword,tl)
                             row['tl_morphinfo'] = DefineMorphology(match.parallelword,tl)
+                            row['tl_coordcombined'] = match.parallelclause.MarkIfCombinedCoord(match.parallel_positionword)
+                            row['tl_headfeat'] = SetUncertainAttribute('',match.parallel_positionword,'headword','feat')
                         else:
                             row['tl_firstlemmaofthisclause'] = None
                             row['tl_firstlemmaofnextclause'] = None
@@ -767,6 +771,8 @@ class Match:
             self.positionmatchword = self.matchedword
             #Check the words head
             self.CatchHead()
+            #Do it in a better way (leaving the above for compatibility's sake):
+            self.positionmatchword.CatchHead(self.matchedsentence)
             if self.headword.pos in ('S') or self.headword.token == 'aikana':
                 #if the match is actually a dependent of a pronoun (or the Finnish 'aikana')
                 # LIST all the other possible cases as well!
@@ -796,6 +802,8 @@ class Match:
                 #set the head for the position word
                 try:
                     self.parallel_headword = self.parallelsentence.words[self.parallel_positionword.head]
+                    #Do it in a better way (leaving the above for compatibility's sake):
+                    self.parallel_positionword.CatchHead(self.parallelsentence)
                 except KeyError:
                     #FOR SN idiotism...
                     self.parallel_headword = None
@@ -865,6 +873,7 @@ class Match:
                 self.headdist_bydependents[language['lname']] = language['clause'].DefineDistanceOfCodependents(language['word'])
 
         return True
+
 
 class Sentence:
     """
@@ -1093,6 +1102,7 @@ class Clause(Sentence):
             word_idx += 1
         self.BuildHighlightedPrintString(word)
         self.HasNeg()
+        self.FirstFiniteVerb()
 
     def HasNeg(self):
         neglemmas = ('не','нет','ei')
@@ -1105,7 +1115,7 @@ class Clause(Sentence):
     def FirstFiniteVerb(self):
         """Get the tokenid of the first finite ver in the clause"""
         for tokenid in sorted(map(int,self.words)):
-            if IsThisFiniteVerb(self.words[tokenid]):
+            if self.words[tokenid].IsThisFiniteVerb():
                 self.finiteverbid = self.words[tokenid].tokenid
                 return True
         #If no finite verb, return False
@@ -1132,6 +1142,8 @@ class Clause(Sentence):
                     else:
                         if dep.tokenid > phraseborder:
                             phraseborder = dep.tokenid
+        #Save the phrase border for future reference
+        mword.phraseborder = phraseborder
         #count the distances
         if phraseborder > self.finiteverbid:
             return phraseborder - self.finiteverbid
@@ -1152,6 +1164,21 @@ class Clause(Sentence):
                 if codep.tokenid < headid and codep.tokenid > mword.tokenid:
                     codepsbetween += 1
         return codepsbetween
+
+    def MarkIfCombinedCoord(self, mword):
+        """This method specifically for determining what counts as clause-initiality"""
+        mword.DefineAdverbialPhraseBorder(self)
+        for tokenid, word in self.words.items():
+            try:
+                nextword = self.words[tokenid+1]
+                nextword2 = self.words[tokenid+2]
+                if word.token in ('и','или','а') and nextword.tokenid == mword.phraseborder['left'] and nextword2.IsThisFiniteVerb():
+                    return 1
+            except KeyError:
+                nextword2 = None
+        #If no condition matches, return 0
+        return 0
+
 
 class TargetSentence(Sentence):
     """This is specially for the sentences in the parallel context. The main difference from 
@@ -1289,8 +1316,6 @@ class Word:
                         self.rdeplist[dep4.tokenid] = dep4
                         dep4.ListDependents(sentence)
 
-
-
     def CatchHead(self, sentence):
         """Store the words head in a separate object,if possible."""
         try:
@@ -1301,6 +1326,30 @@ class Word:
 
         # If headword succesfully defined, return true
         return True
+
+    def DefineAdverbialPhraseBorder(self,clause):
+        """Return the distance between a word and the first finite verb of the clause"""
+        self.phraseborder = dict()
+        self.phraseborder['left'] = self.tokenid
+        self.phraseborder['right'] = self.tokenid
+        if self.ListDependents(clause):
+            #If there are depentendts of the posmatch, get the furthest right/left dependent
+            for dep in self.dependentlist:
+                if not dep.IsThisFiniteVerb():
+                    #avoid weird cases where a finite verb depends on the adverbial
+                    if dep.tokenid < self.phraseborder['left']:
+                        self.phraseborder['left'] = dep.tokenid
+                    elif dep.tokenid > self.phraseborder['right']:
+                        self.phraseborder['right'] = dep.tokenid
+
+
+    def IsThisFiniteVerb(self):
+        """Return true if the word object is by its feat a finite verb form"""
+        if self.feat[0:3] in ('Vmi','Vmm') or ItemInString(['MOOD_Ind','MOOD_Imprt','MOOD_Pot','MOOD_Cond'],self.feat):
+            return True
+        else:
+            return False
+
 
 
 ######################################################################
@@ -1459,7 +1508,7 @@ def IsThisInverted2(mword, msentence):
             if subjectshead.tokenid < word.tokenid and subjectshead.pos == 'V' and 'INF' not in subjectshead.feat:
                 return 1
             #-----------------------
-        if IsThisFiniteVerb(word):
+        if word.IsThisFiniteVerb():
             verbs_tokenid = tokenid
     if subjects_tokenid and verbs_tokenid:
         if subjects_tokenid > verbs_tokenid:
@@ -1605,11 +1654,4 @@ def DefineMorphology(word, lang):
 
     else:
         return None
-
-def IsThisFiniteVerb(word):
-    """Return true if the word object is by its feat a finite verb form"""
-    if word.feat[0:3] in ('Vmi','Vmm') or ItemInString(['MOOD_Ind','MOOD_Imprt','MOOD_Pot','MOOD_Cond'],word.feat):
-        return True
-    else:
-        return False
 
