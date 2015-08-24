@@ -465,6 +465,9 @@ class Search:
                         match.BuildContextString()
                         row = dict()
                         metadata = GetMetadata(match.matchedword.sourcetextid,all_texts)
+                        #hackyfixes:
+                        row['tl_coordcombined'] = None
+                        row['tl_headfeat'] = None
                         row['sl'] = sl
                         row['tl'] = tl
                         row['sl_sentence'] = match.matchedsentence.printstring
@@ -1093,11 +1096,13 @@ class Clause(Sentence):
         leftborder = sentence.tokenids.index(first_tokenid)
         rightborder = sentence.tokenids.index(last_tokenid)+1
         self.words = dict()
+        self.words_orig = dict()
         self.deprels = list()
         word_idx = 1
         clause_tokenids = sentence.tokenids[leftborder:rightborder]
         for tokenid in clause_tokenids:
             self.words[word_idx] = sentence.words[tokenid]
+            self.words_orig[sentence.words[tokenid].tokenid] = sentence.words[tokenid]
             self.deprels.append(sentence.words[tokenid].deprel)
             word_idx += 1
         self.BuildHighlightedPrintString(word)
@@ -1168,14 +1173,13 @@ class Clause(Sentence):
     def MarkIfCombinedCoord(self, mword):
         """This method specifically for determining what counts as clause-initiality"""
         mword.DefineAdverbialPhraseBorder(self)
-        for tokenid, word in self.words.items():
-            try:
-                nextword = self.words[tokenid+1]
-                nextword2 = self.words[tokenid+2]
-                if word.token in ('и','или','а') and nextword.tokenid == mword.phraseborder['left'] and nextword2.IsThisFiniteVerb():
-                    return 1
-            except KeyError:
-                nextword2 = None
+        try:
+            wordbefore = self.words_orig[mword.phraseborder['left'] - 1]
+            wordafter  = self.words_orig[mword.phraseborder['right'] + 1]
+            if wordbefore.token in ('и','или','а') and wordafter.IsThisFiniteVerb():
+                return 1
+        except KeyError:
+            pass
         #If no condition matches, return 0
         return 0
 
