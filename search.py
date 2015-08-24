@@ -20,6 +20,7 @@ from texttable import Texttable, get_color_string, bcolors
 import time
 import datetime
 from statistics import mean, median
+from analysistools import InsertDeprelColumns, ListSisters
 
 class Db:
     """ A class to include some shared properties for the search and
@@ -452,9 +453,14 @@ class Search:
         con = psycopg('results','juho')
         con2 = psycopg(self.queried_db,'juho')
         all_texts = con2.FetchQuery('SELECT id, title, origtitle, author, translator, origyear, transyear FROM text_ids',usedict=True)
+        # Create separate deprel tables
+        InsertDeprelColumns('ru')
+        #InsertDeprelColumns('fi')
 
         #Set the values
         rowlist = list()
+        rowlist_ru_deprels = list()
+        rowlist_fi_deprels = list()
         bar = Bar('Preparing and analyzing the data', max=self.matchcount)
         errorcount=0
         for align_id, matchlist in self.matches.items():
@@ -464,6 +470,8 @@ class Search:
                     if match.DefinePosition1():
                         match.BuildContextString()
                         row = dict()
+                        row_ru_deprels = dict()
+                        row_fi_deprels = dict()
                         metadata = GetMetadata(match.matchedword.sourcetextid,all_texts)
                         #hackyfixes:
                         row['tl_coordcombined'] = None
@@ -555,11 +563,20 @@ class Search:
                         for langstatus, value in match.headdist_bydependents.items():
                             row[langstatus + "_headdist"] = value
                         rowlist.append(row)
+                        #---------------------------------------------
+                        #Information about deprels to separate tables:
+                        if sl == 'ru':
+                            row_ru_deprels['linkwordid'] = match.matchedword.dbid
+                            row_ru_deprels = ListSisters(match.positionmatchword,match.matchedclause,'ru',row_ru_deprels)
+                            rowlist_ru_deprels.append(row_ru_deprels)
                     else:
                         errorcount += 1
                     bar.next()
-        print('\nInserting to database.. ({} errors in processing matches)'.format(errorcount))
-        con.BatchInsert('tme',rowlist)
+        #print('\nInserting to database.. ({} errors in processing matches)'.format(errorcount))
+        #con.BatchInsert('tme',rowlist)
+        #print('Done. Inserted {} rows.'.format(con.cur.rowcount))
+        print('\nInserting deprels for the russian sentences... '.format(errorcount))
+        con.BatchInsert('ru_deprels',rowlist_ru_deprels)
         print('Done. Inserted {} rows.'.format(con.cur.rowcount))
         
 class Match:
@@ -876,7 +893,6 @@ class Match:
                 self.headdist_bydependents[language['lname']] = language['clause'].DefineDistanceOfCodependents(language['word'])
 
         return True
-
 
 class Sentence:
     """
@@ -1346,15 +1362,12 @@ class Word:
                     elif dep.tokenid > self.phraseborder['right']:
                         self.phraseborder['right'] = dep.tokenid
 
-
     def IsThisFiniteVerb(self):
         """Return true if the word object is by its feat a finite verb form"""
         if self.feat[0:3] in ('Vmi','Vmm') or ItemInString(['MOOD_Ind','MOOD_Imprt','MOOD_Pot','MOOD_Cond'],self.feat):
             return True
         else:
             return False
-
-
 
 ######################################################################
 
