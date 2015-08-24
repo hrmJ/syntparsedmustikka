@@ -454,8 +454,10 @@ class Search:
         con2 = psycopg(self.queried_db,'juho')
         all_texts = con2.FetchQuery('SELECT id, title, origtitle, author, translator, origyear, transyear FROM text_ids',usedict=True)
         # Create separate deprel tables
-        InsertDeprelColumns('ru')
-        #InsertDeprelColumns('fi')
+        if sl == 'ru':
+            InsertDeprelColumns('ru')
+        #if sl == 'fi':
+        #    InsertDeprelColumns('fi')
 
         #Set the values
         rowlist = list()
@@ -572,12 +574,14 @@ class Search:
                     else:
                         errorcount += 1
                     bar.next()
-        #print('\nInserting to database.. ({} errors in processing matches)'.format(errorcount))
-        #con.BatchInsert('tme',rowlist)
-        #print('Done. Inserted {} rows.'.format(con.cur.rowcount))
-        print('\nInserting deprels for the russian sentences... '.format(errorcount))
-        con.BatchInsert('ru_deprels',rowlist_ru_deprels)
+        #INSERTION:
+        print('\nInserting to database.. ({} errors in processing matches)'.format(errorcount))
+        con.BatchInsert('tme',rowlist)
         print('Done. Inserted {} rows.'.format(con.cur.rowcount))
+        if sl == 'ru':
+            print('\nInserting deprels for the russian sentences... '.format(errorcount))
+            con.BatchInsert('ru_deprels',rowlist_ru_deprels)
+            print('Done. Inserted {} rows.'.format(con.cur.rowcount))
         
 class Match:
     """ 

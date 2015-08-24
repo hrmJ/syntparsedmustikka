@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 from deptypetools import LogNewDeprel, simpleupdate, makeSearch, log
 
+
 class Featset:
     """Predefined feature sets and some methods to define them on the fly"""
     #REMEMBER  PRONONUNS
@@ -12,6 +13,15 @@ class Featset:
         self.inf = ('Vmn----a-e','Vmn----a-p')
         #self.fin = ('Vmip3s-a-e')
         #Pronouns
+
+    def ListDeprels(self):
+        """List the original dependency relations of SN"""
+        self.sndeps = list()
+        with open("/home/juho/phdmanuscript/data/parrusdeprel.csv", 'r') as f:
+            reader = csv.reader(f)
+            next(reader)
+            for row in reader:
+                self.sndeps.append(row[0])
 
 
     def createNounSet(self,pos = 'N', nountypes = ('c','p'), genders = ('m','f','n'), numbers = ('s','p'), cases = ('n','g','a','i','d','l'), animacies = ('n','y')):

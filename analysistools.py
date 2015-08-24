@@ -3,8 +3,8 @@ from dbmodule import psycopg
 import csv
 
 def InsertDeprelColumns(lang):
-    con = psycopg('results','juho')
 
+    con = psycopg('results','juho')
     tablename = lang + '_' + 'deprels'
     #List what already is in the db as a column
     column_names = con.FetchQuery("SELECT column_name FROM information_schema.columns WHERE table_name = %(tablename)s",{'tablename':tablename})
@@ -17,8 +17,8 @@ def InsertDeprelColumns(lang):
         sndeps = ListSnDeprels()
         for sndep in sndeps:
             colname = 'dr_' +  sndep.replace('-','_')
-            if  colname not in existingcolumns:
-                con.query('ALTER TABLE {} ADD COLUMN {} VARCHAR'.format(tablename, colname))
+            if  colname.lower() not in existingcolumns:
+                con.query('ALTER TABLE {} ADD COLUMN {} VARCHAR'.format(tablename, colname.lower()))
     con.connection.commit()
 
 
