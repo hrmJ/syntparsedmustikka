@@ -478,6 +478,10 @@ class Search:
                         #hackyfixes:
                         row['tl_coordcombined'] = None
                         row['tl_headfeat'] = None
+                        row['tl_deplemmas'] = None
+                        row['tl_prevlemma'] = None
+                        row['tl_matchfeat'] = None
+                        #---
                         row['sl'] = sl
                         row['tl'] = tl
                         row['sl_sentence'] = match.matchedsentence.printstring
@@ -528,6 +532,12 @@ class Search:
                         row['sl_morphinfo'] = DefineMorphology(match.matchedword,sl)
                         row['sl_coordcombined'] = match.matchedclause.MarkIfCombinedCoord(match.positionmatchword)
                         row['sl_headfeat'] = SetUncertainAttribute('',match.positionmatchword,'headword','feat')
+                        row['sl_deplemmas'] = match.matchedword.dependentlemmas
+                        try:
+                            row['sl_prevlemma'] = match.matchedclause.words_orig[match.positionmatchword.tokenid-1].lemma
+                        except KeyError:
+                            row['sl_prevlemma'] = None
+                        row['sl_matchfeat'] = match.matchedword.feat
                         if match.parallelword:
                             firstwordofcurrent = FirstLemmaOfCurrentClause(match.parallelsentence, match.parallelword)
                             firstwordofnext = FirstLemmaOfNextClause(match.parallelsentence, match.parallelword)
@@ -546,6 +556,12 @@ class Search:
                             row['tl_morphinfo'] = DefineMorphology(match.parallelword,tl)
                             row['tl_coordcombined'] = match.parallelclause.MarkIfCombinedCoord(match.parallel_positionword)
                             row['tl_headfeat'] = SetUncertainAttribute('',match.parallel_positionword,'headword','feat')
+                            row['tl_deplemmas'] = match.parallelword.dependentlemmas
+                            try:
+                                row['tl_prevlemma'] = match.parallelclause.words_orig[match.parallel_positionword.tokenid-1].lemma
+                            except KeyError:
+                                row['tl_prevlemma'] = None
+                            row['tl_matchfeat'] = match.parallelword.feat
                         else:
                             row['tl_firstlemmaofthisclause'] = None
                             row['tl_firstlemmaofnextclause'] = None
@@ -618,6 +634,8 @@ class Match:
         for sentence_id, sentence in self.context.items():
             #Create a clause object for the clause containing the matched word
             self.matchedclause = Clause(self.matchedsentence, self.matchedword)
+            #List the word's dependents for future use
+            self.matchedword.ListDependents(self.matchedsentence)
             if sentence_id == self.matchedsentence.sentence_id:
                 sentence.BuildHighlightedPrintString(self.matchedword)
             else:
@@ -628,6 +646,8 @@ class Match:
             if self.parallelword:
                 #Create a clause object for the clause containing the parallel word
                 self.parallelclause = Clause(self.parallelsentence, self.parallelword)
+                #List the word's dependents for future use
+                self.parallelword.ListDependents(self.parallelsentence)
                 for sentence_id, sentence in self.parallelcontext.items():
                     if sentence_id == self.parallelsentence.sentence_id:
                         sentence.BuildHighlightedPrintString(self.parallelword)
@@ -797,7 +817,7 @@ class Match:
             self.CatchHead()
             #Do it in a better way (leaving the above for compatibility's sake):
             self.positionmatchword.CatchHead(self.matchedsentence)
-            if self.headword.pos in ('S') or self.headword.token == 'aikana':
+            if self.headword.pos in ('S') or self.headword.token in ('aikana','välein'):
                 #if the match is actually a dependent of a pronoun (or the Finnish 'aikana')
                 # LIST all the other possible cases as well!
                 self.positionmatchword = self.headword
@@ -816,7 +836,7 @@ class Match:
             if self.parallelword:
                 #If there is a comparable parallel context
                 self.parallel_positionword = self.parallelword
-                if self.parallel_headword.pos in ('S'):
+                if self.parallel_headword.pos in ('S') or self.parallel_headword.token in ('aikana','välein'):
                     #if the match is actually a dependent of a pronoun
                     self.parallel_positionword = self.parallel_headword
                 elif self.parallel_headshead:
@@ -1203,7 +1223,6 @@ class Clause(Sentence):
         #If no condition matches, return 0
         return 0
 
-
 class TargetSentence(Sentence):
     """This is specially for the sentences in the parallel context. The main difference from 
     original sentences is that match"""
@@ -1306,9 +1325,12 @@ class Word:
     def ListDependents(self, sentence):
         """return a list of dependents of the specified word"""
         dependents = list()
+        #For sepcial use in collecting data for analysis:
+        self.dependentlemmas = ''
         for tokenid, word in sentence.words.items():
             if word.head == self.tokenid:
                 dependents.append(word)
+                self.dependentlemmas += word.lemma + '#'
         self.dependentlist = dependents
         #If there were'nt any dependents, return false
         return dependents
