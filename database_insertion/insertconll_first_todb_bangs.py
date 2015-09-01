@@ -1,6 +1,4 @@
 #! /usr/bin/env python
-import codecs
-import csv
 import sys
 from dbmodule import psycopg
 from progress.bar import Bar
@@ -34,7 +32,7 @@ with open(conllinputfile, 'r') as f:
     conllinput = f.read()
 
 # Split the file into aligned segments according to the !!!! -notation
-splitpattern = re.compile(r"\d+\t![^\n]+\n\n\d+\t![^\n]+\n\n\d+\t![^\n]+\n\n\d+\t![^\n]+\n\n")
+splitpattern = re.compile(r"\d+\t![^\n]+\n\n?\d+\t![^\n]+\n\n?\d+\t![^\n]+\n\n?\d+\t![^\n]+\n\n")
 alignsegments = re.split(splitpattern,conllinput)
 #Filter out empty align segments
 alignsegments = list(filter(None, alignsegments)) 
