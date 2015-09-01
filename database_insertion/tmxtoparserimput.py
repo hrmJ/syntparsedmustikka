@@ -25,7 +25,7 @@ def main():
         segs = root.xpath(xpathq)
         preparedinput = ""
         for seg in segs:
-            preparedinput += "\n#\n" + seg.text
+            preparedinput += "\n!!!!\n" + seg.text
         f = open('{}_{}.prepared'.format(sourcefile,language), 'w')
         f.write(preparedinput.strip())
         f.close()
