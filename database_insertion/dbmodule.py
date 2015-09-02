@@ -15,10 +15,12 @@ class psycopg:
        self.dictcur = self.connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
        self.dbname = dbname
 
-    def query(self, SQL, valuetuple=("empty",)):
+    def query(self, SQL, valuetuple=("empty",),commit=False):
         """A general query for inserting updating etc."""
         try:
             self.cur.execute(SQL, valuetuple)
+            if commit:
+                self.connection.commit()
         except psycopg2.Error as e:
             print("Somerthing wrong with the query")
             print ("Psql gives the error: {}".format(e.pgerror))
