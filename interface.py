@@ -1,6 +1,8 @@
 #! /usr/bin/env python
 import codecs
+import random
 import csv
+from deptypetools import makeSearch
 import sys
 from collections import defaultdict
 from lxml import etree
@@ -10,7 +12,7 @@ import re
 import os
 import os.path
 #local modules
-from dbmodule import mydatabase
+from dbmodule import mydatabase, psycopg
 from menus import Menu, multimenu, yesnomenu 
 from search import Search, Match, Sentence, Word, ConstQuery, Db 
 from phdqueries import FinnishTime, tmevalues
@@ -18,21 +20,24 @@ from filtermatches import FilterDuplicates1
 import pickle
 import datetime
 import glob
+from texttable import Texttable, get_color_string, bcolors
 
 class MainMenu:
     """This class include all
     the comand line menu options and actions"""
     mainanswers =  {'q':'quit','l':'select language', 'm':'Monoconcordance', 
             'd':'select database','p':'phdquery','s':'View searches','o':'View saved searches','n':'Нужно-search',
-            'a':'advanced search','tme':'TME search','cs':'Corpus stats'}
+            'a':'advanced search','tme':'TME search','cs':'Corpus stats','pc':'parallel concordance'}
 
     def __init__(self):
         self.menu = multimenu(MainMenu.mainanswers)
         # Selectable options:
         self.selectedlang = 'none'
         self.selecteddb = 'none'
+        self.columns = dict()
         #Control the program flow
         self.run = True
+        self.pause = False
 
     def runmenu(self):
         'Run the main menu'
@@ -63,10 +68,37 @@ class MainMenu:
 
     def choosedb(self):
         self.menu.question = 'Select database: '
-        self.menu.validanswers = {'1':'syntparfin','2':'syntparrus','3':'tbcorpfi','4':'tbcorpru'}
+        self.menu.validanswers = {'1':'syntparfin','2':'syntparrus','3':'tbcorpfi','4':'tbcorpru','5':'syntparrus2','6':'syntparfin2'}
         self.menu.prompt_valid()
         Db.con = mydatabase(self.menu.validanswers[self.menu.answer],'juho')
         self.selecteddb = self.menu.validanswers[self.menu.answer]
+
+    def Parconc(self):
+        self.AddConditions()
+        self.search = makeSearch(database=Db.con.dbname, dbtable=Db.searched_table, ConditionColumns=self.condcols,isparallel=True)
+        printResults(self.search)
+
+    
+    def AddConditions(self):
+        """Parallel concordance search"""
+        self.ListColumns()
+        columns = multimenu(self.columns)
+        self.condcols = dict()
+        addmore = multimenu({'y':'add more','q':'stop adding conditions'})
+        newvals = multimenu({'q':'stop adding values','y':'insert next possible value'})
+        newvals.answer = 'y'
+        addmore.answer = 'y'
+        while addmore.answer == 'y':
+            vals = list()
+            columns.prompt_valid('What column should the condition be based on?')
+            newvals.answer = 'y'
+            while newvals.answer == 'y':
+                vals.append(input('Give a value the column should have:\n>'))
+                newvals.prompt_valid('Add more values?')
+            pickedcolumn = columns.validanswers[columns.answer]
+            self.condcols[pickedcolumn] = tuple(vals)
+            addmore.prompt_valid('Add more conditions?')
+
 
 
     def monoconc(self, advanced=False,tme=False):
@@ -103,7 +135,6 @@ class MainMenu:
         thisSearch.find()
         #Print the results:
         printResults(thisSearch)
-        input('Press enter to continue.')
 
     def tmesearch(self):
         #Initialize the search object
@@ -128,7 +159,6 @@ class MainMenu:
         print('Starting the actual query.')
         thisSearch.find()
         printResults(thisSearch)
-        input('Press enter to continue.')
 
     def nuzhnosearch(self):
         #Initialize the search object
@@ -143,7 +173,6 @@ class MainMenu:
         thisSearch.find()
         #Print the results:
         printResults(thisSearch)
-        input('Press enter to continue.')
 
     def viewsearches(self):
         """Take a look at the conducted searches and repeat / save them"""
@@ -166,7 +195,6 @@ class MainMenu:
                 pickle.dump(pickedsearch, open(filename, "wb"))
             elif self.menu.answer == 'r':
                 printResults(pickedsearch)
-            input('Press enter to continue')
         except:
             pass
 
@@ -186,7 +214,6 @@ class MainMenu:
                 print('No search loaded')
         else:
             print('No saved searches found.')
-        input('Press enter to continue')
 
     def MenuChooser(self,answer):
         if answer == 'q':
@@ -201,6 +228,7 @@ class MainMenu:
             self.phd()
         elif answer == 's':
             self.viewsearches()
+            self.pause = True
         elif answer == 'o':
             self.viewsavedsearches()
         elif answer == 'n':
@@ -209,9 +237,19 @@ class MainMenu:
             self.monoconc(True)
         elif answer == 'tme':
             self.monoconc(tme=True)
+        elif answer == 'pc':
+            self.pause=True
+            self.Parconc()
         elif answer == 'cs':
             statmen = Statmenu()
             statmen.runmenu()
+
+    def ListColumns(self):
+        if not self.columns:
+            psycon = psycopg(self.selecteddb,'juho')
+            rows = psycon.FetchQuery('SELECT column_name FROM information_schema.columns WHERE table_name = %s',(Db.searched_table,))
+            for idx, row in enumerate(rows):
+                self.columns[str(idx)] = row[0]
 
 class Statmenu:
     menuoptions = {'1':'Word count','c':'Return to main menu'}
@@ -270,7 +308,6 @@ class Statmenu:
                 writer.writeheader()
                 for text in texts:
                     writer.writerow(text)
-        input('Press enter to continue:')
 
 
     def runmenu(self):
@@ -292,25 +329,55 @@ class Statmenu:
 
 def printResults(thisSearch):
         if len(thisSearch.matches) >0:
-            printmenu = multimenu({'a':'Print all','r':'Print max. 5 random','s':'Specify how many to print'})
-            printmenu.question = 'Found {} occurences. What should I do?'.format(len(thisSearch.matches))
-            printmenu.prompt_valid()
-            if printmenu.answer == 's':
-                #sort the dict to make sure its order stays the same
-                matchitems = sorted(thisSearch.matches.items())
-                printedsentences = resultprinter(matchitems, input('How many of the {} occurences should I print?'.format(len(thisSearch.matches))))
-                pickedmatch = input('Select a sentence number to be visualized (empty cancels)')
-                if pickedmatch in printedsentences:
-                    printedsentences[pickedmatch].buildStringToVisualize()
-                    printedsentences[pickedmatch].visualize()
-                print('Sentence no {} visualized.'.format(pickedmatch))
+            printcount = input('Found {} occurences. How many should I print? (press enter to print all)\n'.format(thisSearch.absolutematchcount))
+            if printcount == '':
+                printcount = thisSearch.absolutematchcount
+            else:
+                printcount = int(printcount)
+            while printcount > thisSearch.absolutematchcount:
+                printcount = int(input('Please give a number smaller than {}.'.format(thisSearch.absolutematchcount + 1)))
+            ordermenu = multimenu({'r':'randomize','n':'Do not randomize'},'Should I randomize the order?')
+            if ordermenu.answer =='r':
+                randomkeys = random.sample(list(thisSearch.matches),printcount)
+                printmatches = list()
+                for rkey in randomkeys:
+                    alignsegment = thisSearch.matches[rkey]
+                    #randomly select 1 of the matches in this segment
+                    printmatches.append(random.choice(alignsegment))
+            else:
+                printmatches = list()
+                for align_id, matches in thisSearch.matches.items():
+                    for match in matches:
+                        if len(printmatches) < printcount:
+                            printmatches.append(match)
+                        else:
+                            break
+            #actual printing
+            #========================================
+            table = Texttable()
+            #Initialize table printer
+            table.set_cols_align(["l", "l"])
+            table.set_cols_valign(["m", "m"])
+            rows = list()
+            for idx, match in enumerate(printmatches):
+                match.BuildSlContext()
+                if thisSearch.isparallel:
+                    match.BuildTlContext()
+                    rows.append(['Sentence id: {}, align id: {}\n'.format(match.matchedsentence.sentence_id, match.align_id), ''])
+                    rows.append([get_color_string(bcolors.BLUE,match.slcontextstring), get_color_string(bcolors.RED,match.tlcontextstring)])
+                else:
+                    print('{}:\t{}\nSentence id: {}, align id: {}\n'.format(idx, match.matchedsentence.printstring, match.matchedsentence.sentence_id, match.align_id))
+            if thisSearch.isparallel:
+                table.add_rows(rows)
+                print(table.draw() + "\n")
+            #========================================
         else:
             print('Sorry, nothing found.')
             print(thisSearch.subquery)
             print(thisSearch.subqueryvalues)
 
 
-def resultprinter(matchitems,limit=1):
+def resultprinter(matchitems,limit=1,parallel=False):
     """Print to screen the specified number of elements from search object"""
     printed = 0
     sentences = dict()
@@ -320,7 +387,9 @@ def resultprinter(matchitems,limit=1):
                 break
             #match.monoConcordance()
             #match.matchedsentence.buildPrintString()
-            match.BuildSentencePrintString()
+            match.BuildSlContext()
+            if  parallel:
+                match.BuildTlContext()
             printed += 1
             print('{}:\t{}\nSentence id: {}, align id: {}\n'.format(printed,match.matchedsentence.printstring, match.matchedsentence.sentence_id, key))
             #Save the sentence so it can be referenced easily
@@ -329,10 +398,13 @@ def resultprinter(matchitems,limit=1):
 
 ##################################################
 
+
 #Start the menu
 
 if __name__ == "__main__":
     searchmenu = MainMenu()
     while searchmenu.run == True:
         searchmenu.runmenu()
-        pass
+        if searchmenu.pause:
+            input('Press enter to continue')
+            searchmenu.pause=False

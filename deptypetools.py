@@ -20,11 +20,11 @@ def simpleupdate(thisSearch,dbcon, deprel, dbtable):
     dbcon.query('UPDATE {table} SET contr_deprel = %(deprel)s WHERE id in %(idlist)s'.format(table=dbtable),{'deprel':deprel,'idlist':thisSearch.idlist})
     logging.info('to be updated: {} database rows.'.format(dbcon.cur.rowcount))
 
-def makeSearch(ConditionColumns,database,dbtable,headcond=None,depcond=None,appendconditioncolumns=True):
+def makeSearch(ConditionColumns,database,dbtable,headcond=None,depcond=None,appendconditioncolumns=True,isparallel=False):
     Db.searched_table = dbtable
-    thisSearch = Search(database,askname=False)
     logging.info('Starting the search..')
     thisSearch = Search(database,askname=False)
+    thisSearch.isparallel = isparallel
     if appendconditioncolumns:
         thisSearch.ConditionColumns.append(ConditionColumns)
     else:

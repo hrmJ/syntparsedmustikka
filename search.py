@@ -82,6 +82,10 @@ class Search:
         Db.con = mydatabase(queried_db,'juho')
         #Initialize a log for errors associated with this search
         self.errorLog = ''
+        #By default, make monoconcordances
+        self.isparallel = False
+        #Count the numnber of actual matches
+        self.absolutematchcount = 0
 
     def Save(self):
         """Save the search object as a pickle file"""
@@ -130,10 +134,12 @@ class Search:
         From the syntpar...databases
         """
         sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id, contr_deprel, contr_head"
-        sqlq = "SELECT {0} FROM {1} WHERE align_id in ({2}) AND text_id = 5 order by align_id, id".format(sql_cols, Db.searched_table, self.subquery)
+        sqlq = "SELECT {0} FROM {1} WHERE align_id in ({2}) order by align_id, id".format(sql_cols, Db.searched_table, self.subquery)
         wordrows = Db.con.dictquery(sqlq,self.subqueryvalues)
         print('Analyzing...')
         self.pickFromAlign_ids(wordrows)
+        if self.isparallel:
+            self.FindParallelSegmentsAfterwards()
 
     def pickFromAlign_ids(self, wordrows):
         """Process the data from database query
@@ -187,7 +193,8 @@ class Search:
         for sentence_id in sorted(self.aligns[alignkey].keys()):
             #Process all the matches in the sentence that contained one or more matches
             for matchid in self.aligns[alignkey][sentence_id].matchids:
-                self.matches[alignkey].append(Match(self.aligns[alignkey],matchid,sentence_id))
+                self.matches[alignkey].append(Match(self.aligns[alignkey],matchid,sentence_id,alignkey))
+                self.absolutematchcount += 1
 
     def evaluateWordrow(self, word,sentence):
         'Test a word (in a sentence) according to criteria'
@@ -379,11 +386,11 @@ class Search:
             if wordrow['sentence_id'] not in self.parallel_aligns[wordrow['align_id']]:
                 self.parallel_aligns[wordrow['align_id']][wordrow['sentence_id']] = TargetSentence(wordrow['sentence_id'])
             self.parallel_aligns[wordrow['align_id']][wordrow['sentence_id']].words[wordrow['tokenid']] = Word(wordrow)
-        print('Assign the correct target segment for each match...')
+        #print('Assign the correct target segment for each match...')
         for align_id, matches in self.matches.items():
             for match in matches:
                 match.parallelcontext = self.parallel_aligns[align_id]
-        print('Done.')
+        #print('Done.')
 
     def CountMatches(self,filters=False):
         """Count the number of matches and filter by criteria"""
@@ -605,7 +612,7 @@ class Match:
     is the reason for a specific match to be registered.
     """
     # A list containing the ids of all the matches found
-    def __init__(self,alignsegment,matchid,sentence_id):
+    def __init__(self,alignsegment,matchid,sentence_id,align_id=None):
         """
         Creates a match object.
         Variables:
@@ -622,14 +629,14 @@ class Match:
         #For post processing purposes
         self.postprocessed = False
         self.rejectreason = ''
+        self.align_id = align_id
 
     def postprocess(self,rejectreason):
         """If the user wants to filter the matches and mark some of them manually as accepted and some rejected"""
         self.postprocessed = True
         self.rejectreason = rejectreason
 
-    def BuildContextString(self):
-        """Build a string containing all the sentences int the align unit the match is found in"""
+    def BuildSlContext(self):
         self.slcontextstring = ''
         for sentence_id, sentence in self.context.items():
             #Create a clause object for the clause containing the matched word
@@ -641,6 +648,16 @@ class Match:
             else:
                 sentence.buildPrintString()
             self.slcontextstring += sentence.printstring
+
+    def BuildTlContext(self):
+        self.tlcontextstring = ''
+        for sentence_id, sentence in self.parallelcontext.items():
+            sentence.buildPrintString()
+            self.tlcontextstring += sentence.printstring
+
+    def BuildContextString(self):
+        """Build a string containing all the sentences int the align unit the match is found in"""
+        self.BuildSlContext()
         #If a parallel context exists, do the same:
         try:
             if self.parallelword:
@@ -1025,9 +1042,12 @@ class Sentence:
                 #if this is the first word
                 spacechar = ''
             #if this word is a match:
-            if word.tokenid in self.matchids:
-                self.printstring += spacechar + '*' + word.token  + '*'
-            else:
+            try:
+                if word.tokenid in self.matchids:
+                    self.printstring += spacechar + '*' + word.token  + '*'
+                else:
+                    self.printstring += spacechar + word.token
+            except AttributeError:
                 self.printstring += spacechar + word.token
 
     def buildStringToVisualize(self):
