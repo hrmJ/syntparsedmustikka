@@ -71,13 +71,12 @@ def main():
                 sentence_id += 1
             else:
                 columns = word.split('\t')
-                if len(columns) < 7:
+                if len(columns) < 6:
                     #If an empty segment encountered
                     print('Note: an empty segment encountered at align_id {}'.format(align_id))
                     rowlist.append({'align_id'    : align_id,
                                     'sentence_id' : sentence_id,
                                     'text_id'     : text_id,
-                                    'translation_id' : translation_id,
                                     'tokenid'     : 1,
                                     'token'       : 'EMPTYSEGMENT',
                                     'lemma'       : 'EMPTYSEGMENT',

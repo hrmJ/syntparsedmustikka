@@ -11,13 +11,15 @@ Valmistelu
 ```
 python3 ~/syntparsedmustikka/database_insertion/tmxtoparserimput.py <tmxfilename> <lang1> <lang2>...
 ```
+Bulkkina:
+
 
 2. Kopioi valmistellut tiedostot omiin kielikohtaisiin kansioihinsa
 -------------------------------------------------------------------
 
 ```
-cp tmx/*_fi.prepared fi_prepared_for_parser/
-cp tmx/*_ru.prepared ru_prepared_for_parser/
+mv tmx/*_fi.prepared fi_prepared_for_parser/
+mv tmx/*_ru.prepared ru_prepared_for_parser/
 ```
 
 Jäsennys
@@ -108,4 +110,6 @@ python3 -i  insertconll_first_todb_bangs.py ~/corpora2/syntparrus2/ru_conll/pr_s
 3. Käännöskielten syöttäminen
 
 
+Skripti kaiken tekemiseksi kerralla:
+====================================
 

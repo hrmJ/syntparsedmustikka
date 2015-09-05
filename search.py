@@ -28,7 +28,7 @@ class Db:
     # What is the language table used in the queries
     searched_table = ''
     #a connection to db
-    con = mydatabase('syntparfin','juho')
+    #con = mydatabase('syntparfin','juho')
 
 class ConstQuery:
     """Some often used queries can be saved as instances of this class"""
@@ -179,18 +179,18 @@ class Search:
         """ Process every word of a sentence and chek if a search condition is met.
         The purpose of this function is to simplify the pickFromAlign_ids function"""
         # The sentence is processed word by word
-        for wkey, word in self.aligns[alignkey][sentencekey].words.items():
+        for wkey in sorted(map(int, self.aligns[alignkey][sentencekey].words)):
+            word = self.aligns[alignkey][sentencekey].words[wkey]
             if self.evaluateWordrow(word,self.aligns[alignkey][sentencekey]):  
                 #if the evaluation function returns true
                 self.aligns[alignkey][sentencekey].matchids.append(word.tokenid)
 
     def ProcessSentencesOfAlign(self, alignkey):
-        """WARNING the keys should probably be converted to INTS
-           Process all the sentences in the previous align unit and check for matches
+        """ Process all the sentences in the previous align unit and check for matches
            variables:
            alignkey = the key of the align segment to be processed
            """
-        for sentence_id in sorted(self.aligns[alignkey].keys()):
+        for sentence_id in sorted(map(int,self.aligns[alignkey])):
             #Process all the matches in the sentence that contained one or more matches
             for matchid in self.aligns[alignkey][sentence_id].matchids:
                 self.matches[alignkey].append(Match(self.aligns[alignkey],matchid,sentence_id,alignkey))
@@ -638,7 +638,8 @@ class Match:
 
     def BuildSlContext(self):
         self.slcontextstring = ''
-        for sentence_id, sentence in self.context.items():
+        for sentence_id in sorted(map(int,self.context)):
+            sentence = self.context[sentence_id]
             #Create a clause object for the clause containing the matched word
             self.matchedclause = Clause(self.matchedsentence, self.matchedword)
             #List the word's dependents for future use
@@ -647,13 +648,16 @@ class Match:
                 sentence.BuildHighlightedPrintString(self.matchedword)
             else:
                 sentence.buildPrintString()
-            self.slcontextstring += sentence.printstring
+            self.slcontextstring += sentence.printstring + ' '
+        self.slcontextstring.strip()
 
     def BuildTlContext(self):
         self.tlcontextstring = ''
-        for sentence_id, sentence in self.parallelcontext.items():
+        for sentence_id in sorted(map(int,self.parallelcontext)):
+            sentence = self.parallelcontext[sentence_id]
             sentence.buildPrintString()
-            self.tlcontextstring += sentence.printstring
+            self.tlcontextstring += sentence.printstring + ' '
+        self.tlcontextstring.strip()
 
     def BuildContextString(self):
         """Build a string containing all the sentences int the align unit the match is found in"""

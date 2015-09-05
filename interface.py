@@ -363,7 +363,7 @@ def printResults(thisSearch):
                 match.BuildSlContext()
                 if thisSearch.isparallel:
                     match.BuildTlContext()
-                    rows.append(['Sentence id: {}, align id: {}\n'.format(match.matchedsentence.sentence_id, match.align_id), ''])
+                    rows.append(['Source text id: {}, Sentence id: {}, align id: {}\n'.format(match.matchedword.sourcetextid, match.matchedsentence.sentence_id, match.align_id), ''])
                     rows.append([get_color_string(bcolors.BLUE,match.slcontextstring), get_color_string(bcolors.RED,match.tlcontextstring)])
                 else:
                     print('{}:\t{}\nSentence id: {}, align id: {}\n'.format(idx, match.matchedsentence.printstring, match.matchedsentence.sentence_id, match.align_id))
