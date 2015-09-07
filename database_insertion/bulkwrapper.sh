@@ -3,14 +3,20 @@
 # Set these paths appropriately!
 #This script is supposed to be run from its own directory
 
-TMXFOLDER=/home/juho/corpora2/syntparrus2/tmx
+TMXFOLDER=/home/juho/corpora2/syntparfin2/tmx
 SNPARSER=/home/juho/corpora2/sn_parser/installation
 TDTPARSER=/home/juho/corpora2/Finnish-dep-parser
-RUPREPARED=/home/juho/corpora2/syntparrus2/ru_prepared_for_parser
-FIPREPARED=/home/juho/corpora2/syntparrus2/fi_prepared_for_parser
-FIPARSED=/home/juho/corpora2/syntparrus2/fi_conll
-RUPARSED=/home/juho/corpora2/syntparrus2/ru_conll
+RUPREPARED=/home/juho/corpora2/syntparfin2/ru_prepared_for_parser
+FIPREPARED=/home/juho/corpora2/syntparfin2/fi_prepared_for_parser
+FIPARSED=/home/juho/corpora2/syntparfin2/fi_conll
+RUPARSED=/home/juho/corpora2/syntparfin2/ru_conll
 PYTHONFOLDER=$(dirname $0)
+
+mkdir -p $TMXFOLDER
+mkdir -p $RUPREPARED
+mkdir -p $FIPREPARED
+mkdir -p $RUPARSED
+mkdir -p $FIPARSED
 
 #1. Prepare tmxes
 
@@ -19,7 +25,8 @@ do
     echo "Preparing $tmxfile..."
     perl -pi -e 's/"(FI-FI|FI)"/"fi"/gi' $tmxfile
     perl -pi -e 's/"(RU-RU|RU)"/"ru"/gi' $tmxfile
-    python3 tmxtoparserimput.py $tmxfile ru fi
+    #python3 tmxtoparserimput.py $tmxfile ru fi
+    python3 tmxtoparserimput.py $tmxfile fi ru
     echo "Prepared succesfully."
 done
 

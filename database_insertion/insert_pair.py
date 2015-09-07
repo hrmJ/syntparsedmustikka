@@ -145,12 +145,14 @@ def GetLastValue(row):
 def BulkInsert():
     """Hardcode some paths and make a batch insert"""
     #Set the paths before running:
-    sl = 'ru'
-    tl = 'fi'
+    #sl = 'ru'
+    #tl = 'fi'
+    sl = 'fi'
+    tl = 'ru'
     sltable = sl + '_conll'
     tltable = tl + '_conll'
-    sl_dirprefix = '/home/juho/corpora2/syntparrus2/' + sltable
-    tl_dirprefix = '/home/juho/corpora2/syntparrus2/' + tltable
+    sl_dirprefix = '/home/juho/corpora2/syntparfin2/' + sltable
+    tl_dirprefix = '/home/juho/corpora2/syntparfin2/' + tltable
     pairs = list()
     for filename in os.listdir(sl_dirprefix):
         pairs.append(dict())
@@ -158,7 +160,7 @@ def BulkInsert():
         pairs[-1]['tl'] = tl_dirprefix + "/" + filename.replace('_'+sl,'_'+tl)
     for pair in pairs:
         print('Inserting {} and its translation...'.format(pair['sl']))
-        InsertPair('syntparrus2',pair['sl'],pair['tl'], sltable, tltable)
+        InsertPair('syntparfin2',pair['sl'],pair['tl'], sltable, tltable)
 
 def InsertPair(dbname=None,slfile=None,tlfile=None,sl_tablename=None,tl_tablename=None):
     """Method for inserting one file pair either according to cmdline arguments or by function arguments"""
