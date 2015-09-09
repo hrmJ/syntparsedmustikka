@@ -9,7 +9,7 @@ from sqlalchemy.ext.declarative import declarative_base
 
 class psycopg:
     def __init__(self,dbname,username,autocom=False):
-       self.connection = psycopg2.connect("dbname='{}' user='{}'".format(dbname, username))
+       self.connection=psycopg2.connect(database=dbname, user=username, host="127.0.0.1", password="4udo4ka")
        self.connection.autocommit = autocom
        self.cur = self.connection.cursor()
        self.dictcur = self.connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -114,7 +114,7 @@ class mydatabase:
     """Establish a connection to database and create two cursors for use"""
 
     def __init__(self,dbname,username):
-       self.connection = psycopg2.connect("dbname='{}' user='{}'".format(dbname, username))
+       self.connection=psycopg2.connect(database=dbname, user=username, host="127.0.0.1", password="4udo4ka")
        self.connection.autocommit = True
        self.dictcur = self.connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
        self.cur = self.connection.cursor()
