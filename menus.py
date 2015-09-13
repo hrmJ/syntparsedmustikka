@@ -27,37 +27,13 @@ class Menu:
                         colaligns.append("l") 
                 table.set_cols_align(colaligns)
                 table.add_rows([optioncols])
-                try:
-                    print(table.draw() + "\n")
-                except ValueError:
-                    options = '\n                '.join("{!s}: {!s}".format(key,val) for (key,val) in sorted(self.validanswers.items()))
-                    question = "{}\n{}{}\n>".format(self.question,'                ',options)
-                    dontchangequestion = True
-                #############
-                try:
-                    cancelletter = 'n'
-                    while cancelletter in self.validanswers:
-                        cancelletter += 'n'
-                    print('{}: {}'.format(cancelletter,self.cancel))
-                    self.validanswers.update({'n':'cancelled'})
-                except AttributeError:
-                    print('nn: none of these')
-                    self.validanswers.update({'nn':'cancelled'})
+                print(table.draw() + "\n")
                 if not dontchangequestion:
                     question = self.question + "\n>"
             else:
                 #Make a printable string from the dict:
                 options = '\n                '.join("{!s}: {!s}".format(key,val) for (key,val) in sorted(self.validanswers.items()))
                 question = "{}\n{}{}\n>".format(self.question,'                ',options)
-                try:
-                    cancelletter = 'n'
-                    while cancelletter in self.validanswers:
-                        cancelletter += 'n'
-                    print('{}: {}'.format(cancelletter,self.cancel))
-                    self.validanswers.update({'n':'cancelled'})
-                except AttributeError:
-                    print('nn: none of these')
-                    self.validanswers.update({'nn':'cancelled'})
             self.answer=input(question)
             while self.answer not in self.validanswers.keys():
                 self.answer = input("Please give a valid answer.\n {}".format(question))
