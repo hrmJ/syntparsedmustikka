@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 import codecs
+import textwrap
 import random
 import csv
 from deptypetools import makeSearch
@@ -25,15 +26,16 @@ from texttable import Texttable, get_color_string, bcolors
 class MainMenu:
     """This class include all
     the comand line menu options and actions"""
-    mainanswers =  {'q':'quit','l':'select language', 'm':'Monoconcordance', 
-            'd':'select database','p':'phdquery','s':'View searches','o':'View saved searches','n':'Нужно-search',
-            'a':'advanced search','tme':'TME search','cs':'Corpus stats','pc':'parallel concordance'}
+    mainanswers =  {'q':'quit','2':'select language', '3':'Toggle parallel search on/off',
+            '1':'select database','5':'View searches','6':'View saved searches',
+            '7':'Corpus stats','4':get_color_string(bcolors.RED,'Concordances')}
 
     def __init__(self):
         self.menu = multimenu(MainMenu.mainanswers)
         # Selectable options:
         self.selectedlang = 'none'
         self.selecteddb = 'none'
+        self.isparallel = 'no'
         self.columns = dict()
         #Control the program flow
         self.run = True
@@ -44,10 +46,10 @@ class MainMenu:
         #Clear the terminal:
         os.system('cls' if os.name == 'nt' else 'clear')
         #Build the selected options
-        self.menu.question = 'Welcome\n\n' + '-'*20 + \
+        self.menu.question = 'Welcome\n\n' + '='*40 + \
                           '''\n\nSelected options: 
-                             \n\nDatabase: {}\nLanguage:{} {}
-                             '''.format(self.selecteddb,self.selectedlang,'\n'*2 + '-'*20 + '\n'*2)
+                             \nDatabase: {db}\nLanguage: {lang} \nParallel Concordances: {parc} {wspace}
+                             '''.format(db=self.selecteddb,lang=self.selectedlang, parc=self.isparallel, wspace='\n'*2 + '='*40 + '\n'*2)
         self.menu.validanswers = MainMenu.mainanswers
         self.menu.prompt_valid()
         self.MenuChooser(self.menu.answer)
@@ -73,10 +75,22 @@ class MainMenu:
         Db.con = mydatabase(self.menu.validanswers[self.menu.answer],'juho')
         self.selecteddb = self.menu.validanswers[self.menu.answer]
 
+    def testSettings(self):
+        if self.selecteddb == 'none':
+            return input('Please select a database first!')
+        if self.selectedlang == 'none':
+            return input('Please select a language first!')
+        return True
+
     def Parconc(self):
-        self.AddConditions()
-        self.search = makeSearch(database=Db.con.dbname, dbtable=Db.searched_table, ConditionColumns=self.condcols,isparallel=True)
-        printResults(self.search)
+        """The actual concordancer"""
+        if self.testSettings():
+            self.AddConditions()
+            parallelon = False
+            if self.isparallel == 'yes':
+                parallelon = True
+            self.search = makeSearch(database=Db.con.dbname, dbtable=Db.searched_table, ConditionColumns=self.condcols,isparallel=parallelon)
+            printResults(self.search)
 
     
     def AddConditions(self):
@@ -216,31 +230,27 @@ class MainMenu:
             print('No saved searches found.')
 
     def MenuChooser(self,answer):
+        os.system('cls' if os.name == 'nt' else 'clear')
         if answer == 'q':
             self.run = False
-        elif answer == 'l':
+        elif answer == '2':
             self.chooselang()
-        elif answer == 'm':
-            self.monoconc()
-        elif answer == 'd':
+        elif answer == '1':
             self.choosedb()
-        elif answer == 'p':
-            self.phd()
-        elif answer == 's':
+        elif answer == '3':
+            if self.isparallel == 'no':
+                self.isparallel = 'yes'
+            else:
+                self.isparallel = 'no'
+        elif answer == '5':
             self.viewsearches()
             self.pause = True
-        elif answer == 'o':
+        elif answer == '6':
             self.viewsavedsearches()
-        elif answer == 'n':
-            self.nuzhnosearch()
-        elif answer == 'a':
-            self.monoconc(True)
-        elif answer == 'tme':
-            self.monoconc(tme=True)
-        elif answer == 'pc':
+        elif answer == '4':
             self.pause=True
             self.Parconc()
-        elif answer == 'cs':
+        elif answer == '7':
             statmen = Statmenu()
             statmen.runmenu()
 
@@ -354,23 +364,42 @@ def printResults(thisSearch):
                             break
             #actual printing
             #========================================
+            csvrows = list()
+            rows = list()
             table = Texttable()
             #Initialize table printer
             table.set_cols_align(["l", "l"])
             table.set_cols_valign(["m", "m"])
-            rows = list()
+
+            if thisSearch.isparallel:
+                headerrow = ['sl','tl','source']
+            else:
+                headerrow = ['concordance','source']
+            csvrows = [headerrow]
+
             for idx, match in enumerate(printmatches):
                 match.BuildSlContext()
                 if thisSearch.isparallel:
                     match.BuildTlContext()
                     rows.append(['Source text id: {}, Sentence id: {}, align id: {}\n'.format(match.matchedword.sourcetextid, match.matchedsentence.sentence_id, match.align_id), ''])
                     rows.append([get_color_string(bcolors.BLUE,match.slcontextstring), get_color_string(bcolors.RED,match.tlcontextstring)])
+                    csvrows.append([match.slcontextstring,match.tlcontextstring,match.matchedword.sourcetextid])
                 else:
-                    print('{}:\t{}\nSentence id: {}, align id: {}\n'.format(idx, match.matchedsentence.printstring, match.matchedsentence.sentence_id, match.align_id))
+                    print('{}:\n=======================\n{}\n----------------------\n[Sentence id: {}, align id: {}, text_id: {}]\n\n\n'.format(idx,textwrap.fill(match.slcontextstring), match.matchedsentence.sentence_id, match.align_id,match.matchedword.sourcetextid))
+                    csvrows.append([match.slcontextstring,match.matchedword.sourcetextid])
             if thisSearch.isparallel:
                 table.add_rows(rows)
                 print(table.draw() + "\n")
             #========================================
+            csvmenu = multimenu({'y':'yes','n':'no'},'Save csv?')
+            if csvmenu.answer == 'y':
+                fname = input('Give the name of the csv:\n>')
+                with open(fname, "w",newline='') as f:
+                    writer = csv.writer(f)
+                    try:
+                        writer.writerows(csvrows)
+                    except TypeError:
+                        import ipdb; ipdb.set_trace()
         else:
             print('Sorry, nothing found.')
             print(thisSearch.subquery)
