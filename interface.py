@@ -103,12 +103,17 @@ class MainMenu:
         newvals.answer = 'y'
         addmore.answer = 'y'
         while addmore.answer == 'y':
+            os.system('cls' if os.name == 'nt' else 'clear')
             vals = list()
             columns.prompt_valid('What column should the condition be based on?')
             newvals.answer = 'y'
             while newvals.answer == 'y':
-                vals.append(input('Give a value the column should have:\n>'))
-                newvals.prompt_valid('Add more values?')
+                vals.append(input('Give a value the column should have ' + get_color_string(bcolors.RED,'(Press l to load a list of values from an external file)') + ':\n>'))
+                if vals[-1] == 'l':
+                    with open(input('Give the path of the file'), 'r') as f:
+                        vals = list(csv.reader(f))
+                else:
+                    newvals.prompt_valid('Add more values?')
             pickedcolumn = columns.validanswers[columns.answer]
             self.condcols[pickedcolumn] = tuple(vals)
             addmore.prompt_valid('Add more conditions?')
