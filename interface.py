@@ -110,8 +110,13 @@ class MainMenu:
             while newvals.answer == 'y':
                 vals.append(input('Give a value the column should have ' + get_color_string(bcolors.RED,'(Press l to load a list of values from an external file)') + ':\n>'))
                 if vals[-1] == 'l':
-                    with open(input('Give the path of the file'), 'r') as f:
-                        vals = list(csv.reader(f))
+                    fname = input('Give the path of the file\n>')
+                    with open(fname, 'r') as f:
+                        valsfromfile = list(csv.reader(f))
+                    vals=list()
+                    for valfromfile in valsfromfile:
+                        vals.append(valfromfile[0])
+                    newvals.answer = 'n'
                 else:
                     newvals.prompt_valid('Add more values?')
             pickedcolumn = columns.validanswers[columns.answer]

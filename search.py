@@ -137,9 +137,13 @@ class Search:
         sqlq = "SELECT {0} FROM {1} WHERE align_id in ({2}) order by align_id, id".format(sql_cols, Db.searched_table, self.subquery)
         wordrows = Db.con.dictquery(sqlq,self.subqueryvalues)
         print('Analyzing...')
-        self.pickFromAlign_ids(wordrows)
-        if self.isparallel:
-            self.FindParallelSegmentsAfterwards()
+        if wordrows:
+            self.pickFromAlign_ids(wordrows)
+            if self.isparallel:
+                self.FindParallelSegmentsAfterwards()
+        else:
+            return input('Nothing found..')
+
 
     def pickFromAlign_ids(self, wordrows):
         """Process the data from database query
