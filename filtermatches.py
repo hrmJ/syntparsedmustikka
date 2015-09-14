@@ -619,6 +619,6 @@ root.addHandler(fh)
 PotetialNontemporal.checkhardcodedrules = checkhardcodedrules
 
 #Create databases if needed:
-#Base.metadata.create_all(engine)
+Base.metadata.create_all(engine)
 
 
