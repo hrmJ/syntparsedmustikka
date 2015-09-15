@@ -212,6 +212,15 @@ class ConditionSet:
     def __init__(self, selecteddb):
         self.columnnames = dict()
         self.columns = dict()
+
+        #Initialize printed options
+        self.optionstring = ''
+        self.optiontable = Texttable()
+        self.optiontable.set_cols_align(["l", "l"])
+        self.optiontable.set_cols_valign(["m", "m"])
+        self.optionrows = list()
+        self.optionheaders = ['Column','Possible values']
+
         psycon = psycopg(selecteddb,'juho')
         rows = psycon.FetchQuery('SELECT column_name FROM information_schema.columns WHERE table_name = %s',(Db.searched_table,))
         colindex = 1
@@ -229,12 +238,20 @@ class ConditionSet:
         addmoreconditions = multimenu({'y':'add more','q':'stop adding conditions'})
         addmoreconditions.answer = 'y'
         while addmoreconditions.answer == 'y':
-            os.system('cls' if os.name == 'nt' else 'clear')
             vals = list()
             columnmenu.prompt_valid('What column should the condition be based on?')
             while self.columns[int(columnmenu.answer)].addmorevalues:
-                self.columns[int(columnmenu.answer)].PickSearchValue()
+                vals.append(self.columns[int(columnmenu.answer)].PickSearchValue())
             addmoreconditions.prompt_valid('Keep adding search conditions?')
+
+    def FormatOptionString(self):
+        if not self.optionrows:
+            pass
+        #rows.app
+
+        #table.add_rows(rows)
+        #print(table.draw() + "\n")
+        #pass
 
 
 class ConllColumn:

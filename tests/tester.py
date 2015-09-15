@@ -13,6 +13,7 @@ testmenu.selectedlang = 'fi'
 
 #testmenu.runmenu()
 testmenu.conditionset = interface.ConditionSet(testmenu.selecteddb)
+#testmenu.conditionset.FormatOptionString()
 testmenu.Parconc()
 
 #cset = testmenu.conditionset
