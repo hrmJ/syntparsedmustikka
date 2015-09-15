@@ -97,7 +97,10 @@ class MainMenu:
             parallelon = False
             if self.isparallel == 'yes':
                 parallelon = True
-            self.search = makeSearch(database=Db.con.dbname, dbtable=Db.searched_table, ConditionColumns=self.conditionset.condcols,isparallel=parallelon)
+           # addheadcond = input('Press enter to move on, h to add conditions concerning the head of the matching word')
+           # if addheadcond == 'h':
+           #     self.conditionset.AddConditions(headcond=True)
+            self.search = makeSearch(database=Db.con.dbname, dbtable=Db.searched_table, ConditionColumns=self.conditionset.condcols,headcond=self.conditionset.headcols, isparallel=parallelon)
             printResults(self.search)
             self.searchcommitted = True
 
@@ -190,7 +193,8 @@ class ConditionSet:
         self.optiontable.set_cols_valign(["m", "m"])
         self.optiontable.add_row(['Column','Possible values'])
         self.FormatOptionString()
-        self.condcols = dict()
+        self.condcols = None
+        self.headcols = None
 
         psycon = psycopg(selecteddb,'juho')
         rows = psycon.FetchQuery('SELECT column_name FROM information_schema.columns WHERE table_name = %s',(Db.searched_table,))
@@ -209,7 +213,8 @@ class ConditionSet:
         self.optiontable.set_cols_valign(["m", "m"])
         self.optiontable.add_row(['Column','Possible values'])
         self.FormatOptionString()
-        self.condcols = dict()
+        self.condcols = None
+        self.headcols = None
         for key, column in self.columns.items():
             column.presetvalues = dict()
             column.regexcond = False
@@ -218,9 +223,9 @@ class ConditionSet:
             column.addmorevalues = True
 
 
-
-    def AddConditions(self):
+    def AddConditions(self, headcond=False):
         """Parallel concordance search"""
+        conditiondict = dict()
         columnmenu = multimenu(self.columnnames)
         addmoreconditions = multimenu({'y':'add more','q':'stop adding conditions'})
         addmoreconditions.answer = 'y'
@@ -231,15 +236,19 @@ class ConditionSet:
             while thiscolumn.addmorevalues:
                 vals.append(thiscolumn.PickSearchValue())
             if thiscolumn.regexcond:
-                self.condcols["#" + thiscolumn.name] = vals[-1]
+                conditiondict["#" + thiscolumn.name] = vals[-1]
                 self.FormatOptionString([thiscolumn.screenname, 'REGEX: ' + vals[-1]])
             elif thiscolumn.negativeconds:
-                self.condcols["!" + thiscolumn.name] = tuple(vals)
+                conditiondict["!" + thiscolumn.name] = tuple(vals)
                 self.FormatOptionString([thiscolumn.screenname, 'NOT EQUAL TO: ' + ' OR '.join(vals)])
             else:
-                self.condcols[thiscolumn.name] = tuple(vals)
+                conditiondict[thiscolumn.name] = tuple(vals)
                 self.FormatOptionString([thiscolumn.screenname, ' OR '.join(vals)])
             addmoreconditions.prompt_valid(self.optionstring + 'Keep adding search conditions?')
+        if headcond:
+            self.headcols = conditiondict
+        else:
+            self.condcols = conditiondict
 
     def FormatOptionString(self,row=None):
         header = 'Current search conditions:\n{}\n\n'.format('='*30)
