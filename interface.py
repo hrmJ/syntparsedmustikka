@@ -9,15 +9,12 @@ from collections import defaultdict
 from lxml import etree
 import string
 import re
-# For flushing the screen os-dependently
 import os
 import os.path
 #local modules
 from dbmodule import mydatabase, psycopg
 from menus import Menu, multimenu, yesnomenu 
 from search import Search, Match, Sentence, Word, ConstQuery, Db 
-from phdqueries import FinnishTime, tmevalues
-from filtermatches import FilterDuplicates1
 import pickle
 import datetime
 import glob
