@@ -240,8 +240,10 @@ class ConditionSet:
         while addmoreconditions.answer == 'y':
             vals = list()
             columnmenu.prompt_valid(self.optionstring + 'What column should the condition be based on?')
-            while self.columns[int(columnmenu.answer)].addmorevalues:
-                vals.append(self.columns[int(columnmenu.answer)].PickSearchValue())
+            thiscolumn = self.columns[int(columnmenu.answer)]
+            while thiscolumn.addmorevalues:
+                vals.append(thiscolumn.PickSearchValue())
+            condcols[thiscolumn.name] = vals
             self.FormatOptionString([self.columns[int(columnmenu.answer)].screenname, ' OR '.join(vals)])
             addmoreconditions.prompt_valid(self.optionstring + 'Keep adding search conditions?')
 
