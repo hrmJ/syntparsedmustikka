@@ -119,6 +119,9 @@ class Search:
             #If this is a neagtive condition
             if column[0] == '!':
                 condition += "{} not in %({})s".format(column[1:],sqlRef)
+            #If this is a regexp condition. Note, that the values of a regexpcond.dict must be simple strings, not tuples
+            if column[0] == '#':
+                condition += "{} ~ %({})s".format(column[1:],sqlRef)
             #If this is a fuzzy condition. Note, that the values of a fuzzycond.dict must be simple strings, not tuples
             elif column[0] == '?':
                 condition += "{} LIKE %({})s".format(column[1:],sqlRef)

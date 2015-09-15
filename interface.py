@@ -229,6 +229,7 @@ class ConllColumn:
     def __init__(self, name, con):
         self.name = name
         self.presetvalues = dict()
+        self.regexcond = False
         #just initianiling a variable for the picksearchedval method
         self.addmorevalues = True
         #if possible, use a more user-friendly name to be shown
@@ -255,6 +256,10 @@ class ConllColumn:
             if value == 'l':
                 self.addmorevalues = False
                 return LoadCsv()
+            elif value[0] == '/' and value[-1] == '/':
+                self.addmorevalues = False
+                self.regexcond = True
+                return value.strip('/')
             else:
                 returnvalue =  value
         else:

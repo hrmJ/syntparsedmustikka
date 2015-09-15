@@ -14,11 +14,11 @@ testmenu.selectedlang = 'fi'
 #testmenu.runmenu()
 testmenu.conditionset = interface.ConditionSet(testmenu.selecteddb)
 #testmenu.conditionset.FormatOptionString()
-testmenu.conditionset.condcols = {'lemma':('iloita',)}
-testmenu.search = interface.makeSearch(database=interface.Db.con.dbname, dbtable=interface.Db.searched_table, ConditionColumns=testmenu.conditionset.condcols,isparallel=False)
-interface.printResults(testmenu.search)
+#testmenu.conditionset.condcols = {'lemma':('iloita',)}
+#testmenu.search = interface.makeSearch(database=interface.Db.con.dbname, dbtable=interface.Db.searched_table, ConditionColumns=testmenu.conditionset.condcols,isparallel=False)
+#interface.printResults(testmenu.search)
 
-#testmenu.Parconc()
+testmenu.Parconc()
 
 #cset = testmenu.conditionset
 #val = cset.columns[6].PickSearchValue()
