@@ -249,6 +249,9 @@ class ConllColumn:
                 return LoadCsv()
             else:
                 return value
+        else:
+            valuemenu = multimenu(self.presetvalues,'Pick a value the column should have:')
+            return valuemenu.validanswers[valuemenu.answer]
 
 
 class Statmenu:

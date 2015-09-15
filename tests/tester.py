@@ -15,6 +15,6 @@ testmenu.selectedlang = 'fi'
 testmenu.runmenu()
 
 cset = testmenu.conditionset
-val = cset.columns[2].PickSearchValue()
+val = cset.columns[6].PickSearchValue()
 
 print('Test performed')
