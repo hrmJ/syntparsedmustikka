@@ -205,14 +205,16 @@ class ConditionSet:
 
     def __init__(self, selecteddb):
         self.columnnames = dict()
-        self.columns = list()
+        self.columns = dict()
         psycon = psycopg(selecteddb,'juho')
         rows = psycon.FetchQuery('SELECT column_name FROM information_schema.columns WHERE table_name = %s',(Db.searched_table,))
-        for idx, row in enumerate(rows):
+        colindex = 1
+        for row in rows:
             #Add a new column object to the columnlist if it makes sense to add it
             if row[0] not in ConditionSet.ignoredcolumns:
-                self.columns.append(ConllColumn(name=row[0],con=psycon))
-                self.columnnames[str(idx)] = self.columns[-1].screenname
+                self.columns[colindex] = ConllColumn(name = row[0],con = psycon)
+                self.columnnames[str(colindex)] = self.columns[colindex].screenname
+                colindex += 1
 
 class ConllColumn:
     """For every searchable column there is an object that includes possible values etc."""
@@ -220,14 +222,18 @@ class ConllColumn:
     descriptivenames = {'feat':'Grammatical features','pos':'Part of speech','deprel':'Dependency role','tokenid':'The ordinal position of token in the sentence'}
     def __init__(self, name, con):
         self.name = name
+        self.presetvalues = dict()
         #if possible, use a more user-friendly name to be shown
         try:
             self.screenname = ConllColumn.descriptivenames[name]
         except KeyError:
             self.screenname = name[0].upper() + name[1:]
 
+        #If the values should not be freely determined but rather chosen from an existing list
         if name in ConllColumn.presetvalues:
-            rows = con.FetchQuery('SELECT {colname}, count({colname}) FROM {table} group by 1 order by 2'.format(colname = self.name, table = Db.searched_table))
+            rows = con.FetchQuery('SELECT {colname}, count({colname}) FROM {table} group by 1 order by 2 DESC'.format(colname = self.name, table = Db.searched_table))
+            for idx, row in enumerate(rows):
+                self.presetvalues[str(idx)] = row[0]
 
 
 class Statmenu:
