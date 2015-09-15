@@ -184,6 +184,7 @@ class ConditionSet:
         self.optiontable.set_cols_valign(["m", "m"])
         self.optiontable.add_row(['Column','Possible values'])
         self.FormatOptionString()
+        self.condcols = dict()
 
         psycon = psycopg(selecteddb,'juho')
         rows = psycon.FetchQuery('SELECT column_name FROM information_schema.columns WHERE table_name = %s',(Db.searched_table,))
@@ -198,7 +199,6 @@ class ConditionSet:
     def AddConditions(self):
         """Parallel concordance search"""
         columnmenu = multimenu(self.columnnames)
-        self.condcols = dict()
         addmoreconditions = multimenu({'y':'add more','q':'stop adding conditions'})
         addmoreconditions.answer = 'y'
         while addmoreconditions.answer == 'y':

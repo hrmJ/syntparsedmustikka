@@ -202,69 +202,29 @@ class Search:
 
     def evaluateWordrow(self, word,sentence):
         'Test a word (in a sentence) according to criteria'
-        if self.searchtype == 'phd':
-            #If this lemma is not listed in the list of search words
-            if not self.posvalues[word.lemma]:
-                return False
-            #if this pos is not listed as a possible one for the lemma
-            if word.pos not in self.posvalues[word.lemma]:
-                return False
-            #if this word's deprel not listed
-            if word.deprel not in ('advmod','nommod','dobj','adpos'):
-                return False
-            #if the word's head's deprel not listed
-            if sentence.words[word.head].deprel not in ('ROOT','advcl','cop','aux'):
-                return False
-        elif self.searchtype == 'nuzhno':
-            nomatch = True
-            for wkey in sorted(map(int,sentence.words)):
-                wordinsent = sentence.words[wkey]
-                if wordinsent.head == word.tokenid and wordinsent.feat[-2:] == 'dn' and wordinsent.deprel != '2-компл':
-                    nomatch = False
-                    break
-            if nomatch:
-                return False
-            if word.lemma not in ('нужно','надо','должно'):
-                return False
-        elif self.searchtype == 'semsubj_gen':
-            nomatch = False
-            for wkey in sorted(map(int,sentence.words)):
-                wordinsent = sentence.words[wkey]
-                #If the examined word's head is 'kuluttua' don't accept
-                if wordinsent.head == word.tokenid and (wordinsent.token == 'kuluttua' or (wordinsent.pos != 'V' and wordinsent.deprel != 'ROOT')):
-                    nomatch = True
-                    break
-            if nomatch:
-                return False
-            #If this is not a subject in genetive, don't accept
-            if word.deprel != 'nsubj' or 'CASE_Gen' not in word.feat:
-                return False
-        #-------------------------------------------------------------------------------------
-        else:
-            #If this is a standard search
-            #Iterate over the list of the sepcified column value pairs
-            for MultipleValuePair in self.ConditionColumns:
-                pairmatch=True
-                for column, value in MultipleValuePair.items():
-                    #If this is a negative condition:
-                    if column[0] == '!':
-                        if getattr(word, column[1:]) in value:
-                            #if the requested value of the specified column is what's not being looked for, regard this a non-match
-                            pairmatch = False
-                    #If this is a fuzzy condition:
-                    elif column[0] == '?':
-                        if value.replace('%','') not in getattr(word, column[1:]):
-                            #if the requested value of the specified column isn't what's being looked for, regard this a non-match
-                            pairmatch = False
-                    else:
-                        if getattr(word, column) not in value:
-                            #if the requested value of the specified column isn't what's being looked for, regard this a non-match
-                            pairmatch = False
-                if pairmatch:
-                    #if one of the conditions matched, accept this and stop testing
-                    break
-            if not pairmatch:
-                return False
+        #Iterate over the list of the sepcified column value pairs
+        for MultipleValuePair in self.ConditionColumns:
+            pairmatch=True
+            for column, value in MultipleValuePair.items():
+                #If this is a negative condition:
+                if column[0] == '!':
+                    if getattr(word, column[1:]) in value:
+                        #if the requested value of the specified column is what's not being looked for, regard this a non-match
+                        pairmatch = False
+                #If this is a fuzzy condition:
+                elif column[0] == '?':
+                    if value.replace('%','') not in getattr(word, column[1:]):
+                        #if the requested value of the specified column isn't what's being looked for, regard this a non-match
+                        pairmatch = False
+                else:
+                    if getattr(word, column) not in value:
+                        #if the requested value of the specified column isn't what's being looked for, regard this a non-match
+                        pairmatch = False
+            if pairmatch:
+                #if one of the conditions matched, accept this and stop testing
+                break
+        if not pairmatch:
+            return False
         #-------------------------------------------------------------------------------------
         #Test conditions based on the head of the word
         if self.headcond:
