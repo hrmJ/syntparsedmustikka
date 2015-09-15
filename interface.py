@@ -205,7 +205,7 @@ class ConditionSet:
     def __init__(self, selecteddb):
         self.columnlist = dict()
         psycon = psycopg(selecteddb,'juho')
-        #rows = psycon.FetchQuery('SELECT column_name FROM information_schema.columns WHERE table_name = %s',(Db.searched_table,))
+        rows = psycon.FetchQuery('SELECT column_name FROM information_schema.columns WHERE table_name = %s',(Db.searched_table,))
         #for idx, row in enumerate(rows):
         #    ConditionSet.columns[str(idx)] = row[0]
 
