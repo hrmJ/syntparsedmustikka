@@ -12,3 +12,4 @@ testmenu.selectedlang = 'fi'
 #Concordancing:
 
 testmenu.Parconc()
+print('Test performed')
