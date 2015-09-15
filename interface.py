@@ -226,16 +226,16 @@ class ConditionSet:
         """Parallel concordance search"""
         columnmenu = multimenu(self.columnnames)
         condcols = dict()
-        addmore = multimenu({'y':'add more','q':'stop adding conditions'})
+        addmoreconditions = multimenu({'y':'add more','q':'stop adding conditions'})
         newvals = multimenu({'q':'stop adding values','y':'insert next possible value'})
         newvals.answer = 'y'
-        addmore.answer = 'y'
         while addmore.answer == 'y':
             os.system('cls' if os.name == 'nt' else 'clear')
             vals = list()
             columnmenu.prompt_valid('What column should the condition be based on?')
             while self.columns[int(columnmenu.answer)].addmorevalues:
                 self.columns[int(columnmenu.answer)].PickSearchValue()
+            addmoreconditions.prompt_valid('Keep adding search conditions?')
 
         #    newvals.answer = 'y'
         #    while newvals.answer == 'y':
