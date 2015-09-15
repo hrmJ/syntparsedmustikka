@@ -7,7 +7,8 @@ import os
 class Menu:
     """Any command line menus that are used to ask the user for input"""
     def prompt_valid(self,definedquestion=''):
-            os.system('cls' if os.name == 'nt' else 'clear')
+            if self.clearscreen:
+                os.system('cls' if os.name == 'nt' else 'clear')
             if definedquestion:
                 self.question = definedquestion
             if len(self.validanswers) > 10 and 'n' not in self.validanswers and 'nn' not in self.validanswers:
@@ -59,8 +60,9 @@ class yesnomenu(Menu):
     validanswers = { 'y':'yes','n':'no' }
 
 class multimenu(Menu):
-    def __init__(self, validanswers, promptnowquestion=''):
+    def __init__(self, validanswers, promptnowquestion='', clearscreen=True):
         self.validanswers=validanswers
+        self.clearscreen = clearscreen
         if promptnowquestion:
             self.question = promptnowquestion
             self.prompt_valid()

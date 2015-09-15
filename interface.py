@@ -89,49 +89,13 @@ class MainMenu:
         """The actual concordancer"""
         if self.testSettings():
             self.conditionset.AddConditions()
-            return False
             parallelon = False
             if self.isparallel == 'yes':
                 parallelon = True
-            self.search = makeSearch(database=Db.con.dbname, dbtable=Db.searched_table, ConditionColumns=self.condcols,isparallel=parallelon)
+            self.search = makeSearch(database=Db.con.dbname, dbtable=Db.searched_table, ConditionColumns=self.conditionset.condcols,isparallel=parallelon)
             printResults(self.search)
 
     
-    def AddConditions(self):
-        """Parallel concordance search"""
-        self.ListColumns()
-        columns = multimenu(self.conditionset.columnnames)
-        self.condcols = dict()
-        addmore = multimenu({'y':'add more','q':'stop adding conditions'})
-        newvals = multimenu({'q':'stop adding values','y':'insert next possible value'})
-        newvals.answer = 'y'
-        addmore.answer = 'y'
-        while addmore.answer == 'y':
-            os.system('cls' if os.name == 'nt' else 'clear')
-            vals = list()
-            columns.prompt_valid('What column should the condition be based on?')
-            newvals.answer = 'y'
-            while newvals.answer == 'y':
-                vals.append(input('Give a value the column should have ' + get_color_string(bcolors.RED,'(Press l to load a list of values from an external file)') + ':\n>'))
-                if vals[-1] == 'l':
-                    fname = input('Give the path of the file\n>')
-                    with open(fname, 'r') as f:
-                        valsfromfile = list(csv.reader(f))
-                    vals=list()
-                    for valfromfile in valsfromfile:
-                        vals.append(valfromfile[0])
-                    newvals.answer = 'n'
-                else:
-                    newvals.prompt_valid('Add more values?')
-            pickedcolumn = columns.validanswers[columns.answer]
-            self.condcols[pickedcolumn] = tuple(vals)
-            addmore.prompt_valid('Add more conditions?')
-
-    def AddConditions2(self):
-        """Parallel concordance search"""
-        self.conditionset = ConditionSet(self.selecteddb)
-
-
     def viewsearches(self):
         """Take a look at the conducted searches and repeat / save them"""
         #collect the answers in a dict
@@ -234,7 +198,7 @@ class ConditionSet:
     def AddConditions(self):
         """Parallel concordance search"""
         columnmenu = multimenu(self.columnnames)
-        condcols = dict()
+        self.condcols = dict()
         addmoreconditions = multimenu({'y':'add more','q':'stop adding conditions'})
         addmoreconditions.answer = 'y'
         while addmoreconditions.answer == 'y':
@@ -243,7 +207,7 @@ class ConditionSet:
             thiscolumn = self.columns[int(columnmenu.answer)]
             while thiscolumn.addmorevalues:
                 vals.append(thiscolumn.PickSearchValue())
-            condcols[thiscolumn.name] = vals
+            self.condcols[thiscolumn.name] = tuple(vals)
             self.FormatOptionString([self.columns[int(columnmenu.answer)].screenname, ' OR '.join(vals)])
             addmoreconditions.prompt_valid(self.optionstring + 'Keep adding search conditions?')
 
@@ -438,7 +402,7 @@ def printResults(thisSearch):
                 table.add_rows(rows)
                 print(table.draw() + "\n")
             #========================================
-            csvmenu = multimenu({'y':'yes','n':'no'},'Save csv?')
+            csvmenu = multimenu({'y':'yes','n':'no'},'Save csv?',False)
             if csvmenu.answer == 'y':
                 fname = input('Give the name of the csv:\n>')
                 with open(fname, "w",newline='') as f:
