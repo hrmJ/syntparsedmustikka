@@ -236,23 +236,6 @@ class ConditionSet:
                 self.columns[int(columnmenu.answer)].PickSearchValue()
             addmoreconditions.prompt_valid('Keep adding search conditions?')
 
-        #    newvals.answer = 'y'
-        #    while newvals.answer == 'y':
-        #        vals.append(
-
-        #        if vals[-1] == 'l':
-        #            fname = input('Give the path of the file\n>')
-        #            with open(fname, 'r') as f:
-        #                valsfromfile = list(csv.reader(f))
-        #            vals=list()
-        #            for valfromfile in valsfromfile:
-        #                vals.append(valfromfile[0])
-        #            newvals.answer = 'n'
-        #        else:
-        #            newvals.prompt_valid('Add more values?')
-        #    pickedcolumn = columns.validanswers[columns.answer]
-        #    self.condcols[pickedcolumn] = tuple(vals)
-        #    addmore.prompt_valid('Add more conditions?')
 
 class ConllColumn:
     """For every searchable column there is an object that includes possible values etc."""
@@ -282,14 +265,15 @@ class ConllColumn:
     def PickSearchValue(self):
         """Select a value to be used in a search"""
         if not self.presetvalues:
-            value =  input('Give a value the column should have ' + get_color_string(bcolors.RED,'(Press l to load a list of values from an external file)') + ':\n>')
+            os.system('cls' if os.name == 'nt' else 'clear')
+            value =  input('Give a value the column {} should have '.format(get_color_string(bcolors.BLUE,self.screenname)) + get_color_string(bcolors.RED,'(Press l to load a list of values from an external file)') + ':\n>')
             if value == 'l':
                 self.addmorevalues = False
                 return LoadCsv()
             else:
                 returnvalue =  value
         else:
-            valuemenu = multimenu(self.presetvalues,'Pick a value the column should have:')
+            valuemenu = multimenu(self.presetvalues,'Pick a value the column {} should have '.format(get_color_string(bcolors.BLUE,self.screenname)))
             returnvalue =  valuemenu.validanswers[valuemenu.answer]
 
         self.askmoremenu.prompt_valid()
