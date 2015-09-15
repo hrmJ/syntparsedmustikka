@@ -241,6 +241,10 @@ class ConllColumn:
             for idx, row in enumerate(rows):
                 self.presetvalues[str(idx)] = row[0]
 
+    def PickSearchValue(self):
+        """Select a value to be used in a search"""
+        pass
+
 
 class Statmenu:
     menuoptions = {'1':'Word count','c':'Return to main menu'}
