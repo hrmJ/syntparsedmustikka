@@ -33,6 +33,7 @@ class MainMenu:
         self.selectedlang = 'none'
         self.selecteddb = 'none'
         self.isparallel = 'no'
+        self.searchcommitted = False
         self.columns = dict()
         #Control the program flow
         self.run = True
@@ -90,12 +91,15 @@ class MainMenu:
     def Parconc(self):
         """The actual concordancer"""
         if self.testSettings():
+            if self.searchcommitted:
+                self.conditionset.ResetConditions()
             self.conditionset.AddConditions()
             parallelon = False
             if self.isparallel == 'yes':
                 parallelon = True
             self.search = makeSearch(database=Db.con.dbname, dbtable=Db.searched_table, ConditionColumns=self.conditionset.condcols,isparallel=parallelon)
             printResults(self.search)
+            self.searchcommitted = True
 
     
     def viewsearches(self):
@@ -197,6 +201,23 @@ class ConditionSet:
                 self.columns[colindex] = ConllColumn(name = row[0],con = psycon)
                 self.columnnames[str(colindex)] = self.columns[colindex].screenname
                 colindex += 1
+
+    def ResetConditions(self):
+        self.optionstring = ''
+        self.optiontable = Texttable()
+        self.optiontable.set_cols_align(["l", "l"])
+        self.optiontable.set_cols_valign(["m", "m"])
+        self.optiontable.add_row(['Column','Possible values'])
+        self.FormatOptionString()
+        self.condcols = dict()
+        for key, column in self.columns.items():
+            column.presetvalues = dict()
+            column.regexcond = False
+            column.negativeconds = False
+            #just initianiling a variable for the picksearchedval method
+            column.addmorevalues = True
+
+
 
     def AddConditions(self):
         """Parallel concordance search"""
