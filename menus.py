@@ -2,10 +2,12 @@
 #Classes{{{1
 #Menu{{{2
 from texttable import Texttable, get_color_string, bcolors
+import os
 
 class Menu:
     """Any command line menus that are used to ask the user for input"""
     def prompt_valid(self,definedquestion=''):
+            os.system('cls' if os.name == 'nt' else 'clear')
             if definedquestion:
                 self.question = definedquestion
             if len(self.validanswers) > 10 and 'n' not in self.validanswers and 'nn' not in self.validanswers:
