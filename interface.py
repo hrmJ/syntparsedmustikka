@@ -204,11 +204,16 @@ class ConditionSet:
         while addmoreconditions.answer == 'y':
             vals = list()
             columnmenu.prompt_valid(self.optionstring + 'What column should the condition be based on?')
+            if thiscolumn.regexcond:
             thiscolumn = self.columns[int(columnmenu.answer)]
             while thiscolumn.addmorevalues:
                 vals.append(thiscolumn.PickSearchValue())
-            self.condcols[thiscolumn.name] = tuple(vals)
-            self.FormatOptionString([self.columns[int(columnmenu.answer)].screenname, ' OR '.join(vals)])
+            if thiscolumn.regexcond:
+                self.condcols["#" + thiscolumn.name] = vals[-1]
+                self.FormatOptionString([thiscolumn.screenname, 'REGEX: ' + vals[-1])
+            else:
+                self.condcols[thiscolumn.name] = tuple(vals)
+                self.FormatOptionString([thiscolumn.screenname, ' OR '.join(vals)])
             addmoreconditions.prompt_valid(self.optionstring + 'Keep adding search conditions?')
 
     def FormatOptionString(self,row=None):
