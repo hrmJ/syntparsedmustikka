@@ -212,7 +212,7 @@ class ConditionSet:
             if thiscolumn.regexcond:
                 self.condcols["#" + thiscolumn.name] = vals[-1]
                 self.FormatOptionString([thiscolumn.screenname, 'REGEX: ' + vals[-1]])
-            if thiscolumn.negativeconds:
+            elif thiscolumn.negativeconds:
                 self.condcols["!" + thiscolumn.name] = tuple(vals)
                 self.FormatOptionString([thiscolumn.screenname, 'NOT EQUAL TO: ' + ' OR '.join(vals)])
             else:
@@ -258,15 +258,11 @@ class ConllColumn:
         """Select a value to be used in a search"""
         if not self.presetvalues:
             os.system('cls' if os.name == 'nt' else 'clear')
-            header = """Give a value the column {} should have.\n\n 
-                      - {}, surround the string with forward slashes (e.g. /^[m|M]yregexstri.*/)\n
-                      - If this  is  a negative condition (or multiple negative conditions),
-                      begin the first condition with a ! (e.g. !dontmatchthis)\n{}""".format(
-                                  get_color_string(bcolors.BLUE,self.screenname),
-                                  get_color_string(bcolors.GREEN,'If you want to use a regex'), 
-                                  get_color_string(bcolors.RED,'(Press l to load a list of values from an external file)'
-                                  + ':\n\n\n>'))
-            value =  input(header)
+            headerstrings = ["Give a value the column {} should have.".format(get_color_string(bcolors.BLUE,self.screenname)),
+                      "- If you want to use a regex, surround the string with forward slashes (e.g. /^[m|M]yregexstri.*/)",
+                      "- If this  is  a negative condition, begin the first condition with a ! (e.g. !dontmatchthis)",
+                      "- Press l to load a list of values from an external file\n>"]
+            value = input('\n'.join(headerstrings))
             if value == 'l':
                 self.addmorevalues = False
                 return LoadCsv()
