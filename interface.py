@@ -243,7 +243,9 @@ class ConllColumn:
 
     def PickSearchValue(self):
         """Select a value to be used in a search"""
-        pass
+        if not self.presetvalues:
+            value =  input('Give a value the column should have ' + get_color_string(bcolors.RED,'(Press l to load a list of values from an external file)') + ':\n>')
+            return value
 
 
 class Statmenu:
