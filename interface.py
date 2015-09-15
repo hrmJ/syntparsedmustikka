@@ -218,8 +218,8 @@ class ConditionSet:
         self.optiontable = Texttable()
         self.optiontable.set_cols_align(["l", "l"])
         self.optiontable.set_cols_valign(["m", "m"])
-        self.optionrows = list()
-        self.optionheaders = ['Column','Possible values']
+        self.optiontable.add_row(['Column','Possible values'])
+        self.FormatOptionString()
 
         psycon = psycopg(selecteddb,'juho')
         rows = psycon.FetchQuery('SELECT column_name FROM information_schema.columns WHERE table_name = %s',(Db.searched_table,))
@@ -239,15 +239,17 @@ class ConditionSet:
         addmoreconditions.answer = 'y'
         while addmoreconditions.answer == 'y':
             vals = list()
-            columnmenu.prompt_valid('What column should the condition be based on?')
+            columnmenu.prompt_valid(self.optionstring + 'What column should the condition be based on?')
             while self.columns[int(columnmenu.answer)].addmorevalues:
                 vals.append(self.columns[int(columnmenu.answer)].PickSearchValue())
-            addmoreconditions.prompt_valid('Keep adding search conditions?')
+            self.FormatOptionString([self.columns[int(columnmenu.answer)].screenname, ' OR '.join(vals)])
+            addmoreconditions.prompt_valid(self.optionstring + 'Keep adding search conditions?')
 
-    def FormatOptionString(self):
-        if not self.optionrows:
-            pass
-        #rows.app
+    def FormatOptionString(self,row=None):
+        header = 'Current search conditions:\n{}\n\n'.format('='*30)
+        if row:
+            self.optiontable.add_row(row)
+        self.optionstring = header + self.optiontable.draw() + "\n\n\n"
 
         #table.add_rows(rows)
         #print(table.draw() + "\n")
