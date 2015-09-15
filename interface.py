@@ -227,9 +227,8 @@ class ConditionSet:
         columnmenu = multimenu(self.columnnames)
         condcols = dict()
         addmoreconditions = multimenu({'y':'add more','q':'stop adding conditions'})
-        newvals = multimenu({'q':'stop adding values','y':'insert next possible value'})
-        newvals.answer = 'y'
-        while addmore.answer == 'y':
+        addmoreconditions.answer = 'y'
+        while addmoreconditions.answer == 'y':
             os.system('cls' if os.name == 'nt' else 'clear')
             vals = list()
             columnmenu.prompt_valid('What column should the condition be based on?')
