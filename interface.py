@@ -204,7 +204,6 @@ class ConditionSet:
         while addmoreconditions.answer == 'y':
             vals = list()
             columnmenu.prompt_valid(self.optionstring + 'What column should the condition be based on?')
-            if thiscolumn.regexcond:
             thiscolumn = self.columns[int(columnmenu.answer)]
             while thiscolumn.addmorevalues:
                 vals.append(thiscolumn.PickSearchValue())
