@@ -88,7 +88,7 @@ class MainMenu:
     def Parconc(self):
         """The actual concordancer"""
         if self.testSettings():
-            self.AddConditions2()
+            self.conditionset.AddConditions()
             return False
             parallelon = False
             if self.isparallel == 'yes':
@@ -100,7 +100,7 @@ class MainMenu:
     def AddConditions(self):
         """Parallel concordance search"""
         self.ListColumns()
-        columns = multimenu(self.columns)
+        columns = multimenu(self.conditionset.columnnames)
         self.condcols = dict()
         addmore = multimenu({'y':'add more','q':'stop adding conditions'})
         newvals = multimenu({'q':'stop adding values','y':'insert next possible value'})
@@ -221,6 +221,35 @@ class ConditionSet:
                 self.columns[colindex] = ConllColumn(name = row[0],con = psycon)
                 self.columnnames[str(colindex)] = self.columns[colindex].screenname
                 colindex += 1
+
+    def AddConditions(self):
+        """Parallel concordance search"""
+        columns = multimenu(self.columnnames)
+        condcols = dict()
+        addmore = multimenu({'y':'add more','q':'stop adding conditions'})
+        newvals = multimenu({'q':'stop adding values','y':'insert next possible value'})
+        newvals.answer = 'y'
+        addmore.answer = 'y'
+        while addmore.answer == 'y':
+            os.system('cls' if os.name == 'nt' else 'clear')
+            vals = list()
+            columns.prompt_valid('What column should the condition be based on?')
+            newvals.answer = 'y'
+            while newvals.answer == 'y':
+                vals.append(input('Give a value the column should have ' + get_color_string(bcolors.RED,'(Press l to load a list of values from an external file)') + ':\n>'))
+                if vals[-1] == 'l':
+                    fname = input('Give the path of the file\n>')
+                    with open(fname, 'r') as f:
+                        valsfromfile = list(csv.reader(f))
+                    vals=list()
+                    for valfromfile in valsfromfile:
+                        vals.append(valfromfile[0])
+                    newvals.answer = 'n'
+                else:
+                    newvals.prompt_valid('Add more values?')
+            pickedcolumn = columns.validanswers[columns.answer]
+            self.condcols[pickedcolumn] = tuple(vals)
+            addmore.prompt_valid('Add more conditions?')
 
 class ConllColumn:
     """For every searchable column there is an object that includes possible values etc."""

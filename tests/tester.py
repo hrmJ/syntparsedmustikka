@@ -11,10 +11,11 @@ testmenu.selectedlang = 'fi'
 
 #Concordancing:
 
-#testmenu.Parconc()
-testmenu.runmenu()
+#testmenu.runmenu()
+testmenu.conditionset = interface.ConditionSet(testmenu.selecteddb)
+testmenu.Parconc()
 
-cset = testmenu.conditionset
-val = cset.columns[6].PickSearchValue()
+#cset = testmenu.conditionset
+#val = cset.columns[6].PickSearchValue()
 
 print('Test performed')
