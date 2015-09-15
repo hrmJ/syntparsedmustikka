@@ -247,7 +247,8 @@ class ConllColumn:
             value =  input('Give a value the column should have ' + get_color_string(bcolors.RED,'(Press l to load a list of values from an external file)') + ':\n>')
             if value == 'l':
                 return LoadCsv()
-            return value
+            else:
+                return value
 
 
 class Statmenu:
