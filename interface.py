@@ -209,7 +209,7 @@ class ConditionSet:
                 vals.append(thiscolumn.PickSearchValue())
             if thiscolumn.regexcond:
                 self.condcols["#" + thiscolumn.name] = vals[-1]
-                self.FormatOptionString([thiscolumn.screenname, 'REGEX: ' + vals[-1])
+                self.FormatOptionString([thiscolumn.screenname, 'REGEX: ' + vals[-1]])
             else:
                 self.condcols[thiscolumn.name] = tuple(vals)
                 self.FormatOptionString([thiscolumn.screenname, ' OR '.join(vals)])
