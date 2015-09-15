@@ -110,7 +110,7 @@ class Search:
         sqlidx=0
         for column, value in ivaluedict.items():
             #Make sure the user gives the values as tuples (excluding fuzzy matches)
-            if column[0] != '?' and not isinstance(value,tuple):
+            if column[0] not in ('?','#') and not isinstance(value,tuple):
                 raise TypeError('The values in the ConditionColumn lists dict must be tuples, see {}:{}'.format(column,value))
             if condition:
                 condition += " AND "
@@ -217,6 +217,11 @@ class Search:
                 #If this is a fuzzy condition:
                 elif column[0] == '?':
                     if value.replace('%','') not in getattr(word, column[1:]):
+                        #if the requested value of the specified column isn't what's being looked for, regard this a non-match
+                        pairmatch = False
+                elif column[0] == '#':
+                    pattern  = re.compile(value)
+                    if not pattern.match(getattr(word,column[1:])):
                         #if the requested value of the specified column isn't what's being looked for, regard this a non-match
                         pairmatch = False
                 else:
