@@ -245,6 +245,8 @@ class ConllColumn:
         """Select a value to be used in a search"""
         if not self.presetvalues:
             value =  input('Give a value the column should have ' + get_color_string(bcolors.RED,'(Press l to load a list of values from an external file)') + ':\n>')
+            if value == 'l':
+                return LoadCsv()
             return value
 
 
@@ -411,6 +413,17 @@ def resultprinter(matchitems,limit=1,parallel=False):
             #Save the sentence so it can be referenced easily
             sentences[str(printed)] = match.matchedsentence
     return sentences
+
+
+def LoadCsv():
+    """Load data from an external import csv file"""
+    fname = input('Give the path of the file\n>')
+    with open(fname, 'r') as f:
+        valsfromfile = list(csv.reader(f))
+    vals=list()
+    for valfromfile in valsfromfile:
+        vals.append(valfromfile[0])
+    return vals
 
 ##################################################
 
