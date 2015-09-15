@@ -201,7 +201,7 @@ class MainMenu:
 
 class ConditionSet:
     """...."""
-    ignoredcolumns = ['contr_deprel','contr_head','id','sentence_id','align_id','text_id']
+    ignoredcolumns = ['contr_deprel','contr_head','id','sentence_id','align_id','text_id','translation_id','head']
 
     def __init__(self, selecteddb):
         self.columnnames = dict()
@@ -212,13 +212,20 @@ class ConditionSet:
             #Add a new column object to the columnlist if it makes sense to add it
             if row[0] not in ConditionSet.ignoredcolumns:
                 self.columns.append(ConllColumn(name=row[0],con=psycon))
-                self.columnnames[str(idx)] = self.columns[-1].name
+                self.columnnames[str(idx)] = self.columns[-1].screenname
 
 class ConllColumn:
     """For every searchable column there is an object that includes possible values etc."""
     presetvalues = ['pos','deprel']
+    descriptivenames = {'feat':'Grammatical features','pos':'Part of speech','deprel':'Dependency role','tokenid':'The ordinal position of token in the sentence'}
     def __init__(self, name, con):
         self.name = name
+        #if possible, use a more user-friendly name to be shown
+        try:
+            self.screenname = ConllColumn.descriptivenames[name]
+        except KeyError:
+            self.screenname = name[0].upper() + name[1:]
+
         if name in ConllColumn.presetvalues:
             rows = con.FetchQuery('SELECT {colname}, count({colname}) FROM {table} group by 1 order by 2'.format(colname = self.name, table = Db.searched_table))
 
