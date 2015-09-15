@@ -37,9 +37,15 @@ class MainMenu:
         #Control the program flow
         self.run = True
         self.pause = False
+        self.conditionset = None
 
     def runmenu(self):
         'Run the main menu'
+        #If all necessary prerequisites are set, initialize the possible conditions
+        if self.selectedlang != 'none' and self.selecteddb != 'none' and not self.conditionset:
+            print('Initializing configuration...')
+            self.conditionset = ConditionSet(self.selecteddb)
+            return False
         #Clear the terminal:
         os.system('cls' if os.name == 'nt' else 'clear')
         #Build the selected options

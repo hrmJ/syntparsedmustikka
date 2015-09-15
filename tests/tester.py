@@ -11,5 +11,6 @@ testmenu.selectedlang = 'fi'
 
 #Concordancing:
 
-testmenu.Parconc()
+#testmenu.Parconc()
+testmenu.runmenu()
 print('Test performed')
