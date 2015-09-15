@@ -201,6 +201,7 @@ class MainMenu:
 
 class ConditionSet:
     """...."""
+    ignoredcolumns = ['contr_deprel','contr_head','id','sentence_id','align_id','text_id']
 
     def __init__(self, selecteddb):
         self.columnnames = dict()
@@ -208,15 +209,18 @@ class ConditionSet:
         psycon = psycopg(selecteddb,'juho')
         rows = psycon.FetchQuery('SELECT column_name FROM information_schema.columns WHERE table_name = %s',(Db.searched_table,))
         for idx, row in enumerate(rows):
-            #Add a new column object to the columnlist
-            self.columns.append(ConllColumn(name=row[0],con=psycon))
-            self.columnnames[str(idx)] = self.columns[-1].name
+            #Add a new column object to the columnlist if it makes sense to add it
+            if row[0] not in ConditionSet.ignoredcolumns:
+                self.columns.append(ConllColumn(name=row[0],con=psycon))
+                self.columnnames[str(idx)] = self.columns[-1].name
 
 class ConllColumn:
     """For every searchable column there is an object that includes possible values etc."""
+    presetvalues = ['pos','deprel']
     def __init__(self, name, con):
         self.name = name
-        rows = con.FetchQuery('SELECT {colname}, count({colname}) FROM {table} group by 1 order by 2'.format(colname = self.name, table = Db.searched_table))
+        if name in ConllColumn.presetvalues:
+            rows = con.FetchQuery('SELECT {colname}, count({colname}) FROM {table} group by 1 order by 2'.format(colname = self.name, table = Db.searched_table))
 
 
 class Statmenu:
