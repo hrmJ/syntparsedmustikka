@@ -42,10 +42,6 @@ class MainMenu:
     def runmenu(self):
         'Run the main menu'
         #If all necessary prerequisites are set, initialize the possible conditions
-        if self.selectedlang != 'none' and self.selecteddb != 'none' and not self.conditionset:
-            print('Initializing configuration...')
-            self.conditionset = ConditionSet(self.selecteddb)
-            return False
         #Clear the terminal:
         os.system('cls' if os.name == 'nt' else 'clear')
         #Build the selected options
@@ -69,6 +65,9 @@ class MainMenu:
         elif self.menu.answer == 'r':
             Db.searched_table = 'ru_conll'
             self.selectedlang = 'ru'
+        if self.selecteddb != 'none':
+            print('Initializing configuration...')
+            self.conditionset = ConditionSet(self.selecteddb)
 
 
     def choosedb(self):
@@ -77,6 +76,9 @@ class MainMenu:
         self.menu.prompt_valid()
         Db.con = mydatabase(self.menu.validanswers[self.menu.answer],'juho')
         self.selecteddb = self.menu.validanswers[self.menu.answer]
+        if self.selectedlang != 'none':
+            print('Initializing configuration...')
+            self.conditionset = ConditionSet(self.selecteddb)
 
     def testSettings(self):
         if self.selecteddb == 'none':
@@ -210,6 +212,9 @@ class ConditionSet:
             if thiscolumn.regexcond:
                 self.condcols["#" + thiscolumn.name] = vals[-1]
                 self.FormatOptionString([thiscolumn.screenname, 'REGEX: ' + vals[-1]])
+            if thiscolumn.negativeconds:
+                self.condcols["!" + thiscolumn.name] = tuple(vals)
+                self.FormatOptionString([thiscolumn.screenname, 'NOT EQUAL TO: ' + ' OR '.join(vals)])
             else:
                 self.condcols[thiscolumn.name] = tuple(vals)
                 self.FormatOptionString([thiscolumn.screenname, ' OR '.join(vals)])
@@ -221,10 +226,6 @@ class ConditionSet:
             self.optiontable.add_row(row)
         self.optionstring = header + self.optiontable.draw() + "\n\n\n"
 
-        #table.add_rows(rows)
-        #print(table.draw() + "\n")
-        #pass
-
 
 class ConllColumn:
     """For every searchable column there is an object that includes possible values etc."""
@@ -234,6 +235,7 @@ class ConllColumn:
         self.name = name
         self.presetvalues = dict()
         self.regexcond = False
+        self.negativeconds = False
         #just initianiling a variable for the picksearchedval method
         self.addmorevalues = True
         #if possible, use a more user-friendly name to be shown
@@ -256,7 +258,15 @@ class ConllColumn:
         """Select a value to be used in a search"""
         if not self.presetvalues:
             os.system('cls' if os.name == 'nt' else 'clear')
-            value =  input('Give a value the column {} should have '.format(get_color_string(bcolors.BLUE,self.screenname)) + get_color_string(bcolors.RED,'(Press l to load a list of values from an external file)') + ':\n>')
+            header = """Give a value the column {} should have.\n\n 
+                      - {}, surround the string with forward slashes (e.g. /^[m|M]yregexstri.*/)\n
+                      - If this  is  a negative condition (or multiple negative conditions),
+                      begin the first condition with a ! (e.g. !dontmatchthis)\n{}""".format(
+                                  get_color_string(bcolors.BLUE,self.screenname),
+                                  get_color_string(bcolors.GREEN,'If you want to use a regex'), 
+                                  get_color_string(bcolors.RED,'(Press l to load a list of values from an external file)'
+                                  + ':\n\n\n>'))
+            value =  input(header)
             if value == 'l':
                 self.addmorevalues = False
                 return LoadCsv()
@@ -264,6 +274,9 @@ class ConllColumn:
                 self.addmorevalues = False
                 self.regexcond = True
                 return value.strip('/')
+            elif value[0] == '!' or self.negativeconds:
+                self.negativeconds = True
+                returnvalue = value[1:]
             else:
                 returnvalue =  value
         else:
