@@ -224,7 +224,7 @@ class ConditionSet:
 
     def AddConditions(self):
         """Parallel concordance search"""
-        columns = multimenu(self.columnnames)
+        columnmenu = multimenu(self.columnnames)
         condcols = dict()
         addmore = multimenu({'y':'add more','q':'stop adding conditions'})
         newvals = multimenu({'q':'stop adding values','y':'insert next possible value'})
@@ -233,23 +233,27 @@ class ConditionSet:
         while addmore.answer == 'y':
             os.system('cls' if os.name == 'nt' else 'clear')
             vals = list()
-            columns.prompt_valid('What column should the condition be based on?')
-            newvals.answer = 'y'
-            while newvals.answer == 'y':
-                vals.append(input('Give a value the column should have ' + get_color_string(bcolors.RED,'(Press l to load a list of values from an external file)') + ':\n>'))
-                if vals[-1] == 'l':
-                    fname = input('Give the path of the file\n>')
-                    with open(fname, 'r') as f:
-                        valsfromfile = list(csv.reader(f))
-                    vals=list()
-                    for valfromfile in valsfromfile:
-                        vals.append(valfromfile[0])
-                    newvals.answer = 'n'
-                else:
-                    newvals.prompt_valid('Add more values?')
-            pickedcolumn = columns.validanswers[columns.answer]
-            self.condcols[pickedcolumn] = tuple(vals)
-            addmore.prompt_valid('Add more conditions?')
+            columnmenu.prompt_valid('What column should the condition be based on?')
+            while self.columns[int(columnmenu.answer)].addmorevalues:
+                self.columns[int(columnmenu.answer)].PickSearchValue()
+
+        #    newvals.answer = 'y'
+        #    while newvals.answer == 'y':
+        #        vals.append(
+
+        #        if vals[-1] == 'l':
+        #            fname = input('Give the path of the file\n>')
+        #            with open(fname, 'r') as f:
+        #                valsfromfile = list(csv.reader(f))
+        #            vals=list()
+        #            for valfromfile in valsfromfile:
+        #                vals.append(valfromfile[0])
+        #            newvals.answer = 'n'
+        #        else:
+        #            newvals.prompt_valid('Add more values?')
+        #    pickedcolumn = columns.validanswers[columns.answer]
+        #    self.condcols[pickedcolumn] = tuple(vals)
+        #    addmore.prompt_valid('Add more conditions?')
 
 class ConllColumn:
     """For every searchable column there is an object that includes possible values etc."""
@@ -258,6 +262,8 @@ class ConllColumn:
     def __init__(self, name, con):
         self.name = name
         self.presetvalues = dict()
+        #just initianiling a variable for the picksearchedval method
+        self.addmorevalues = True
         #if possible, use a more user-friendly name to be shown
         try:
             self.screenname = ConllColumn.descriptivenames[name]
@@ -270,17 +276,32 @@ class ConllColumn:
             for idx, row in enumerate(rows):
                 self.presetvalues[str(idx)] = row[0]
 
+        #Add a menu for asking for more values
+        self.askmoremenu = multimenu({'y':'yes','n':'no'})
+        self.askmoremenu.question = 'Keep adding possible search values for this column?'
+
     def PickSearchValue(self):
         """Select a value to be used in a search"""
         if not self.presetvalues:
             value =  input('Give a value the column should have ' + get_color_string(bcolors.RED,'(Press l to load a list of values from an external file)') + ':\n>')
             if value == 'l':
+                self.addmorevalues = False
                 return LoadCsv()
             else:
-                return value
+                returnvalue =  value
         else:
             valuemenu = multimenu(self.presetvalues,'Pick a value the column should have:')
-            return valuemenu.validanswers[valuemenu.answer]
+            returnvalue =  valuemenu.validanswers[valuemenu.answer]
+
+        self.askmoremenu.prompt_valid()
+        if self.askmoremenu.answer == 'y':
+            self.addmorevalues = True
+        else:
+            self.addmorevalues = False
+
+        return returnvalue
+
+
 
 
 class Statmenu:
