@@ -123,7 +123,7 @@ class MainMenu:
 
     def AddConditions2(self):
         """Parallel concordance search"""
-        self.conditionset = ConditionSet()
+        self.conditionset = ConditionSet(self.selecteddb)
 
 
     def viewsearches(self):
@@ -202,14 +202,12 @@ class MainMenu:
 class ConditionSet:
     """...."""
 
-    def __init__(self):
+    def __init__(self, selecteddb):
         self.columnlist = dict()
-        print('done')
-        #if not ConditionSet.columns:
-        #    psycon = psycopg(self.selecteddb,'juho')
-        #    rows = psycon.FetchQuery('SELECT column_name FROM information_schema.columns WHERE table_name = %s',(Db.searched_table,))
-        #    for idx, row in enumerate(rows):
-        #        ConditionSet.columns[str(idx)] = row[0]
+        psycon = psycopg(selecteddb,'juho')
+        #rows = psycon.FetchQuery('SELECT column_name FROM information_schema.columns WHERE table_name = %s',(Db.searched_table,))
+        #for idx, row in enumerate(rows):
+        #    ConditionSet.columns[str(idx)] = row[0]
 
 class ConllColumn:
     """For every searchable column there is an object that includes possible values etc."""
