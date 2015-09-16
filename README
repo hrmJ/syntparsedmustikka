@@ -1,1 +1,1 @@
-This is (or will be) a user interfarce for parallel corpora annotated with depency parsers producin conll 09 formatted annotations. Written in python, relies on PostgreSQL.
+This is (or will be) a user interfarce for parallel corpora annotated with dependency parsers producing conll 09 formatted annotations. Written in python3, relies on PostgreSQL.
