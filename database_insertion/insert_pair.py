@@ -145,17 +145,16 @@ def GetLastValue(row):
 def BulkInsert():
     """Hardcode some paths and make a batch insert"""
     #Set the paths before running:
-    #sl = 'ru'
-    #tl = 'fi'
-    sl = 'fi'
-    tl = 'ru'
+    sl = 'ru'
+    tl = 'fi'
+    #sl = 'fi'
+    #tl = 'ru'
     sltable = sl + '_conll'
     tltable = tl + '_conll'
-    database = 'syntparfin2'
+    #database = 'syntparfin2'
+    database = 'syntparrus2'
     sl_dirprefix = '/home/juho/corpora2/' + database + '/' + sltable
     tl_dirprefix = '/home/juho/corpora2/' + database + '/' + tltable
-    #sl_dirprefix = '/home/juho/corpora2/syntparrus2/' + sltable
-    #tl_dirprefix = '/home/juho/corpora2/syntparrus2/' + tltable
     pairs = list()
     for filename in os.listdir(sl_dirprefix):
         pairs.append(dict())

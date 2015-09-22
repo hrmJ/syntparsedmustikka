@@ -88,7 +88,7 @@ class Search:
 
     def Save(self):
         """Save the search object as a pickle file"""
-        savepickle(self,self.filename)
+        savepickle(self.filename,self)
         input('Pickle succesfully saved.')
 
     def BuildSubQuery(self):
