@@ -5,7 +5,7 @@
 
 TMXFOLDER=/home/juho/corpora2/syntparfin2/tmx
 #SNPARSER=/home/juho/corpora2/sn_parser/installation
-SNPARSER= /home/juho/asennus/rusparser/
+SNPARSER=/home/juho/asennus/rusparser/
 TDTPARSER=/home/juho/corpora2/Finnish-dep-parser/
 RUPREPARED=/home/juho/corpora2/syntparfin2/ru_prepared_for_parser
 FIPREPARED=/home/juho/corpora2/syntparfin2/fi_prepared_for_parser
@@ -54,13 +54,31 @@ mkdir -p $FIPARSED
 #done
 
 
-echo "Now starting to parse the FINNISH files.... THIS consumes most of the CPU power"
-#4. CD to TDT parsers directory and start parsing
+#echo "Now starting to parse the FINNISH files.... THIS consumes most of the CPU power"
+##4. CD to TDT parsers directory and start parsing
+#cd $TDTPARSER
+#mkdir -p oldfiles
+#mv *prepared oldfiles/
+#cp $FIPREPARED/*prepared .
+##4.1 parse
+#for file in *prepared
+#do 
+#    cat $file | ./parser_wrapper.sh > $file.conll
+#    mv  $file.conll  $FIPARSED/
+#done
+#
+#echo "DONE!"
+
+
+
+#Parse Finnish files from parrus
+FIPREPARED=/home/juho/corpora2/syntparrus2/fi_prepared_for_parser
+FIPARSED=/home/juho/corpora2/syntparrus2/fi_conll
+
 cd $TDTPARSER
-mkdir -p oldfiles
-mv *prepared oldfiles/
+rm *prepared
 cp $FIPREPARED/*prepared .
-#4.1 parse
+#5.1 parse
 for file in *prepared
 do 
     cat $file | ./parser_wrapper.sh > $file.conll
@@ -68,3 +86,4 @@ do
 done
 
 echo "DONE!"
+
