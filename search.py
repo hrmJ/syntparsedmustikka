@@ -11,6 +11,7 @@ import string
 import re
 from termcolor import colored
 import pickle
+from tools.objecttools import savepickle, loadpickle
 #local modules
 from dbmodule import mydatabase, psycopg
 from menus import Menu, multimenu, yesnomenu 
@@ -20,7 +21,6 @@ from texttable import Texttable, get_color_string, bcolors
 import time
 import datetime
 from statistics import mean, median
-from analysistools import InsertDeprelColumns, ListSisters
 
 class Db:
     """ A class to include some shared properties for the search and
@@ -89,7 +89,7 @@ class Search:
 
     def Save(self):
         """Save the search object as a pickle file"""
-        pickle.dump(self, open(self.filename, "wb"))
+        savepickle(self,self.filename)
         input('Pickle succesfully saved.')
 
     def BuildSubQuery(self):

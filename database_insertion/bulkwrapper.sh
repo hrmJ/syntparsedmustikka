@@ -54,20 +54,20 @@ mkdir -p $FIPARSED
 #done
 
 
-#echo "Now starting to parse the FINNISH files.... THIS consumes most of the CPU power"
-##4. CD to TDT parsers directory and start parsing
-#cd $TDTPARSER
-#mkdir -p oldfiles
-#mv *prepared oldfiles/
-#cp $FIPREPARED/*prepared .
-##4.1 parse
-#for file in *prepared
-#do 
-#    cat $file | ./parser_wrapper.sh > $file.conll
-#    mv  $file.conll  $FIPARSED/
-#done
-#
-#echo "DONE!"
+echo "Now starting to parse the FINNISH files.... THIS consumes most of the CPU power"
+#4. CD to TDT parsers directory and start parsing
+cd $TDTPARSER
+mkdir -p oldfiles
+mv *prepared oldfiles/
+cp $FIPREPARED/*prepared .
+#4.1 parse
+for file in *prepared
+do 
+    cat $file | ./parser_wrapper.sh > $file.conll
+    mv  $file.conll  $FIPARSED/
+done
+
+echo "DONE!"
 
 
 
