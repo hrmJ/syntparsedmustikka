@@ -10,7 +10,6 @@ from lxml import etree
 import string
 import re
 from termcolor import colored
-import pickle
 from tools.objecttools import savepickle, loadpickle
 #local modules
 from dbmodule import mydatabase, psycopg

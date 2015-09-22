@@ -191,7 +191,10 @@ def InsertPair(dbname=None,slfile=None,tlfile=None,sl_tablename=None,tl_tablenam
 #============================================================
 
 if __name__ == "__main__":
-    if sys.argv[1] == 'bulk':
-        BulkInsert()
-    else:
-        InsertPair()
+    try:
+        if sys.argv[1] == 'bulk':
+            BulkInsert()
+        else:
+            InsertPair()
+    except IndexError:
+        raise ArgumentError('Usage: {} <database name> <sl file> <tl file> <source language> <target language>'.format(sys.argv[0]))
