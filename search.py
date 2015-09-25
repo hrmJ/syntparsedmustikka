@@ -10,7 +10,7 @@ from lxml import etree
 import string
 import re
 from termcolor import colored
-import pickle
+from tools.objecttools import savepickle, loadpickle
 #local modules
 from dbmodule import mydatabase, psycopg
 from menus import Menu, multimenu, yesnomenu 
@@ -89,7 +89,7 @@ class Search:
 
     def Save(self):
         """Save the search object as a pickle file"""
-        pickle.dump(self, open(self.filename, "wb"))
+        savepickle(self,self.filename)
         input('Pickle succesfully saved.')
 
     def BuildSubQuery(self):

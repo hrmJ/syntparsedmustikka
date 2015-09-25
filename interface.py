@@ -16,6 +16,7 @@ from dbmodule import mydatabase, psycopg
 from menus import Menu, multimenu, yesnomenu 
 from search import Search, Match, Sentence, Word, ConstQuery, Db 
 import pickle
+from tools.objecttools import savepickle, loadpickle
 import datetime
 import glob
 from texttable import Texttable, get_color_string, bcolors
@@ -136,7 +137,7 @@ class MainMenu:
             answlist['c'] = "Cancel"
             pickedsearch = answlist[self.menu.redifine_and_prompt('Load a saved search:',answlist)]
             try:
-                Search.all_searches.append(pickle.load( open(pickedsearch, "rb") ))
+                Search.all_searches.append(loadpickle(pickedsearch))
                 print('Search {} loaded succesfully. Press "View searches" in the main menu to view it'.format(pickedsearch))
             except:
                 print('No search loaded')
