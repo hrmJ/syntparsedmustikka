@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #vim's swap files
 .*.swp
 #Python's cahce
@@ -12,3 +13,20 @@ output.html
 *log
 logof*
 
+=======
+#vim's swap files
+.*.swp
+#Python's cahce
+__pycache__/*
+#individual files to be ignored
+wordcounts.csv
+logfile
+parserinput.txt
+#visualization html
+output.html
+#log files
+*log
+logof*
+
+*__pycache__*
+>>>>>>> 09385c6b79e1a548dbb09875a9763338be596be1

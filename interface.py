@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 import codecs
+import textwrap
 import random
 import csv
 from deptypetools import makeSearch
@@ -8,15 +9,12 @@ from collections import defaultdict
 from lxml import etree
 import string
 import re
-# For flushing the screen os-dependently
 import os
 import os.path
 #local modules
 from dbmodule import mydatabase, psycopg
 from menus import Menu, multimenu, yesnomenu 
 from search import Search, Match, Sentence, Word, ConstQuery, Db 
-from phdqueries import FinnishTime, tmevalues
-from filtermatches import FilterDuplicates1
 import pickle
 import datetime
 import glob
@@ -25,29 +23,33 @@ from texttable import Texttable, get_color_string, bcolors
 class MainMenu:
     """This class include all
     the comand line menu options and actions"""
-    mainanswers =  {'q':'quit','l':'select language', 'm':'Monoconcordance', 
-            'd':'select database','p':'phdquery','s':'View searches','o':'View saved searches','n':'Нужно-search',
-            'a':'advanced search','tme':'TME search','cs':'Corpus stats','pc':'parallel concordance'}
+    mainanswers =  {'q':'quit','2':'select language', '3':'Toggle parallel search on/off',
+            '1':'select database','5':'View searches','6':'View saved searches',
+            '7':'Corpus stats','4':get_color_string(bcolors.RED,'Concordances')}
 
     def __init__(self):
         self.menu = multimenu(MainMenu.mainanswers)
         # Selectable options:
         self.selectedlang = 'none'
         self.selecteddb = 'none'
+        self.isparallel = 'no'
+        self.searchcommitted = False
         self.columns = dict()
         #Control the program flow
         self.run = True
         self.pause = False
+        self.conditionset = None
 
     def runmenu(self):
         'Run the main menu'
+        #If all necessary prerequisites are set, initialize the possible conditions
         #Clear the terminal:
         os.system('cls' if os.name == 'nt' else 'clear')
         #Build the selected options
-        self.menu.question = 'Welcome\n\n' + '-'*20 + \
+        self.menu.question = 'Welcome\n\n' + '='*40 + \
                           '''\n\nSelected options: 
-                             \n\nDatabase: {}\nLanguage:{} {}
-                             '''.format(self.selecteddb,self.selectedlang,'\n'*2 + '-'*20 + '\n'*2)
+                             \nDatabase: {db}\nLanguage: {lang} \nParallel Concordances: {parc} {wspace}
+                             '''.format(db=self.selecteddb,lang=self.selectedlang, parc=self.isparallel, wspace='\n'*2 + '='*40 + '\n'*2)
         self.menu.validanswers = MainMenu.mainanswers
         self.menu.prompt_valid()
         self.MenuChooser(self.menu.answer)
@@ -64,116 +66,42 @@ class MainMenu:
         elif self.menu.answer == 'r':
             Db.searched_table = 'ru_conll'
             self.selectedlang = 'ru'
+        if self.selecteddb != 'none':
+            print('Initializing configuration...')
+            self.conditionset = ConditionSet(self.selecteddb)
 
 
     def choosedb(self):
         self.menu.question = 'Select database: '
-        self.menu.validanswers = {'1':'syntparfin','2':'syntparrus','3':'tbcorpfi','4':'tbcorpru','5':'syntparrus2','6':'syntparfin2'}
+        self.menu.validanswers = {'1':'syntparfin2','2':'syntparrus2'}
         self.menu.prompt_valid()
         Db.con = mydatabase(self.menu.validanswers[self.menu.answer],'juho')
         self.selecteddb = self.menu.validanswers[self.menu.answer]
+        if self.selectedlang != 'none':
+            print('Initializing configuration...')
+            self.conditionset = ConditionSet(self.selecteddb)
+
+    def testSettings(self):
+        if self.selecteddb == 'none':
+            return input('Please select a database first!')
+        if self.selectedlang == 'none':
+            return input('Please select a language first!')
+        return True
 
     def Parconc(self):
-        self.AddConditions()
-        self.search = makeSearch(database=Db.con.dbname, dbtable=Db.searched_table, ConditionColumns=self.condcols,isparallel=True)
-        printResults(self.search)
+        """The actual concordancer"""
+        if self.testSettings():
+            if self.searchcommitted:
+                self.conditionset.ResetConditions()
+            self.conditionset.AddConditions()
+            parallelon = False
+            if self.isparallel == 'yes':
+                parallelon = True
+            self.search = makeSearch(database=Db.con.dbname, dbtable=Db.searched_table, ConditionColumns=self.conditionset.condcols,isparallel=parallelon)
+            printResults(self.search)
+            self.searchcommitted = True
 
     
-    def AddConditions(self):
-        """Parallel concordance search"""
-        self.ListColumns()
-        columns = multimenu(self.columns)
-        self.condcols = dict()
-        addmore = multimenu({'y':'add more','q':'stop adding conditions'})
-        newvals = multimenu({'q':'stop adding values','y':'insert next possible value'})
-        newvals.answer = 'y'
-        addmore.answer = 'y'
-        while addmore.answer == 'y':
-            vals = list()
-            columns.prompt_valid('What column should the condition be based on?')
-            newvals.answer = 'y'
-            while newvals.answer == 'y':
-                vals.append(input('Give a value the column should have:\n>'))
-                newvals.prompt_valid('Add more values?')
-            pickedcolumn = columns.validanswers[columns.answer]
-            self.condcols[pickedcolumn] = tuple(vals)
-            addmore.prompt_valid('Add more conditions?')
-
-
-
-    def monoconc(self, advanced=False,tme=False):
-        #Initialize the search object
-        if not Db.searched_table :
-            input('Please specify language first')
-            return False
-        thisSearch = Search(self.selecteddb)
-        if advanced:
-            cond = input('Give the category to be matched:')
-            valuetuple = (input('\n\nGive a string to search:\n\n>'),)
-            thisSearch.ConditionColumns.append({cond: valuetuple})
-        elif tme:
-            #Time measuring expressions
-            thisSearch.ConditionColumns = tmevalues(self.selectedlang)
-            if self.selectedlang == 'fi':
-                thisSearch.headcond = {'column':'pos','values':('V',)}
-                thisSearch.depcond = {'column':'!deprel','values':('cop',)}
-            elif self.selectedlang == 'ru':
-                # Accept cases where the head's pos is either V or S (prepositions)
-                thisSearch.headcond = {'column':'pos','values':('V','S')}
-        else:
-            self.menu.question = 'Search type:'
-            self.menu.validanswers = {'l':'lemmas','t':'tokens'}
-            self.menu.prompt_valid()
-            valuetuple = (input('\n\nGive a string to search:\n\n>'),)
-            #Set the switch on if lemmatized chosen:
-            if self.menu.answer == 'l':
-                thisSearch.ConditionColumns.append({'lemma': valuetuple})
-            elif self.menu.answer == 't':
-                thisSearch.ConditionColumns.append({'token': valuetuple})
-        #Build the query:
-        thisSearch.BuildSubQuery()
-        thisSearch.find()
-        #Print the results:
-        printResults(thisSearch)
-
-    def tmesearch(self):
-        #Initialize the search object
-        lang = input('Which language?')
-        thisSearch =  TME(lang)
-        #Build the query:
-        thisSearch.BuildSubQuery()
-        thisSearch.find()
-        #Print the results:
-        printResults(thisSearch)
-
-    def phd(self):
-        #Initialize the search object
-        thisSearch = Search(self.selecteddb)
-        print('Please wait, building the subquery.')
-        FinnishTimeQuery = FinnishTime()
-        thisSearch.subquery = FinnishTimeQuery.subq
-        thisSearch.searchtype = 'phd'
-        thisSearch.posvalues = FinnishTimeQuery.qwords
-        #The query values must be a tuple
-        thisSearch.subqueryvalues=()
-        print('Starting the actual query.')
-        thisSearch.find()
-        printResults(thisSearch)
-
-    def nuzhnosearch(self):
-        #Initialize the search object
-        thisSearch = Search(self.selecteddb)
-        thisSearch.subquery = """
-        SELECT align_id FROM {}
-        WHERE lemma = %s
-        """.format(Db.searched_table)
-        thisSearch.searchtype= "nuzhno"
-        thisSearch.searchstring = 'нужно'
-        thisSearch.subqueryvalues=(thisSearch.searchstring,)
-        thisSearch.find()
-        #Print the results:
-        printResults(thisSearch)
-
     def viewsearches(self):
         """Take a look at the conducted searches and repeat / save them"""
         #collect the answers in a dict
@@ -216,31 +144,27 @@ class MainMenu:
             print('No saved searches found.')
 
     def MenuChooser(self,answer):
+        os.system('cls' if os.name == 'nt' else 'clear')
         if answer == 'q':
             self.run = False
-        elif answer == 'l':
+        elif answer == '2':
             self.chooselang()
-        elif answer == 'm':
-            self.monoconc()
-        elif answer == 'd':
+        elif answer == '1':
             self.choosedb()
-        elif answer == 'p':
-            self.phd()
-        elif answer == 's':
+        elif answer == '3':
+            if self.isparallel == 'no':
+                self.isparallel = 'yes'
+            else:
+                self.isparallel = 'no'
+        elif answer == '5':
             self.viewsearches()
             self.pause = True
-        elif answer == 'o':
+        elif answer == '6':
             self.viewsavedsearches()
-        elif answer == 'n':
-            self.nuzhnosearch()
-        elif answer == 'a':
-            self.monoconc(True)
-        elif answer == 'tme':
-            self.monoconc(tme=True)
-        elif answer == 'pc':
+        elif answer == '4':
             self.pause=True
             self.Parconc()
-        elif answer == 'cs':
+        elif answer == '7':
             statmen = Statmenu()
             statmen.runmenu()
 
@@ -250,6 +174,142 @@ class MainMenu:
             rows = psycon.FetchQuery('SELECT column_name FROM information_schema.columns WHERE table_name = %s',(Db.searched_table,))
             for idx, row in enumerate(rows):
                 self.columns[str(idx)] = row[0]
+
+class ConditionSet:
+    """...."""
+    ignoredcolumns = ['contr_deprel','contr_head','id','sentence_id','align_id','text_id','translation_id','head']
+
+    def __init__(self, selecteddb):
+        self.columnnames = dict()
+        self.columns = dict()
+
+        #Initialize printed options
+        self.optionstring = ''
+        self.optiontable = Texttable()
+        self.optiontable.set_cols_align(["l", "l"])
+        self.optiontable.set_cols_valign(["m", "m"])
+        self.optiontable.add_row(['Column','Possible values'])
+        self.FormatOptionString()
+        self.condcols = dict()
+
+        psycon = psycopg(selecteddb,'juho')
+        rows = psycon.FetchQuery('SELECT column_name FROM information_schema.columns WHERE table_name = %s',(Db.searched_table,))
+        colindex = 1
+        for row in rows:
+            #Add a new column object to the columnlist if it makes sense to add it
+            if row[0] not in ConditionSet.ignoredcolumns:
+                self.columns[colindex] = ConllColumn(name = row[0],con = psycon)
+                self.columnnames[str(colindex)] = self.columns[colindex].screenname
+                colindex += 1
+
+    def ResetConditions(self):
+        self.optionstring = ''
+        self.optiontable = Texttable()
+        self.optiontable.set_cols_align(["l", "l"])
+        self.optiontable.set_cols_valign(["m", "m"])
+        self.optiontable.add_row(['Column','Possible values'])
+        self.FormatOptionString()
+        self.condcols = dict()
+        for key, column in self.columns.items():
+            column.presetvalues = dict()
+            column.regexcond = False
+            column.negativeconds = False
+            #just initianiling a variable for the picksearchedval method
+            column.addmorevalues = True
+
+
+
+    def AddConditions(self):
+        """Parallel concordance search"""
+        columnmenu = multimenu(self.columnnames)
+        addmoreconditions = multimenu({'y':'add more','q':'stop adding conditions'})
+        addmoreconditions.answer = 'y'
+        while addmoreconditions.answer == 'y':
+            vals = list()
+            columnmenu.prompt_valid(self.optionstring + 'What column should the condition be based on?')
+            thiscolumn = self.columns[int(columnmenu.answer)]
+            while thiscolumn.addmorevalues:
+                vals.append(thiscolumn.PickSearchValue())
+            if thiscolumn.regexcond:
+                self.condcols["#" + thiscolumn.name] = vals[-1]
+                self.FormatOptionString([thiscolumn.screenname, 'REGEX: ' + vals[-1]])
+            elif thiscolumn.negativeconds:
+                self.condcols["!" + thiscolumn.name] = tuple(vals)
+                self.FormatOptionString([thiscolumn.screenname, 'NOT EQUAL TO: ' + ' OR '.join(vals)])
+            else:
+                self.condcols[thiscolumn.name] = tuple(vals)
+                self.FormatOptionString([thiscolumn.screenname, ' OR '.join(vals)])
+            addmoreconditions.prompt_valid(self.optionstring + 'Keep adding search conditions?')
+
+    def FormatOptionString(self,row=None):
+        header = 'Current search conditions:\n{}\n\n'.format('='*30)
+        if row:
+            self.optiontable.add_row(row)
+        self.optionstring = header + self.optiontable.draw() + "\n\n\n"
+
+
+class ConllColumn:
+    """For every searchable column there is an object that includes possible values etc."""
+    presetvalues = ['pos','deprel']
+    descriptivenames = {'feat':'Grammatical features','pos':'Part of speech','deprel':'Dependency role','tokenid':'The ordinal position of token in the sentence'}
+    def __init__(self, name, con):
+        self.name = name
+        self.presetvalues = dict()
+        self.regexcond = False
+        self.negativeconds = False
+        #just initianiling a variable for the picksearchedval method
+        self.addmorevalues = True
+        #if possible, use a more user-friendly name to be shown
+        try:
+            self.screenname = ConllColumn.descriptivenames[name]
+        except KeyError:
+            self.screenname = name[0].upper() + name[1:]
+
+        #If the values should not be freely determined but rather chosen from an existing list
+        if name in ConllColumn.presetvalues:
+            rows = con.FetchQuery('SELECT {colname}, count({colname}) FROM {table} group by 1 order by 2 DESC'.format(colname = self.name, table = Db.searched_table))
+            for idx, row in enumerate(rows):
+                self.presetvalues[str(idx)] = row[0]
+
+        #Add a menu for asking for more values
+        self.askmoremenu = multimenu({'y':'yes','n':'no'})
+        self.askmoremenu.question = 'Keep adding possible search values for this column?'
+
+    def PickSearchValue(self):
+        """Select a value to be used in a search"""
+        if not self.presetvalues:
+            os.system('cls' if os.name == 'nt' else 'clear')
+            headerstrings = ["Give a value the column {} should have.".format(get_color_string(bcolors.BLUE,self.screenname)),
+                      "- If you want to use a regex, surround the string with forward slashes (e.g. /^[m|M]yregexstri.*/)",
+                      "- If this  is  a negative condition, begin the first condition with a ! (e.g. !dontmatchthis)",
+                      "- Press l to load a list of values from an external file\n>"]
+            value = input('\n'.join(headerstrings))
+            if value == 'l':
+                self.addmorevalues = False
+                return LoadCsv()
+            elif value[0] == '/' and value[-1] == '/':
+                self.addmorevalues = False
+                self.regexcond = True
+                return value.strip('/')
+            elif value[0] == '!' or self.negativeconds:
+                self.negativeconds = True
+                returnvalue = value[1:]
+            else:
+                returnvalue =  value
+        else:
+            valuemenu = multimenu(self.presetvalues,'Pick a value the column {} should have '.format(get_color_string(bcolors.BLUE,self.screenname)))
+            returnvalue =  valuemenu.validanswers[valuemenu.answer]
+
+        self.askmoremenu.prompt_valid()
+        if self.askmoremenu.answer == 'y':
+            self.addmorevalues = True
+        else:
+            self.addmorevalues = False
+
+        return returnvalue
+
+
+
 
 class Statmenu:
     menuoptions = {'1':'Word count','c':'Return to main menu'}
@@ -354,23 +414,42 @@ def printResults(thisSearch):
                             break
             #actual printing
             #========================================
+            csvrows = list()
+            rows = list()
             table = Texttable()
             #Initialize table printer
             table.set_cols_align(["l", "l"])
             table.set_cols_valign(["m", "m"])
-            rows = list()
+
+            if thisSearch.isparallel:
+                headerrow = ['sl','tl','source']
+            else:
+                headerrow = ['concordance','source']
+            csvrows = [headerrow]
+
             for idx, match in enumerate(printmatches):
                 match.BuildSlContext()
                 if thisSearch.isparallel:
                     match.BuildTlContext()
                     rows.append(['Source text id: {}, Sentence id: {}, align id: {}\n'.format(match.matchedword.sourcetextid, match.matchedsentence.sentence_id, match.align_id), ''])
                     rows.append([get_color_string(bcolors.BLUE,match.slcontextstring), get_color_string(bcolors.RED,match.tlcontextstring)])
+                    csvrows.append([match.slcontextstring,match.tlcontextstring,match.matchedword.sourcetextid])
                 else:
-                    print('{}:\t{}\nSentence id: {}, align id: {}\n'.format(idx, match.matchedsentence.printstring, match.matchedsentence.sentence_id, match.align_id))
+                    print('{}:\n=======================\n{}\n----------------------\n[Sentence id: {}, align id: {}, text_id: {}]\n\n\n'.format(idx,textwrap.fill(match.slcontextstring), match.matchedsentence.sentence_id, match.align_id,match.matchedword.sourcetextid))
+                    csvrows.append([match.slcontextstring,match.matchedword.sourcetextid])
             if thisSearch.isparallel:
                 table.add_rows(rows)
                 print(table.draw() + "\n")
             #========================================
+            csvmenu = multimenu({'y':'yes','n':'no'},'Save csv?',False)
+            if csvmenu.answer == 'y':
+                fname = input('Give the name of the csv:\n>')
+                with open(fname, "w",newline='') as f:
+                    writer = csv.writer(f)
+                    try:
+                        writer.writerows(csvrows)
+                    except TypeError:
+                        import ipdb; ipdb.set_trace()
         else:
             print('Sorry, nothing found.')
             print(thisSearch.subquery)
@@ -395,6 +474,17 @@ def resultprinter(matchitems,limit=1,parallel=False):
             #Save the sentence so it can be referenced easily
             sentences[str(printed)] = match.matchedsentence
     return sentences
+
+
+def LoadCsv():
+    """Load data from an external import csv file"""
+    fname = input('Give the path of the file\n>')
+    with open(fname, 'r') as f:
+        valsfromfile = list(csv.reader(f))
+    vals=list()
+    for valfromfile in valsfromfile:
+        vals.append(valfromfile[0])
+    return vals
 
 ##################################################
 
