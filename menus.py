@@ -7,8 +7,11 @@ import os
 class Menu:
     """Any command line menus that are used to ask the user for input"""
     def prompt_valid(self,definedquestion=''):
-            if self.clearscreen:
-                os.system('cls' if os.name == 'nt' else 'clear')
+            try:
+                if self.clearscreen:
+                    os.system('cls' if os.name == 'nt' else 'clear')
+            except AttributeError:
+                pass
             if definedquestion:
                 self.question = definedquestion
             if len(self.validanswers) > 10 and 'n' not in self.validanswers and 'nn' not in self.validanswers:

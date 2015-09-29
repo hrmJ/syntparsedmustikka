@@ -19,7 +19,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, backref, sessionmaker
 import logging
 import time
-from phdqueries import Csvlist, joinidlist
+from tools.generaltools import Csvlist, joinidlist
 #import hardcodedfilters
 
 engine = create_engine('postgresql:///{}'.format('postprocess'), echo=False)
@@ -379,7 +379,7 @@ def setRuleAttributes(rule, word):
 
 def FilterDuplicates1(thisSearch):
     """Process matches with the same head and throw away the other"""
-    logging.info('Processing duplicates*'*150)
+    logging.info('Processing duplicates\n' + '='*150)
     #Arrange the matches in a dict that has the matched word's head's database id as its key
     matchitems = sorted(thisSearch.matches.items())
     mheadids = dict()
