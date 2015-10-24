@@ -10,7 +10,7 @@ from lxml import etree
 import string
 import re
 from termcolor import colored
-import pickle
+from tools.objecttools import savepickle, loadpickle
 #local modules
 from dbmodule import mydatabase, psycopg
 from menus import Menu, multimenu, yesnomenu 
@@ -20,7 +20,6 @@ from texttable import Texttable, get_color_string, bcolors
 import time
 import datetime
 from statistics import mean, median
-from analysistools import InsertDeprelColumns, ListSisters
 
 class Db:
     """ A class to include some shared properties for the search and
@@ -89,7 +88,7 @@ class Search:
 
     def Save(self):
         """Save the search object as a pickle file"""
-        pickle.dump(self, open(self.filename, "wb"))
+        savepickle(self.filename,self)
         input('Pickle succesfully saved.')
 
     def BuildSubQuery(self):
@@ -739,7 +738,8 @@ class Match:
         """Iterate over the sentences that have a word speficied as a possible translation"""
         #Initialize menus etc
         self.BuildSentencePrintString()
-        parmenu = multimenu({'y':'yes','n':'no','s':'syntactically dissimilar'})
+        parmenu = multimenu({'y':'yes','n':'no','s':'syntactically dissimilar','d':'delete segment as untemporal after all'})
+        parmenu.clearscreen = False
         parmenu.question = 'Is this the correct matching word?'
         #Loop:
         for matchlemma in search.matchlemmas[self.matchedword.lemma]:
@@ -763,6 +763,9 @@ class Match:
                             self.parallelsentence = sentence
                             self.parallelword = None
                             return True
+                        elif parmenu.answer =='d':
+                            self.postprocess('Rejected as non-temporal')
+                            return True
         #If nothing was accepted, return false
         return False
 
@@ -770,6 +773,7 @@ class Match:
         """Prints out a menu of all the target sentences"""
         #if nothing was found or nothing was an actual match
         sentencemenu = multimenu({})
+        sentencemenu.clearscreen = False
         sid = 1
         #Clear terminal output:
         os.system('cls' if os.name == 'nt' else 'clear')
@@ -789,17 +793,23 @@ class Match:
     def PickTargetWord(self):
         """Picks a word from the selected target sentence as the closest match (or picks none)"""
         wordmenu = multimenu({})
+        wordmenu.clearscreen = False
         for tokenid, word in self.parallelsentence.words.items():
             if word.token not in string.punctuation:
                 wordmenu.validanswers[str(tokenid)] = word.token
+        wordmenu.validanswers['999'] = 'None'
+        wordmenu.validanswers['9999'] = 'Reject match'
         wordmenu.cancel = 'No single word can be specified'
         wordmenu.prompt_valid('Wich word is the closest match to {}?'.format(self.matchedword.token))
-        if wordmenu.answer != 'n':
+        if int(wordmenu.answer) < 999:
             #SET the parallel word:
             self.parallelword = self.parallelsentence.words[int(wordmenu.answer)]
             return True
             #######
-        else:
+        elif wordmenu.answer == '9999':
+            self.postprocess('Rejected as non-temporal')
+            return False
+        elif wordmenu.answer == '999':
             return False
 
     def DefinePositionMatch(self):

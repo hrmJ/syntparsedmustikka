@@ -19,7 +19,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, backref, sessionmaker
 import logging
 import time
-from phdqueries import Csvlist, joinidlist
+from tools.generaltools import Csvlist, joinidlist
 #import hardcodedfilters
 
 engine = create_engine('postgresql:///{}'.format('postprocess'), echo=False)
@@ -113,6 +113,7 @@ class PotentialDuplicatePair:
         #Build the question
         answers.update(self.sentences)
         selmenu = multimenu(answers)
+        selmenu.clearscreen = False
         selmenu.prompt('Which one(s) will you reject? (if rejecting many, type all the indexes in one string)')
         if selmenu.answer == 'q':
             return False
@@ -147,6 +148,7 @@ class PotentialDuplicatePair:
         collocatecandidates = dict()
         #The menu:
         selmenu = multimenu(self.sentences)
+        selmenu.clearscreen = False
         selmenu.prompt_valid('Which word is the launcher?')
         #Iterate:
         for idx, match in enumerate(self.matchlist):
@@ -304,6 +306,7 @@ class PotetialNontemporal:
         self.match.BuildSentencePrintString()
         print('{0}{1}{0}'.format('\n'*2,self.hlheadsentence))
         selmenu = multimenu({'y' : 'yes, REJECT this!', 'n' : 'no, ACCEPT this', 'q' : 'quit'})
+        selmenu.clearscreen = False
         selmenu.prompt_valid('Should I REJECT this match?')
         if selmenu.answer == 'q':
             return False
@@ -373,13 +376,14 @@ def setRuleAttributes(rule, word):
     """Ask the user about which attributes with what value defines the rule"""
     word.printAttributes()
     selmenu = multimenu({'0':'token', '1':'lemma', '2':'feat', '3':'pos'})
+    selmenu.clearscreen = False
     selmenu.prompt_valid('Which attribute is the criterion?')
     rule.criterionattr = selmenu.validanswers[selmenu.answer]
     rule.criterionval = getattr(word,rule.criterionattr)
 
 def FilterDuplicates1(thisSearch):
     """Process matches with the same head and throw away the other"""
-    logging.info('Processing duplicates*'*150)
+    logging.info('Processing duplicates\n' + '='*150)
     #Arrange the matches in a dict that has the matched word's head's database id as its key
     matchitems = sorted(thisSearch.matches.items())
     mheadids = dict()
@@ -523,8 +527,8 @@ def checkhardcodedrules(self):
 def FinnishWDEss(nontempo):
     """Finnish weekdays in essive will automatically be accepted. 
     Other TME are also accepted if they are not dependents of Pitää"""
-    finnishtmes = flattenlist(Csvlist('/home/juho/phdmanuscript/clausinittime/tme_{}.csv'.format('fi')).aslist)
-    if nontempo.dependent.lemma in finnishtmes and 'CASE_Ess' in nontempo.dependent.feat:
+    finnishtmes = flattenlist(Csvlist('/home/juho/phdmanuscript/data/tme_{}.csv'.format('fi')).aslist)
+    if nontempo.dependent.lemma in finnishtmes and 'Case=Ess' in nontempo.dependent.feat:
         if nontempo.dependent.lemma in TimeExpressionConstant.finnish_weekdays:
             nontempo.rejected = 'n'
             nontempo.evalueatesel()

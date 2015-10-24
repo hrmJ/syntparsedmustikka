@@ -112,10 +112,10 @@ def AddRow(columns, align_id, sentence_id, text_id, table, translation_id = None
                         'tokenid'     : columns[0],
                         'token'       : columns[1],
                         'lemma'       : columns[2],
-                        'pos'         : columns[4],
-                        'feat'        : columns[6],
-                        'head'        : columns[8],
-                        'deprel'      : columns[10]}
+                        'pos'         : columns[3],
+                        'feat'        : columns[5],
+                        'head'        : columns[6],
+                        'deprel'      : columns[7]}
     if translation_id:
         row['translation_id'] = translation_id
 
@@ -145,14 +145,16 @@ def GetLastValue(row):
 def BulkInsert():
     """Hardcode some paths and make a batch insert"""
     #Set the paths before running:
-    #sl = 'ru'
-    #tl = 'fi'
-    sl = 'fi'
-    tl = 'ru'
+    sl = 'ru'
+    tl = 'fi'
+    #sl = 'fi'
+    #tl = 'ru'
     sltable = sl + '_conll'
     tltable = tl + '_conll'
-    sl_dirprefix = '/home/juho/corpora2/syntparfin2/' + sltable
-    tl_dirprefix = '/home/juho/corpora2/syntparfin2/' + tltable
+    #database = 'syntparfin2'
+    database = 'syntparrus2'
+    sl_dirprefix = '/home/juho/corpora2/' + database + '/' + sltable
+    tl_dirprefix = '/home/juho/corpora2/' + database + '/' + tltable
     pairs = list()
     for filename in os.listdir(sl_dirprefix):
         pairs.append(dict())
@@ -160,7 +162,7 @@ def BulkInsert():
         pairs[-1]['tl'] = tl_dirprefix + "/" + filename.replace('_'+sl,'_'+tl)
     for pair in pairs:
         print('Inserting {} and its translation...'.format(pair['sl']))
-        InsertPair('syntparfin2',pair['sl'],pair['tl'], sltable, tltable)
+        InsertPair(database,pair['sl'],pair['tl'], sltable, tltable)
 
 def InsertPair(dbname=None,slfile=None,tlfile=None,sl_tablename=None,tl_tablename=None):
     """Method for inserting one file pair either according to cmdline arguments or by function arguments"""
@@ -188,7 +190,10 @@ def InsertPair(dbname=None,slfile=None,tlfile=None,sl_tablename=None,tl_tablenam
 #============================================================
 
 if __name__ == "__main__":
-    if sys.argv[1] == 'bulk':
-        BulkInsert()
-    else:
-        InsertPair()
+    try:
+        if sys.argv[1] == 'bulk':
+            BulkInsert()
+        else:
+            InsertPair()
+    except IndexError:
+        raise ArgumentError('Usage: {} <database name> <sl file> <tl file> <source language> <target language>'.format(sys.argv[0]))
