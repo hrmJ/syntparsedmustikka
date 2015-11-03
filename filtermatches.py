@@ -451,7 +451,7 @@ def FilterNonTemporal(thisSearch):
                 #First, check if there is a rule concerning this match
                 thismatch = PotetialNontemporal(match, isRussian) 
                 #Build a clause object: if the clause has no finite verb, do not apply rules
-                thismatch.matchedclause = Clause(thismatch.matchedsentence, thismatch.matchedword)
+                thismatch.matchedclause = Clause(match.matchedsentence, match.matchedword)
                 if not thismatch.CheckExistingRules(con):
                     matchestoprocess.append(match)
                 #matchestoprocess.append(match)
