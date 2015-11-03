@@ -461,6 +461,8 @@ def FilterNonTemporal(thisSearch):
     for match in matchestoprocess:
         processed += 1
         thismatch = PotetialNontemporal(match) 
+        #Build a clause object: if the clause has no finite verb, do not apply rules
+        thismatch.matchedclause = Clause(match.matchedsentence, match.matchedword)
         if not thismatch.CheckExistingRules(con):
             #If no predefined rules exist
             #Clear the output for conveniance
