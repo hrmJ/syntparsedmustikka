@@ -11,7 +11,7 @@ import re
 #local modules
 from dbmodule import mydatabase, SqlaCon
 from menus import Menu, multimenu, yesnomenu 
-from search import Search, Match, Sentence, Word, ConstQuery, Db 
+from search import Search, Match, Sentence, Word, ConstQuery, Db, Clause
 import itertools
 from sqlalchemy import create_engine, ForeignKey, and_
 from sqlalchemy import Column, Date, Integer, String, Float
@@ -252,6 +252,9 @@ class PotetialNontemporal:
 
     def CheckExistingRules(self,con):
         """Query the postprocess database to find rules that already exist"""
+        if not self.matchedclause.finiteverbid:
+            #if no finite verb in clause, do not apply rules
+            return False
         matchcategories = dict()
         #First check rules concerning the tme as dependente
         matchcategories['token'] = con.session.query(RejectDepHead).filter(RejectDepHead.criterionattr == 'token').filter(RejectDepHead.criterionval == self.head.token).all()
@@ -447,6 +450,8 @@ def FilterNonTemporal(thisSearch):
                 #If this match has not yet been processed
                 #First, check if there is a rule concerning this match
                 thismatch = PotetialNontemporal(match, isRussian) 
+                #Build a clause object: if the clause has no finite verb, do not apply rules
+                thismatch.matchedclause = Clause(thismatch.matchedsentence, thismatch.matchedword)
                 if not thismatch.CheckExistingRules(con):
                     matchestoprocess.append(match)
                 #matchestoprocess.append(match)

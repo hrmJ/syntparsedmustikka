@@ -608,6 +608,7 @@ class Match:
         self.rejectreason = rejectreason
 
     def BuildSlContext(self):
+        """Build clause and sentence strings and object for the actual match"""
         self.slcontextstring = ''
         for sentence_id in sorted(map(int,self.context)):
             sentence = self.context[sentence_id]
