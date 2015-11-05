@@ -917,8 +917,13 @@ class Match:
                 distance = language['clause'].DefineDistanceOfCodependents(language['word'])
                 self.headdist_bydependents[language['lname']] = distance
                 #1.3. What is the distance from the head word both backwards and forwards
+                #notice, that 0 is not an option here, so adding or subtracting 1
+                distance_b = distance
                 if language['clause'].matchbeforehead:
-                    distance = 1 - distance
+                    distance = 0 - distance -1
+                else:
+                    distance = distance + 1
+
                 self.contpos[language['lname']] = distance
 
         return True
