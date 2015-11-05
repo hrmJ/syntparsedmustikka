@@ -551,16 +551,11 @@ class Search:
                             row['tl_morphinfo'] = None
                         #---- Some more complicated values:
                         match.DistanceInformation()
-                        row['sl_verbdist'] = None
-                        row['tl_verbdist'] = None
-                        row['sl_headdist'] = None
-                        row['tl_headdist'] = None
-                        for langstatus, value in match.verbdist_byword.items():
-                            row[langstatus + "_verbdist"] = value
-                        for langstatus, value in match.headdist_bydependents.items():
-                            row[langstatus + "_headdist"] = value
-                        rowlist.append(row)
+                        row = AssignDoubleLanguageValue(row,'verbdist',match.verbdist_byword)
+                        row = AssignDoubleLanguageValue(row,'verbdist',match.headdist_bydependents)
+                        row = AssignDoubleLanguageValue(row,'contpos',match.contpos)
                         #---------------------------------------------
+                        rowlist.append(row)
                         #Information about deprels to separate tables:
                         if sl == 'ru':
                             row_ru_deprels['linkwordid'] = match.matchedword.dbid
@@ -903,6 +898,7 @@ class Match:
         languages = [{'word':self.positionmatchword,'clause':self.matchedclause,'lname':'sl'}]
         self.verbdist_byword = dict()
         self.headdist_bydependents = dict()
+        self.contpos = dict()
         if self.parallelcontext:
             #if there is a parallel context, analyze that, too
             try:
@@ -919,7 +915,12 @@ class Match:
                     import ipdb; ipdb.set_trace()
             if language['word'].CatchHead(self.matchedsentence):
                 #1.2: how many dependents of the same level are there between the word and its head
-                self.headdist_bydependents[language['lname']] = language['clause'].DefineDistanceOfCodependents(language['word'])
+                distance = language['clause'].DefineDistanceOfCodependents(language['word'])
+                self.headdist_bydependents[language['lname']] = distance
+                #1.3. What is the distance from the head word both backwards and forwards
+                if language['clause'].matchbeforehead:
+                    distance = 1 - distance
+                self.contpos[language['lname']] = distance
 
         return True
 
@@ -1209,10 +1210,12 @@ class Clause(Sentence):
         codepsbetween = 0
         headid = mword.headword.tokenid 
         if mword.tokenid > headid:
+            self.matchbeforehead = False
             for codep in mword.headword.dependentlist:
                 if codep.tokenid > headid and codep.tokenid < mword.tokenid:
                     codepsbetween += 1
         elif mword.tokenid < headid:
+            self.matchbeforehead = True
             for codep in mword.headword.dependentlist:
                 if codep.tokenid < headid and codep.tokenid > mword.tokenid:
                     codepsbetween += 1
@@ -1705,4 +1708,11 @@ def DefineMorphology(word, lang):
 
     else:
         return None
+
+def AssignDoubleLanguageValue(row,key,languagevalues):
+    row['sl_' + key] = None
+    row['tl_' + key] = None
+    for langstatus, value in languagevalues.items():
+        row[langstatus + '_' + key] = value
+    return row
 
