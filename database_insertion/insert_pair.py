@@ -183,9 +183,11 @@ def InsertPair(dbname=None,slfile=None,tlfile=None,sl_tablename=None,tl_tablenam
     sl.CollectSegments()
     sl.InsertToDb(con)
 
-    tl  = Translation(tl_tablename, tlfile, con, sl.text_id, sl.table)
-    tl.CollectSegments()
-    tl.InsertToDb(con)
+    if tl_tablename:
+        #If this is a bilingual file
+        tl  = Translation(tl_tablename, tlfile, con, sl.text_id, sl.table)
+        tl.CollectSegments()
+        tl.InsertToDb(con)
 
 #============================================================
 
