@@ -416,7 +416,7 @@ class Search:
         """Return a random match"""
         return self.matches[random.choice(list(self.matches.keys()))][0]
 
-    def InsertTmeToResults(self):
+    def InsertTmeToResults(self,tablename='tme',applyfilter=True):
         """Insert to exzternal database"""
         #Set parameters for source and target languages
         if self.queried_table == 'fi_conll':
@@ -427,14 +427,18 @@ class Search:
             tl = 'fi'
 
         #Get all the matches that have not been rejected but have been aligned
-        self.CountMatches({'rejectreason':'','postprocessed':True,'aligned':True})
+        if applyfilter:
+            self.CountMatches({'rejectreason':'','postprocessed':True,'aligned':True})
+        else:
+            self.CountMatches({'rejectreason':''})
         #Connect to dbs
         con = psycopg('results','juho')
         con2 = psycopg(self.queried_db,'juho')
         all_texts = con2.FetchQuery('SELECT id, title, origtitle, author, translator, origyear, transyear FROM text_ids',usedict=True)
         # Create separate deprel tables
         if sl == 'ru':
-            InsertDeprelColumns('ru')
+            pass
+            #InsertDeprelColumns('ru')
         #if sl == 'fi':
         #    InsertDeprelColumns('fi')
 
@@ -558,15 +562,16 @@ class Search:
                         rowlist.append(row)
                         #Information about deprels to separate tables:
                         if sl == 'ru':
-                            row_ru_deprels['linkwordid'] = match.matchedword.dbid
-                            row_ru_deprels = ListSisters(match.positionmatchword,match.matchedclause,'ru',row_ru_deprels)
-                            rowlist_ru_deprels.append(row_ru_deprels)
+                            pass
+                            #row_ru_deprels['linkwordid'] = match.matchedword.dbid
+                            #row_ru_deprels = ListSisters(match.positionmatchword,match.matchedclause,'ru',row_ru_deprels)
+                            #rowlist_ru_deprels.append(row_ru_deprels)
                     else:
                         errorcount += 1
                     bar.next()
         #INSERTION:
         print('\nInserting to database.. ({} errors in processing matches)'.format(errorcount))
-        con.BatchInsert('tme',rowlist)
+        con.BatchInsert(tablename,rowlist)
         print('Done. Inserted {} rows.'.format(con.cur.rowcount))
         if sl == 'ru':
             print('\nInserting deprels for the russian sentences... '.format(errorcount))
@@ -672,19 +677,23 @@ class Match:
 
         #For parallel contexts: ================================================
 
-        if self.parallelword:
-            #if there is a parallel context
-            try:
-                self.parallel_headword = self.parallelsentence.words[self.parallelword.head]
-                self.parallelword.headword = self.parallelsentence.words[self.parallelword.head]
+        try:
+            if self.parallelword:
+                #if there is a parallel context
                 try:
-                    #try to define the head of the head
-                    self.parallel_headshead = self.parallelsentence.words[self.parallel_headword.head]
+                    self.parallel_headword = self.parallelsentence.words[self.parallelword.head]
+                    self.parallelword.headword = self.parallelsentence.words[self.parallelword.head]
+                    try:
+                        #try to define the head of the head
+                        self.parallel_headshead = self.parallelsentence.words[self.parallel_headword.head]
+                    except KeyError:
+                        self.parallel_headshead = None
                 except KeyError:
-                    self.parallel_headshead = None
-            except KeyError:
-                self.parallel_headword = None
-                self.parallelword.headword = None
+                    self.parallel_headword = None
+                    self.parallelword.headword = None
+        except AttributeError:
+            self.parallelword = None
+            self.parallelcontext = None
 
 
         # If headword (for the source context) succesfully defined, return true
@@ -865,7 +874,7 @@ class Match:
     def DefinePosition1(self):
         """Define, whether the match is located clause-initially, clause-finally or in the middle"""
         #if self.matchedword.dbid ==  166728:
-        #    import ipdb; ipdb.set_trace()
+        #import ipdb; ipdb.set_trace()
         if self.DefinePositionMatch():
             #list the words dependents
             self.positionmatchword.ListDependentsRecursive(self.matchedsentence)
