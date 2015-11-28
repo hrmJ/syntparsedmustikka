@@ -1234,16 +1234,41 @@ class Clause(Sentence):
         mword.headword.ListDependents(self)
         codepsbetween = 0
         headid = mword.headword.tokenid 
+
+        self.codeps_between_match_and_head = ''
+        self.codeps_before_match_and_head  = ''
+
+        self.codeps_between_head_and_match = ''
+        self.codeps_after_head_and_match  = ''
+
+        self.codpesafter = ''
         if mword.tokenid > headid:
             self.matchbeforehead = False
             for codep in mword.headword.dependentlist:
                 if codep.tokenid > headid and codep.tokenid < mword.tokenid:
                     codepsbetween += 1
+
+                #UPDATE deprel information about codeps:
+                if codep.tokenid > headid and codep.tokenid < mword.tokenid:
+                    #codeps between head and match
+                    self.codeps_between_head_and_match += '#' +  codep.deprel
+                if codep.tokenid > headid and codep.tokenid > mword.tokenid:
+                    #codeps between head and match
+                    self.codeps_after_head_and_match +=  '#' + codep.deprel
+
         elif mword.tokenid < headid:
             self.matchbeforehead = True
             for codep in mword.headword.dependentlist:
                 if codep.tokenid < headid and codep.tokenid > mword.tokenid:
                     codepsbetween += 1
+                #UPDATE deprel information about codeps:
+                if codep.tokenid < headid and codep.tokenid > mword.tokenid:
+                    #codeps between head and match
+                    self.codeps_between_match_and_head += '#' + codep.deprel
+                if codep.tokenid < headid and codep.tokenid < mword.tokenid:
+                    #codeps between head and match
+                    self.codeps_before_match_and_head += '#' + codep.deprel
+
         return codepsbetween
 
     def MarkIfCombinedCoord(self, mword):
@@ -1363,10 +1388,13 @@ class Word:
         dependents = list()
         #For sepcial use in collecting data for analysis:
         self.dependentlemmas = ''
+        self.dep_positions = dict()
         for tokenid, word in sentence.words.items():
             if word.head == self.tokenid:
                 dependents.append(word)
                 self.dependentlemmas += word.lemma + '#'
+                #self.dep_positions[word.deprel].append(tokenid)
+                #self.dependentlemmas_ordered += '[{}]'.format() = tokenid
         self.dependentlist = dependents
         #If there were'nt any dependents, return false
         return dependents
