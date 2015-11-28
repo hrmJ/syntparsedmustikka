@@ -558,6 +558,12 @@ class Search:
                             row['tl_morphinfo'] = None
                         #---- Some more complicated values:
                         match.DistanceInformation()
+                        #
+                        row['codeps_between_match_and_head'] = match.codeps_before_match_and_head
+                        row['codeps_before_match_and_head']  = match.codeps_after_head_and_match
+                        row['codeps_between_head_and_match'] = match.codeps_between_head_and_match
+                        row['codeps_after_head_and_match']   = match.codeps_after_head_and_match
+                        #
                         row = AssignDoubleLanguageValue(row,'verbdist',match.verbdist_byword)
                         row = AssignDoubleLanguageValue(row,'verbdist',match.headdist_bydependents)
                         row = AssignDoubleLanguageValue(row,'contpos',match.contpos)
@@ -947,6 +953,21 @@ class Match:
 
                 self.contpos[language['lname']] = distance
 
+        #Not yet muoltilingual!
+        try:
+            self.codeps_between_match_and_head = self.positionmatchword.codeps_between_match_and_head 
+            self.codeps_before_match_and_head  = self.positionmatchword.codeps_before_match_and_head 
+
+            self.codeps_between_head_and_match = self.positionmatchword.codeps_between_head_and_match
+            self.codeps_after_head_and_match   = self.positionmatchword.codeps_after_head_and_match  
+        except AttributeError:
+            print('.')
+            self.codeps_between_match_and_head = ''
+            self.codeps_before_match_and_head  = ''
+
+            self.codeps_between_head_and_match = ''
+            self.codeps_after_head_and_match   = ''
+
         return True
 
 class Sentence:
@@ -1235,11 +1256,10 @@ class Clause(Sentence):
         codepsbetween = 0
         headid = mword.headword.tokenid 
 
-        self.codeps_between_match_and_head = ''
-        self.codeps_before_match_and_head  = ''
-
-        self.codeps_between_head_and_match = ''
-        self.codeps_after_head_and_match  = ''
+        mword.codeps_between_match_and_head = ''
+        mword.codeps_before_match_and_head  = ''
+        mword.codeps_between_head_and_match = ''
+        mword.codeps_after_head_and_match  = ''
 
         self.codpesafter = ''
         if mword.tokenid > headid:
@@ -1251,10 +1271,10 @@ class Clause(Sentence):
                 #UPDATE deprel information about codeps:
                 if codep.tokenid > headid and codep.tokenid < mword.tokenid:
                     #codeps between head and match
-                    self.codeps_between_head_and_match += '#' +  codep.deprel
+                    mword.codeps_between_head_and_match += '#' +  codep.deprel
                 if codep.tokenid > headid and codep.tokenid > mword.tokenid:
                     #codeps between head and match
-                    self.codeps_after_head_and_match +=  '#' + codep.deprel
+                    mword.codeps_after_head_and_match +=  '#' + codep.deprel
 
         elif mword.tokenid < headid:
             self.matchbeforehead = True
@@ -1264,10 +1284,10 @@ class Clause(Sentence):
                 #UPDATE deprel information about codeps:
                 if codep.tokenid < headid and codep.tokenid > mword.tokenid:
                     #codeps between head and match
-                    self.codeps_between_match_and_head += '#' + codep.deprel
+                    mword.codeps_between_match_and_head += '#' + codep.deprel
                 if codep.tokenid < headid and codep.tokenid < mword.tokenid:
                     #codeps between head and match
-                    self.codeps_before_match_and_head += '#' + codep.deprel
+                    mword.codeps_before_match_and_head += '#' + codep.deprel
 
         return codepsbetween
 
