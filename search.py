@@ -20,7 +20,7 @@ from texttable import Texttable, get_color_string, bcolors
 import time
 import datetime
 from statistics import mean, median
-from analysistools import InsertDeprelColumns, ListSisters
+#from analysistools import InsertDeprelColumns, ListSisters
 
 class Db:
     """ A class to include some shared properties for the search and
@@ -269,7 +269,7 @@ class Search:
         if self.depcond:
             #use this variable to test if ALL the DEPENDENTS fulfill the criteria
             #Assume that the dependents DO fulfill the criteria
-            fulfills=True
+            headfulfills=True
             for wkey in sorted(map(int,sentence.words)):
                 wordinsent = sentence.words[wkey]
                 if wordinsent.head == word.tokenid:
@@ -284,6 +284,9 @@ class Search:
                         if getattr(wordinsent, self.depcond['column']) not in self.depcond['values']:
                             headfulfills = False
                             break
+            if not headfulfills:
+                #If the head of the word did not meet the criteria
+                return False
         #if all tests passed, return True
         return True
 
@@ -416,7 +419,7 @@ class Search:
         """Return a random match"""
         return self.matches[random.choice(list(self.matches.keys()))][0]
 
-    def InsertTmeToResults(self,tablename='tme',applyfilter=True):
+    def InsertTmeToResults(self,tablename='tme',applyfilter=True,nolargecontext=False):
         """Insert to exzternal database"""
         #Set parameters for source and target languages
         if self.queried_table == 'fi_conll':
@@ -453,7 +456,7 @@ class Search:
                 if match.WillBeProcessed:
                     #create a string for the align unit and the sentences
                     if match.DefinePosition1():
-                        match.BuildContextString()
+                        match.BuildContextString(nolargecontext)
                         row = dict()
                         row_ru_deprels = dict()
                         row_fi_deprels = dict()
@@ -555,6 +558,12 @@ class Search:
                             row['tl_morphinfo'] = None
                         #---- Some more complicated values:
                         match.DistanceInformation()
+                        #
+                        row['codeps_between_match_and_head'] = match.codeps_before_match_and_head
+                        row['codeps_before_match_and_head']  = match.codeps_after_head_and_match
+                        row['codeps_between_head_and_match'] = match.codeps_between_head_and_match
+                        row['codeps_after_head_and_match']   = match.codeps_after_head_and_match
+                        #
                         row = AssignDoubleLanguageValue(row,'verbdist',match.verbdist_byword)
                         row = AssignDoubleLanguageValue(row,'verbdist',match.headdist_bydependents)
                         row = AssignDoubleLanguageValue(row,'contpos',match.contpos)
@@ -574,9 +583,10 @@ class Search:
         con.BatchInsert(tablename,rowlist)
         print('Done. Inserted {} rows.'.format(con.cur.rowcount))
         if sl == 'ru':
-            print('\nInserting deprels for the russian sentences... '.format(errorcount))
-            con.BatchInsert('ru_deprels',rowlist_ru_deprels)
-            print('Done. Inserted {} rows.'.format(con.cur.rowcount))
+            pass
+            #print('\nInserting deprels for the russian sentences... '.format(errorcount))
+            #con.BatchInsert('ru_deprels',rowlist_ru_deprels)
+            #print('Done. Inserted {} rows.'.format(con.cur.rowcount))
         
 class Match:
     """ 
@@ -608,21 +618,28 @@ class Match:
         self.postprocessed = True
         self.rejectreason = rejectreason
 
-    def BuildSlContext(self):
+    def BuildSlContext(self,nolargecontext=False):
         """Build clause and sentence strings and object for the actual match"""
         self.slcontextstring = ''
-        for sentence_id in sorted(map(int,self.context)):
-            sentence = self.context[sentence_id]
-            #Create a clause object for the clause containing the matched word
+        if nolargecontext:
+            #For non-aligned data without a larger unit for context
             self.matchedclause = Clause(self.matchedsentence, self.matchedword)
-            #List the word's dependents for future use
             self.matchedword.ListDependents(self.matchedsentence)
-            if sentence_id == self.matchedsentence.sentence_id:
-                sentence.BuildHighlightedPrintString(self.matchedword)
-            else:
-                sentence.buildPrintString()
-            self.slcontextstring += sentence.printstring + ' '
-        self.slcontextstring.strip()
+            self.matchedsentence.BuildHighlightedPrintString(self.matchedword)
+        else:
+            #For standard, aligned data
+            for sentence_id in sorted(map(int,self.context)):
+                sentence = self.context[sentence_id]
+                #Create a clause object for the clause containing the matched word
+                self.matchedclause = Clause(self.matchedsentence, self.matchedword)
+                #List the word's dependents for future use
+                self.matchedword.ListDependents(self.matchedsentence)
+                if sentence_id == self.matchedsentence.sentence_id:
+                    sentence.BuildHighlightedPrintString(self.matchedword)
+                else:
+                    sentence.buildPrintString()
+                self.slcontextstring += sentence.printstring + ' '
+            self.slcontextstring.strip()
 
     def BuildTlContext(self):
         self.tlcontextstring = ''
@@ -632,9 +649,9 @@ class Match:
             self.tlcontextstring += sentence.printstring + ' '
         self.tlcontextstring.strip()
 
-    def BuildContextString(self):
+    def BuildContextString(self, nolargecontext=False):
         """Build a string containing all the sentences int the align unit the match is found in"""
-        self.BuildSlContext()
+        self.BuildSlContext(nolargecontext)
         #If a parallel context exists, do the same:
         try:
             if self.parallelword:
@@ -936,6 +953,21 @@ class Match:
 
                 self.contpos[language['lname']] = distance
 
+        #Not yet muoltilingual!
+        try:
+            self.codeps_between_match_and_head = self.positionmatchword.codeps_between_match_and_head 
+            self.codeps_before_match_and_head  = self.positionmatchword.codeps_before_match_and_head 
+
+            self.codeps_between_head_and_match = self.positionmatchword.codeps_between_head_and_match
+            self.codeps_after_head_and_match   = self.positionmatchword.codeps_after_head_and_match  
+        except AttributeError:
+            print('.')
+            self.codeps_between_match_and_head = ''
+            self.codeps_before_match_and_head  = ''
+
+            self.codeps_between_head_and_match = ''
+            self.codeps_after_head_and_match   = ''
+
         return True
 
 class Sentence:
@@ -1223,16 +1255,40 @@ class Clause(Sentence):
         mword.headword.ListDependents(self)
         codepsbetween = 0
         headid = mword.headword.tokenid 
+
+        mword.codeps_between_match_and_head = ''
+        mword.codeps_before_match_and_head  = ''
+        mword.codeps_between_head_and_match = ''
+        mword.codeps_after_head_and_match  = ''
+
+        self.codpesafter = ''
         if mword.tokenid > headid:
             self.matchbeforehead = False
             for codep in mword.headword.dependentlist:
                 if codep.tokenid > headid and codep.tokenid < mword.tokenid:
                     codepsbetween += 1
+
+                #UPDATE deprel information about codeps:
+                if codep.tokenid > headid and codep.tokenid < mword.tokenid:
+                    #codeps between head and match
+                    mword.codeps_between_head_and_match += '#' +  codep.deprel
+                if codep.tokenid > headid and codep.tokenid > mword.tokenid:
+                    #codeps between head and match
+                    mword.codeps_after_head_and_match +=  '#' + codep.deprel
+
         elif mword.tokenid < headid:
             self.matchbeforehead = True
             for codep in mword.headword.dependentlist:
                 if codep.tokenid < headid and codep.tokenid > mword.tokenid:
                     codepsbetween += 1
+                #UPDATE deprel information about codeps:
+                if codep.tokenid < headid and codep.tokenid > mword.tokenid:
+                    #codeps between head and match
+                    mword.codeps_between_match_and_head += '#' + codep.deprel
+                if codep.tokenid < headid and codep.tokenid < mword.tokenid:
+                    #codeps between head and match
+                    mword.codeps_before_match_and_head += '#' + codep.deprel
+
         return codepsbetween
 
     def MarkIfCombinedCoord(self, mword):
@@ -1352,10 +1408,13 @@ class Word:
         dependents = list()
         #For sepcial use in collecting data for analysis:
         self.dependentlemmas = ''
+        self.dep_positions = dict()
         for tokenid, word in sentence.words.items():
             if word.head == self.tokenid:
                 dependents.append(word)
                 self.dependentlemmas += word.lemma + '#'
+                #self.dep_positions[word.deprel].append(tokenid)
+                #self.dependentlemmas_ordered += '[{}]'.format() = tokenid
         self.dependentlist = dependents
         #If there were'nt any dependents, return false
         return dependents
