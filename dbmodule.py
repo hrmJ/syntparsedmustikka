@@ -6,14 +6,18 @@ from psycopg2.extensions import AsIs
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
+from sys import platform as _platform
 
 class psycopg:
     def __init__(self,dbname,username,autocom=False):
-       self.connection=psycopg2.connect(database=dbname, user=username, host="127.0.0.1", password="4udo4ka")
-       self.connection.autocommit = autocom
-       self.cur = self.connection.cursor()
-       self.dictcur = self.connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
-       self.dbname = dbname
+        if _platform == "linux" or _platform == "linux2":
+            self.connection = psycopg2.connect("dbname='{}' user='{}'".format(dbname, username))
+        elif _platform == "cygwin":
+            self.connection=psycopg2.connect(database=dbname, user=username, host="127.0.0.1", password="4udo4ka")
+        self.connection.autocommit = autocom
+        self.cur = self.connection.cursor()
+        self.dictcur = self.connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        self.dbname = dbname
 
     def query(self, SQL, valuetuple=("empty",)):
         """A general query for inserting updating etc."""
@@ -114,11 +118,14 @@ class mydatabase:
     """Establish a connection to database and create two cursors for use"""
 
     def __init__(self,dbname,username):
-       self.connection=psycopg2.connect(database=dbname, user=username, host="127.0.0.1", password="4udo4ka")
-       self.connection.autocommit = True
-       self.dictcur = self.connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
-       self.cur = self.connection.cursor()
-       self.dbname = dbname
+        if _platform == "linux" or _platform == "linux2":
+            self.connection = psycopg2.connect("dbname='{}' user='{}'".format(dbname, username))
+        elif _platform == "cygwin":
+            self.connection=psycopg2.connect(database=dbname, user=username, host="127.0.0.1", password="4udo4ka")
+        self.connection.autocommit = True
+        self.dictcur = self.connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        self.cur = self.connection.cursor()
+        self.dbname = dbname
 
     def insertquery(self, SQL, valuetuple=("empty",)):
         """A general query for inserting updating etc."""
