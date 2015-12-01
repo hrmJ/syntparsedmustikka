@@ -12,6 +12,7 @@ if __name__ == "__main__":
         dbname = sys.argv[1]
         slfile = sys.argv[2]
         sl_tablename = sys.argv[3] + '_conll'
-        insert_pair.InsertPair(dbname,slfile,sl_tablename=sl_tablename)
+        reference_file = sys.argv[4]
+        insert_pair.InsertPair(dbname,slfile,sl_tablename=sl_tablename, reference_file=reference_file)
     except IndexError:
-        raise insert_pair.ArgumentError('Usage: {} <database name> <sl file> <source language>'.format(sys.argv[0]))
+        raise insert_pair.ArgumentError('Usage: {} <database name> <sl file> <source language> <reference file>'.format(sys.argv[0]))

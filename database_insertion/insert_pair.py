@@ -13,22 +13,35 @@ class TextPair():
     """A text on its way to the database"""
     splitpattern = re.compile(r"\d+\t![^\n]+\n\n?\d+\t![^\n]+\n\n?\d+\t![^\n]+\n\n?\d+\t![^\n]+\n\n")
 
-    def __init__(self, table, inputfile):
+    def __init__(self, table, inputfile, reference_file=None):
         self.table = table
         #Read the data from the file and save it in a list called 'alignsegments'
         self.inputfile = inputfile
         with open(inputfile, 'r') as f:
             conllinput = f.read()
         self.alignsegments = TrimList(re.split(TextPair.splitpattern,conllinput))
+        if reference_file:
+            with open(reference_file, 'r') as f:
+                refinput = f.read()
+            self.references = TrimList(re.split('!!!!\n',refinput))
+            #import ipdb; ipdb.set_trace()
+        else:
+            self.references = None
 
     def InsertToDb(self, con):
         """Make the actual connection to tb"""
         print('\nInserting to table {}, this might take a while...'.format(self.table))
         con.BatchInsert(self.table,self.rowlist)
         print('Done. Inserted {} rows.'.format(con.cur.rowcount))
+        if self.references:
+            print('\nInserting references...'.format(self.table))
+            con.BatchInsert('text_ids',self.refrowlist)
+            print('Done. Inserted {} references.'.format(con.cur.rowcount))
 
     def CollectSegments(self):
         self.rowlist = list()
+        if self.references:
+            self.refrowlist = list()
         self.bar = Bar('Preparing the data for insertion into the database', max=len(self.alignsegments))
         self.LoopThroughSegments()
         self.bar.finish()
@@ -47,8 +60,11 @@ class TextPair():
 
 class SourceText(TextPair):
     """The pair of the inserted text"""
-    def __init__(self, table, inputfile, con):
-        super().__init__(table, inputfile)
+    def __init__(self, table, inputfile, con, reference_file=None):
+        if reference_file:
+            super().__init__(table, inputfile, reference_file)
+        else:
+            super().__init__(table, inputfile)
         #Insert this text to the text_ids table
         con.query("INSERT INTO text_ids (title) values(%s)", (self.inputfile,),commit=True)
         self.sentence_id = GetLastValue(con.FetchQuery("SELECT max(sentence_id) FROM {}".format(self.table)))
@@ -58,11 +74,15 @@ class SourceText(TextPair):
 
 
     def LoopThroughSegments(self):
-        for segment in self.alignsegments:
+        for idx, segment in enumerate(self.alignsegments):
             #Split each segment into lines (line=word with all the morphological and syntactic information)
             self.current_align_id    += 1
+            if self.references:
+                self.text_id += 1
             self.sentence_id += 1
             self.ProcessWordsOfSegment(segment.splitlines())
+            if self.references:
+                self.refrowlist.append({'title':self.references[idx]})
             self.bar.next()
 
 class Translation(TextPair):
@@ -164,7 +184,7 @@ def BulkInsert():
         print('Inserting {} and its translation...'.format(pair['sl']))
         InsertPair(database,pair['sl'],pair['tl'], sltable, tltable)
 
-def InsertPair(dbname=None,slfile=None,tlfile=None,sl_tablename=None,tl_tablename=None):
+def InsertPair(dbname=None,slfile=None,tlfile=None,sl_tablename=None,tl_tablename=None, reference_file=None):
     """Method for inserting one file pair either according to cmdline arguments or by function arguments"""
     if not dbname:
         #If not run from another method, get command line input:
@@ -179,7 +199,7 @@ def InsertPair(dbname=None,slfile=None,tlfile=None,sl_tablename=None,tl_tablenam
 
     con = psycopg(dbname,'juho')
 
-    sl  = SourceText(sl_tablename, slfile, con)
+    sl  = SourceText(sl_tablename, slfile, con, reference_file)
     sl.CollectSegments()
     sl.InsertToDb(con)
 
