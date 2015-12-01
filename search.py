@@ -563,6 +563,7 @@ class Search:
                         row['codeps_before_match_and_head']  = match.codeps_after_head_and_match
                         row['codeps_between_head_and_match'] = match.codeps_between_head_and_match
                         row['codeps_after_head_and_match']   = match.codeps_after_head_and_match
+                        row['all_codeps']   = match.all_codeps
                         #
                         row = AssignDoubleLanguageValue(row,'verbdist',match.verbdist_byword)
                         row = AssignDoubleLanguageValue(row,'verbdist',match.headdist_bydependents)
@@ -960,6 +961,7 @@ class Match:
 
             self.codeps_between_head_and_match = self.positionmatchword.codeps_between_head_and_match
             self.codeps_after_head_and_match   = self.positionmatchword.codeps_after_head_and_match  
+            self.all_codeps   = self.positionmatchword.all_codeps
         except AttributeError:
             print('.')
             self.codeps_between_match_and_head = ''
@@ -967,6 +969,7 @@ class Match:
 
             self.codeps_between_head_and_match = ''
             self.codeps_after_head_and_match   = ''
+            self.all_codeps   = ''
 
         return True
 
@@ -1260,11 +1263,13 @@ class Clause(Sentence):
         mword.codeps_before_match_and_head  = ''
         mword.codeps_between_head_and_match = ''
         mword.codeps_after_head_and_match  = ''
+        mword.all_codeps = ''
 
         self.codpesafter = ''
         if mword.tokenid > headid:
             self.matchbeforehead = False
             for codep in mword.headword.dependentlist:
+                mword.all_codeps += '#' + codep.deprel
                 if codep.tokenid > headid and codep.tokenid < mword.tokenid:
                     codepsbetween += 1
 
@@ -1279,6 +1284,7 @@ class Clause(Sentence):
         elif mword.tokenid < headid:
             self.matchbeforehead = True
             for codep in mword.headword.dependentlist:
+                mword.all_codeps += '#' + codep.deprel
                 if codep.tokenid < headid and codep.tokenid > mword.tokenid:
                     codepsbetween += 1
                 #UPDATE deprel information about codeps:
