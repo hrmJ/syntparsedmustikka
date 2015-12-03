@@ -30,13 +30,30 @@ class TextPair():
 
     def InsertToDb(self, con):
         """Make the actual connection to tb"""
-        print('\nInserting to table {}, this might take a while...'.format(self.table))
-        con.BatchInsert(self.table,self.rowlist)
-        print('Done. Inserted {} rows.'.format(con.cur.rowcount))
+        #limit the amount of items to be inserted at once
+        rowportions = list()
+        itemlimit=150000
+        start = 0
+        end = itemlimit
+        while len(self.rowlist)-end>0:
+            rowportions.append(self.rowlist[start:end])
+            end += itemlimit
+            start += itemlimit
+        if rowportions:
+            rowportions.append(self.rowlist[start:])
+        else:
+            rowportions.append(self.rowlist)
+
+        #actual insertion:
+        for portion in rowportions:
+            print('\nInserting to table {}, this might take a while...'.format(self.table))
+            con.BatchInsert(self.table, portion)
+            print('Inserted {} rows.'.format(con.cur.rowcount))
+
         if self.references:
             print('\nInserting references...'.format(self.table))
-            con.BatchInsert('text_ids',self.refrowlist)
-            print('Done. Inserted {} references.'.format(con.cur.rowcount))
+            con.BatchInsert('text_ids', self.refrowlist)
+            print('Inserted {} references.'.format(con.cur.rowcount))
 
     def CollectSegments(self):
         self.rowlist = list()
@@ -82,7 +99,10 @@ class SourceText(TextPair):
             self.sentence_id += 1
             self.ProcessWordsOfSegment(segment.splitlines())
             if self.references:
-                self.refrowlist.append({'title':self.references[idx]})
+                try:
+                    self.refrowlist.append({'title':self.references[idx]})
+                except IndexError:
+                    self.refrowlist.append({'title':'unknown'})
             self.bar.next()
 
 class Translation(TextPair):

@@ -73,7 +73,7 @@ class MainMenu:
 
     def choosedb(self):
         self.menu.question = 'Select database: '
-        self.menu.validanswers = {'1':'syntparfin2','2':'syntparrus2','3':'russian_ext'}
+        self.menu.validanswers = {'1':'syntparfin2','2':'syntparrus2','3':'russian_ext','4':'finnish_ext'}
         self.menu.prompt_valid()
         Db.con = mydatabase(self.menu.validanswers[self.menu.answer],'juho')
         self.selecteddb = self.menu.validanswers[self.menu.answer]
