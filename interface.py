@@ -73,7 +73,7 @@ class MainMenu:
 
     def choosedb(self):
         self.menu.question = 'Select database: '
-        self.menu.validanswers = {'1':'syntparfin2','2':'syntparrus2','3':'russian_ext'}
+        self.menu.validanswers = {'1':'syntparfin2','2':'syntparrus2','3':'russian_ext','4':'tbcorpfi'}
         self.menu.prompt_valid()
         Db.con = mydatabase(self.menu.validanswers[self.menu.answer],'juho')
         self.selecteddb = self.menu.validanswers[self.menu.answer]
@@ -444,7 +444,11 @@ def printResults(thisSearch):
                     rows.append([get_color_string(bcolors.BLUE,match.slcontextstring), get_color_string(bcolors.RED,match.tlcontextstring)])
                     csvrows.append([match.slcontextstring,match.tlcontextstring,match.matchedword.sourcetextid])
                 else:
-                    print('{}:\n=======================\n{}\n----------------------\n[Sentence id: {}, align id: {}, text_id: {}]\n\n\n'.format(idx,textwrap.fill(match.slcontextstring), match.matchedsentence.sentence_id, match.align_id,match.matchedword.sourcetextid))
+                    if len(match.slcontextstring)>3000:
+                        printedstring = match.matchedsentence.printstring + "(only sentence printed)"
+                    else:
+                        printedstring = match.slcontextstring
+                    print('{}:\n=======================\n{}\n----------------------\n[Sentence id: {}, align id: {}, text_id: {}]\n\n\n'.format(idx,textwrap.fill(printedstring), match.matchedsentence.sentence_id, match.align_id,match.matchedword.sourcetextid))
                     csvrows.append([match.slcontextstring,match.matchedword.sourcetextid])
             if thisSearch.isparallel:
                 table.add_rows(rows)

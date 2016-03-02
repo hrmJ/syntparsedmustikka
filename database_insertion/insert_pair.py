@@ -13,12 +13,14 @@ class TextPair():
     """A text on its way to the database"""
     splitpattern = re.compile(r"\d+\t![^\n]+\n\n?\d+\t![^\n]+\n\n?\d+\t![^\n]+\n\n?\d+\t![^\n]+\n\n")
 
-    def __init__(self, table, inputfile, reference_file=None):
+    def __init__(self, table, inputfile, reference_file=None, conllinput=None):
         self.table = table
         #Read the data from the file and save it in a list called 'alignsegments'
         self.inputfile = inputfile
-        with open(inputfile, 'r') as f:
-            conllinput = f.read()
+        if not conllinput:
+            #if reading a file
+            with open(inputfile, 'r') as f:
+                conllinput = f.read()
         self.alignsegments = TrimList(re.split(TextPair.splitpattern,conllinput))
         if reference_file:
             with open(reference_file, 'r') as f:
@@ -60,13 +62,16 @@ class TextPair():
 
 class SourceText(TextPair):
     """The pair of the inserted text"""
-    def __init__(self, table, inputfile, con, reference_file=None):
+    def __init__(self, table, inputfile, con, reference_file=None, conllinput=None, blogmeta=None):
         if reference_file:
-            super().__init__(table, inputfile, reference_file)
+            super().__init__(table, inputfile, reference_file, conllinput=conllinput)
         else:
-            super().__init__(table, inputfile)
+            super().__init__(table, inputfile, conllinput=conllinput)
         #Insert this text to the text_ids table
-        con.query("INSERT INTO text_ids (title) values(%s)", (self.inputfile,),commit=True)
+        if blogmeta:
+            con.query("INSERT INTO text_ids (title, source_blog, post_id, parsedate) values(%s,%s,%s,%s)", (blogmeta['source'],blogmeta['source'],blogmeta['id'],blogmeta['parsed']),commit=True)
+        else:
+            con.query("INSERT INTO text_ids (title) values(%s)", (self.inputfile,),commit=True)
         self.sentence_id = GetLastValue(con.FetchQuery("SELECT max(sentence_id) FROM {}".format(self.table)))
         self.current_align_id    = GetLastValue(con.FetchQuery("SELECT max(align_id) FROM {}".format(self.table)))
         self.text_id     = GetLastValue(con.FetchQuery("SELECT max(id) FROM text_ids"))
