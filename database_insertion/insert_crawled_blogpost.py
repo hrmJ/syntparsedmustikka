@@ -3,6 +3,9 @@ import sys
 import csv
 import insert_pair
 
+if len(sys.argv)<2:
+    sys.exit("Usage: {} <blogfile> <metadata file>".format(sys.argv[0]))
+
 
 splitpattern = re.compile(r"\d+\t![^\n]+\n\n?"*9 + r"\d+\t![^\n]+\n\n")
 
