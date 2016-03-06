@@ -451,6 +451,7 @@ class Search:
         rowlist_fi_deprels = list()
         bar = Bar('Preparing and analyzing the data', max=self.matchcount)
         errorcount=0
+        inscount = 0
         for align_id, matchlist in self.matches.items():
             for match in matchlist:
                 if match.WillBeProcessed:
@@ -578,11 +579,24 @@ class Search:
                             #rowlist_ru_deprels.append(row_ru_deprels)
                     else:
                         errorcount += 1
+                    inscount += 1
                     bar.next()
-        #INSERTION:
-        print('\nInserting to database.. ({} errors in processing matches)'.format(errorcount))
-        con.BatchInsert(tablename,rowlist)
-        print('Done. Inserted {} rows.'.format(con.cur.rowcount))
+
+                    #INSERTION:
+                    if inscount / 5000 == 1:
+                        print('\nInserting to table {}, this might take a while...'.format(tablename))
+                        con.BatchInsert(tablename, rowlist)
+                        print('Inserted {} rows.'.format(con.cur.rowcount))
+                        rowlist = list()
+                        rowlist_ru_deprels = list()
+                        rowlist_fi_deprels = list()
+                        errorcount=0
+                        inscount = 0
+
+        print('\nInserting to table {}, this might take a while...'.format(tablename))
+        con.BatchInsert(tablename, rowlist)
+        print('Inserted {} rows.'.format(con.cur.rowcount))
+
         if sl == 'ru':
             pass
             #print('\nInserting deprels for the russian sentences... '.format(errorcount))

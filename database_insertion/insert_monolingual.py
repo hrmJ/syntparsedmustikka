@@ -15,4 +15,5 @@ if __name__ == "__main__":
         reference_file = sys.argv[4]
         insert_pair.InsertPair(dbname,slfile,sl_tablename=sl_tablename, reference_file=reference_file)
     except IndexError:
+        #import ipdb; ipdb.set_trace()
         raise insert_pair.ArgumentError('Usage: {} <database name> <sl file> <source language> <reference file>'.format(sys.argv[0]))
