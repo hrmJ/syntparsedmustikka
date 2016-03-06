@@ -3,8 +3,8 @@ import sys
 import csv
 import insert_pair
 
-if len(sys.argv)<2:
-    sys.exit("Usage: {} <blogfile> <metadata file>".format(sys.argv[0]))
+if len(sys.argv)<3:
+    sys.exit("Usage: {} <blogfile> <metadata file> <lang (ru/fi/.)>".format(sys.argv[0]))
 
 
 splitpattern = re.compile(r"\d+\t![^\n]+\n\n?"*9 + r"\d+\t![^\n]+\n\n")
@@ -28,6 +28,6 @@ con = insert_pair.psycopg('tbcorpfi','juho')
 
 
 for idx, post in enumerate(posts):
-    sl  = insert_pair.SourceText(table='ru_conll', inputfile=None, con=con, conllinput=post, blogmeta=texts[idx])
+    sl  = insert_pair.SourceText(table='{}_conll'.format(sys.argv[3]), inputfile=None, con=con, conllinput=post, blogmeta=texts[idx])
     sl.CollectSegments()
     sl.InsertToDb(con)

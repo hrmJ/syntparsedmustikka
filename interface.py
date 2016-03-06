@@ -321,7 +321,7 @@ class ConllColumn:
 
 
 class Statmenu:
-    menuoptions = {'1':'Word count','c':'Return to main menu'}
+    menuoptions = {'1':'Word count','2':'Word count for monolingual corpora','c':'Return to main menu'}
     def __init__(self):
         self.menu = multimenu(Statmenu.menuoptions)
         self.menu.question = 'Select the function you would like to apply:'
@@ -335,6 +335,28 @@ class Statmenu:
     def CollectTexts(self):
         """Get a list of texts from the database"""
         return Db.con.dictquery('SELECT title, transtitle, id from text_ids')
+
+    def WordCounts_monoling(self):
+        results = Db.con.dictquery('SELECT title, id from text_ids')
+        texts=list()
+        wctotal = 0 
+        maxtitleLength = len('title')
+        maxWcLength = len('word count')
+        for res in results:
+            #Fetch wordcount for each text and target text
+            texts.append({'id':res['id'],'title':res['title'],'wordcount':self.wordCountForText(res['id'],Db.searched_table)})
+            #Get string length information for the output table
+            if len(res['title'])>maxtitleLength:
+                maxtitleLength = len(res['title'])
+            if len(texts[-1]['wordcount'])>maxWcLength:
+                maxWcLength = len(texts[-1]['wordcount'])
+
+        for text in texts:
+            print('{0:3} | {1:{titlewidth}} | {2:{wcwidth}} '.format(text['id'],text['title'],text['wordcount'],text['translation title'],text['trwordcount'],
+                titlewidth = maxtitleLength, wcwidth = maxWcLength))
+            wctotal += text['wordcount']
+
+        print('\nTOTAL: {} words.'.format(wctotal))
 
     def WordCounts(self):
         """Count words in the texts"""
@@ -391,6 +413,8 @@ class Statmenu:
         """choose what to do"""
         if self.menu.answer == '1':
             self.WordCounts()
+        if self.menu.answer == '2':
+            self.WordCounts_monoling()
 
 
 
