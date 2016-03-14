@@ -138,6 +138,9 @@ class Search:
         """
         sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id, contr_deprel, contr_head"
         sqlq = "SELECT {0} FROM {1} WHERE align_id in ({2}) order by align_id, id".format(sql_cols, Db.searched_table, self.subquery)
+        if self.limited:
+            #If the user wants to limit the search e.g. for testing large corpora
+            sqlq = "SELECT {0} FROM {1} WHERE align_id in ({2}) order by align_id, id LIMIT {3}".format(sql_cols, Db.searched_table, self.subquery, self.limited)
         wordrows = Db.con.dictquery(sqlq,self.subqueryvalues)
         print('Analyzing...')
         if wordrows:

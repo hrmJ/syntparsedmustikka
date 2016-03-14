@@ -73,7 +73,7 @@ class MainMenu:
 
     def choosedb(self):
         self.menu.question = 'Select database: '
-        self.menu.validanswers = {'1':'syntparfin2','2':'syntparrus2','3':'russian_ext','4':'tbcorpfi'}
+        self.menu.validanswers = {'1':'syntparfin2','2':'syntparrus2','3':'russian_ext','4':'tbcorpfi','5':'tbcorpfinnish'}
         self.menu.prompt_valid()
         Db.con = mydatabase(self.menu.validanswers[self.menu.answer],'juho')
         self.selecteddb = self.menu.validanswers[self.menu.answer]
@@ -321,7 +321,7 @@ class ConllColumn:
 
 
 class Statmenu:
-    menuoptions = {'1':'Word count','2':'Word count for monolingual corpora','c':'Return to main menu'}
+    menuoptions = {'1':'Word count','2':'Word count for monolingual corpora', '3':'Word count for the WHOLE monolingual corpus', 'c':'Return to main menu'}
     def __init__(self):
         self.menu = multimenu(Statmenu.menuoptions)
         self.menu.question = 'Select the function you would like to apply:'
@@ -331,6 +331,12 @@ class Statmenu:
         query = 'SELECT count(*) from {} WHERE token NOT IN %(punct)s AND text_id = %(text_id)s'.format(table)
         res = Db.con.nondictquery(query,{'punct':tuple(string.punctuation),'text_id':text_id})
         return str(res[0][0])
+
+    def wordCountForAll(self, table):
+        """Count the number of words in the whole corpus and return it as a string"""
+        query = 'SELECT count(*) from {} WHERE token NOT IN %(punct)s'.format(table)
+        res = Db.con.nondictquery(query,{'punct':tuple(string.punctuation)})
+        print("{} words in corpus.".format(str(res[0][0])))
 
     def CollectTexts(self):
         """Get a list of texts from the database"""
@@ -415,6 +421,8 @@ class Statmenu:
             self.WordCounts()
         if self.menu.answer == '2':
             self.WordCounts_monoling()
+        if self.menu.answer == '3':
+            self.wordCountForAll(Db.searched_table)
 
 
 
