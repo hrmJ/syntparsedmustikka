@@ -37,6 +37,9 @@ CREATE TABLE
 		(
 		id SERIAL PRIMARY KEY,
 		title VARCHAR,
+        source_blog VARCHAR,
+        post_id VARCHAR,
+        parsedate VARCHAR,
 		author VARCHAR,
 		translator VARCHAR,
 		origtitle VARCHAR,
@@ -46,6 +49,7 @@ CREATE TABLE
 		origpublisher VARCHAR,
 		transpublisher VARCHAR,
 		genre VARCHAR
+
 		);
 CREATE TABLE
 	translation_ids

@@ -13,14 +13,13 @@ def log(message,counter=0, countmax=0):
     else:
         logging.info(message)
 
-
 def simpleupdate(thisSearch,dbcon, deprel, dbtable):
     """In the prototypical case you just give the deprel of the contrastive layer"""
     logging.info('Updating {} items in the db'.format(len(thisSearch.listMatchids())))
     dbcon.query('UPDATE {table} SET contr_deprel = %(deprel)s WHERE id in %(idlist)s'.format(table=dbtable),{'deprel':deprel,'idlist':thisSearch.idlist})
     logging.info('to be updated: {} database rows.'.format(dbcon.cur.rowcount))
 
-def makeSearch(ConditionColumns,database,dbtable,headcond=None,depcond=None,appendconditioncolumns=True,isparallel=False,extralog='',limited=None):
+def makeSearch(ConditionColumns,database,dbtable,headcond=None,depcond=None,appendconditioncolumns=True,isparallel=False,extralog='',limited=None, monoling=False):
     Db.searched_table = dbtable
     logging.info('Starting the search..')
     if extralog:
@@ -28,6 +27,8 @@ def makeSearch(ConditionColumns,database,dbtable,headcond=None,depcond=None,appe
     thisSearch = Search(database,askname=False)
     thisSearch.isparallel = isparallel
     thisSearch.limited = limited
+    if monoling:
+        thisSearch.toplevel = "sentence_id"
     if appendconditioncolumns:
         thisSearch.ConditionColumns.append(ConditionColumns)
     else:

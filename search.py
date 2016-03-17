@@ -102,7 +102,7 @@ class Search:
                 MultipleValuePairs += " OR "
             MultipleValuePairs += "({})".format(self.BuildSubqString(ivaluedict,sqlidx))
             sqlidx += 1
-        self.subquery = """SELECT align_id FROM {} WHERE {} """.format(Db.searched_table,MultipleValuePairs)
+        self.subquery = """SELECT {} FROM {} WHERE {} """.format(self.toplevel, Db.searched_table,MultipleValuePairs)
 
     def BuildSubqString(self, ivaluedict,parentidx):
         """ Constructs the actual condition. Values must be TUPLES."""
@@ -136,7 +136,36 @@ class Search:
         The search.subquery attribute can be any query that selects a group of align_ids
         From the syntpar...databases
         """
-        sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id, contr_deprel, contr_head"
+        sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id"
+        sqlq = "SELECT {0} FROM {1} WHERE {3} in ({2}) order by {3}, id".format(sql_cols, Db.searched_table, self.subquery, self.toplevel)
+        if self.limited:
+            #If the user wants to limit the search e.g. for testing large corpora
+            sqlq = "SELECT {0} FROM {1} WHERE {4} in ({2}) order by {4}, id LIMIT {3}".format(sql_cols, Db.searched_table, self.subquery, self.limited, self.toplevel)
+        start = time.time()
+        print("Starting the query...")
+        wordrows = Db.con.dictquery(sqlq,self.subqueryvalues)
+        print("Query completed in {} seconds".format(time.time()-start))
+        if wordrows:
+            start = time.time()
+            print('Starting to analyze {} rows...'.format(len(wordrows)))
+            self.bar = Bar('Processing words and sentences...')
+            if self.toplevel=="align_id":
+                self.pickFromAlign_ids(wordrows)
+                if self.isparallel:
+                    self.FindParallelSegmentsAfterwards()
+            elif self.toplevel=="sentence_id":
+                self.PickFromSentence_ids(wordrows)
+            self.bar.finish()
+            print('Analysis completed in {} seconds, {} matches found!'.format(time.time()-start, self.absolutematchcount))
+        else:
+            return input('Nothing found..')
+
+    def FindMonoLing(self):
+        """Query the database OF A MONOLINGUAL corpus according to instructions from the user.
+        The search.subquery attribute can be any query that selects a group of sentence_ids
+        From the databases.
+        """
+        sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id"
         sqlq = "SELECT {0} FROM {1} WHERE align_id in ({2}) order by align_id, id".format(sql_cols, Db.searched_table, self.subquery)
         if self.limited:
             #If the user wants to limit the search e.g. for testing large corpora
@@ -149,7 +178,6 @@ class Search:
                 self.FindParallelSegmentsAfterwards()
         else:
             return input('Nothing found..')
-
 
     def pickFromAlign_ids(self, wordrows):
         """Process the data from database query
@@ -185,15 +213,48 @@ class Search:
             self.processWordsOfSentence(previous_align,previous_sentence)
             self.ProcessSentencesOfAlign(previous_align)
 
+    def PickFromSentence_ids(self, wordrows):
+        """Process the data from database query
+        This is done word by word."""
+        self.sentences = dict()
+        for wordrow in wordrows:
+            #If the first word of a new sentence is being processed
+            if wordrow['sentence_id'] not in self.sentences:
+                #If this sentence id not yet in the dict of sentences, add it
+                if self.sentences:
+                    #If this is not the first word of the first sentence:
+                    #Process the previous sentence of this align unit
+                    #ORDER OF THIS WORD DICT!!
+                    self.processWordsOfSentence(0,previous_sentence)
+                # Add this sentence to this align unit
+                self.sentences[wordrow['sentence_id']] = Sentence(wordrow['sentence_id'])
+                previous_sentence = wordrow['sentence_id']
+            # Add all the information about the current word as a Word object to the sentence
+            self.sentences[wordrow['sentence_id']].words[wordrow['tokenid']] = Word(wordrow)
+        #Finally, process all the words in the last sentence (if the original query didn't fail)
+        if wordrows:
+            self.processWordsOfSentence(0,previous_sentence)
+
     def processWordsOfSentence(self,alignkey,sentencekey):
-        """ Process every word of a sentence and chek if a search condition is met.
+        """ Process every word of a sentence and check if a search condition is met.
         The purpose of this function is to simplify the pickFromAlign_ids function"""
         # The sentence is processed word by word
-        for wkey in sorted(map(int, self.aligns[alignkey][sentencekey].words)):
-            word = self.aligns[alignkey][sentencekey].words[wkey]
-            if self.evaluateWordrow(word,self.aligns[alignkey][sentencekey]):  
+        if self.toplevel == "sentence_id":
+            sentence = self.sentences[sentencekey]
+        elif self.toplevel == "align_id":
+            sentence = self.aligns[alignkey][sentencekey]
+        for wkey in sorted(map(int, sentence.words)):
+            word = sentence.words[wkey]
+            if self.evaluateWordrow(word,sentence):  
                 #if the evaluation function returns true
-                self.aligns[alignkey][sentencekey].matchids.append(word.tokenid)
+                if self.toplevel == "sentence_id":
+                    sentence.matchids.append(word.tokenid)
+                    self.matches[sentencekey].append(MonoMatch(word.tokenid,sentence))
+                    self.absolutematchcount += 1
+                elif self.toplevel == "align_id":
+                    sentence.matchids.append(word.tokenid)
+        self.bar.next()
+
 
     def ProcessSentencesOfAlign(self, alignkey):
         """ Process all the sentences in the previous align unit and check for matches
@@ -990,6 +1051,23 @@ class Match:
 
         return True
 
+class MonoMatch(Match):
+
+    def __init__(self,matchid,sentence):
+        """
+        Creates a MONOLINGUAL match object.
+        Variables:
+        -----------
+        matchid = the tokenid ('how manyth word/punct in the sentence?') of the word  that matched
+        """
+        #import random;x= mySearch.matches[random.choice(list(mySearch.matches.keys()))][0]
+        #self.text_id = text_id
+        self.matchedsentence = sentence
+        self.matchedword = sentence.words[matchid]
+        self.sourcetextid = self.matchedword.sourcetextid
+        #For post processing purposes
+        self.postprocessed = False
+
 class Sentence:
     """
     The sentence consists of words (which can actually also be punctuation marks).
@@ -1421,7 +1499,6 @@ class Word:
         self.sourcetextid = row["text_id"]
         #The general id in the db conll table
         self.dbid =  row["id"]
-        self.contr_deprel =  row["contr_deprel"]
 
     def printAttributes(self):
         print('Attributes of the word:\n token = {} \n lemma = {} \n feat = {} \n  pos = {}'.format(self.token,self.lemma,self.feat,self.pos))
