@@ -75,6 +75,8 @@ class Search:
         self.headcond = dict()
         #Initiate an attribute that will be dealing with the word's dependents' parameters
         self.depcond = dict()
+        #Initiate an attribute that will be dealing with the word's heads other dependents' parameters
+        self.headdepcond = dict()
         #Record information about db
         self.queried_db = queried_db
         self.queried_table = Db.searched_table
@@ -347,6 +349,31 @@ class Search:
                         #If this is a positive condition:
                         if getattr(wordinsent, self.depcond['column']) not in self.depcond['values']:
                             headfulfills = False
+                            break
+            if not headfulfills:
+                #If the head of the word did not meet the criteria
+                return False
+        #-------------------------------------------------------------------------------------
+        #Test conditions based on the dependents of the HEAD of the word
+        if self.headdepcond:
+            #use this variable to test if EVEN ONE of the DEPENDENTS of the head of the matcing word fulfill the criteria
+            #Assume that NONE of the dependents fulfill the criteria
+            headfulfills=False
+            if word.CatchHead(sentence):
+                #import ipdb; ipdb.set_trace()
+                #If there is no head, assume the search FAILED
+                #IF the word has a head, move on to testing the head
+                sentence.listDependents(word.headword.tokenid)
+                for wordinsent in sentence.dependentlist:
+                    if self.headdepcond['column'][0] == '!':
+                        #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
+                        if getattr(wordinsent, self.headdepcond['column'][1:]) in self.headdepcond['values']:
+                            headfulfills = False
+                            break
+                    else:
+                        #If this is a positive condition:
+                        if getattr(wordinsent, self.headdepcond['column']) in self.headdepcond['values']:
+                            headfulfills = True
                             break
             if not headfulfills:
                 #If the head of the word did not meet the criteria

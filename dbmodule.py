@@ -9,7 +9,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sys import platform as _platform
 
 class psycopg:
-    def __init__(self,dbname,username,autocom=False):
+    def __init__(self,dbname,username,autocom=False, tablenames=None):
         if _platform == "linux" or _platform == "linux2":
             self.connection = psycopg2.connect("dbname='{}' user='{}'".format(dbname, username))
         elif _platform == "cygwin":
@@ -18,6 +18,10 @@ class psycopg:
         self.cur = self.connection.cursor()
         self.dictcur = self.connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
         self.dbname = dbname
+        if not tablenames:
+            self.tablenames = {'fi':'fi_conll','ru':'ru_conll'}
+        else:
+            self.tablenames = tablenames
 
     def query(self, SQL, valuetuple=("empty",)):
         """A general query for inserting updating etc."""
