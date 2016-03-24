@@ -75,8 +75,10 @@ class Search:
         self.headcond = dict()
         #Initiate an attribute that will be dealing with the word's dependents' parameters
         self.depcond = dict()
-        #Initiate an attribute that will be dealing with the word's heads other dependents' parameters
+        #Initiate an attribute that will be dealing with the word's head's other dependents' parameters
         self.headdepcond = dict()
+        #Initiate an attribute that will be dealing with the word's FINITE head's other dependents' parameters
+        self.finheaddepcond = dict()
         #Record information about db
         self.queried_db = queried_db
         self.queried_table = Db.searched_table
@@ -373,6 +375,31 @@ class Search:
                     else:
                         #If this is a positive condition:
                         if getattr(wordinsent, self.headdepcond['column']) in self.headdepcond['values']:
+                            headfulfills = True
+                            break
+            if not headfulfills:
+                #If the head of the word did not meet the criteria
+                return False
+        #-------------------------------------------------------------------------------------
+        #Test conditions based on the dependents of the HEAD of the word
+        if self.finheaddepcond:
+            #use this variable to test if EVEN ONE of the DEPENDENTS of the head VERB of the matcing word's SENTENCE fulfill the criteria
+            #Assume that NONE of the dependents fulfill the criteria
+            headfulfills=False
+            if word.IterateToFiniteHead(sentence):
+                #import ipdb; ipdb.set_trace()
+                #If there is no finite head, assume the search FAILED
+                #IF the word has a finite head, move on to testing the head
+                sentence.listDependents(word.finitehead.tokenid)
+                for wordinsent in sentence.dependentlist:
+                    if self.finheaddepcond['column'][0] == '!':
+                        #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
+                        if getattr(wordinsent, self.finheaddepcond['column'][1:]) in self.finheaddepcond['values']:
+                            headfulfills = False
+                            break
+                    else:
+                        #If this is a positive condition:
+                        if getattr(wordinsent, self.finheaddepcond['column']) in self.finheaddepcond['values']:
                             headfulfills = True
                             break
             if not headfulfills:
@@ -1552,6 +1579,28 @@ class Word:
             if word.tokenid == self.head:
                 self.hashead = False
 
+
+    def IterateToFiniteHead(self, sentence):
+        """Go up the dependency chain until a finite verb is found. If no V, return false"""
+        word = self
+        while word.CatchHead(sentence):
+            #import ipdb; ipdb.set_trace()
+            if word.headword.IsThisFiniteVerb():
+                self.finitehead = word.headword
+                return True
+            else:
+                if word.headword:
+                    word = word.headword
+        #AND a test for the ROOT...
+        #import ipdb; ipdb.set_trace()
+        if word.IsThisFiniteVerb():
+            self.finitehead = word
+            return True
+        #If no finite head found, return False
+        self.finitehead = None
+        return False
+
+
     def ListDependentsRecursive(self, sentence):
         """return a recursive list of dependents of the specified word"""
         self.ListDependents(sentence)
@@ -1574,7 +1623,7 @@ class Word:
                         dep4.ListDependents(sentence)
 
     def CatchHead(self, sentence):
-        """Store the words head in a separate object,if possible."""
+        """Store the word's head in a separate object, if possible."""
         try:
             self.headword = sentence.words[self.head]
         except KeyError:
@@ -1601,7 +1650,7 @@ class Word:
 
     def IsThisFiniteVerb(self):
         """Return true if the word object is by its feat a finite verb form"""
-        if self.feat[0:3] in ('Vmi','Vmm') or ItemInString(['MOOD_Ind','MOOD_Imprt','MOOD_Pot','MOOD_Cond'],self.feat):
+        if self.feat[0:3] in ('Vmi','Vmm') or ItemInString(['Mood=Ind','Mood=Imprt','Mood=Pot','Mood=Cond'],self.feat,True):
             return True
         else:
             return False
@@ -1866,10 +1915,12 @@ def GetMetadata(text_id, metadata):
             return mdrow
     return None
 
-def ItemInString(stringlist,string):
+def ItemInString(stringlist,string,case_insensitive=False):
     """Return true if one of the items in a list is in the string"""
     for item in stringlist:
-        if item in string:
+        if case_insensitive and item.lower() in string.lower():
+            return True
+        elif item in string:
             return True
     return False
 
