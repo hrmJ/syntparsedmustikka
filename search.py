@@ -75,6 +75,9 @@ class Search:
         self.headcond = dict()
         #Initiate an attribute that will be dealing with the word's dependents' parameters
         self.depcond = dict()
+        #Initiate another attribute that will be dealing with the word's dependents' parameters
+        #This latter one tests if ANY of the dependents fill the condition
+        self.depcond2 = dict()
         #Initiate an attribute that will be dealing with the word's head's other dependents' parameters
         self.headdepcond = dict()
         #Initiate an attribute that will be dealing with the word's FINITE head's other dependents' parameters
@@ -162,7 +165,7 @@ class Search:
             self.bar.finish()
             print('Analysis completed in {} seconds, {} matches found!'.format(time.time()-start, self.absolutematchcount))
         else:
-            return input('Nothing found..')
+            return print('Nothing found..')
 
     def FindMonoLing(self):
         """Query the database OF A MONOLINGUAL corpus according to instructions from the user.
@@ -352,6 +355,33 @@ class Search:
                         if getattr(wordinsent, self.depcond['column']) not in self.depcond['values']:
                             headfulfills = False
                             break
+            if not headfulfills:
+                #If the head of the word did not meet the criteria
+                return False
+        #-------------------------------------------------------------------------------------
+        #Test conditions based on the dependents of the word
+        if self.depcond2:
+            #use this variable to test if EVEN ONE of the DEPENDENTS of the mathcing word fulfill the criteria
+            #Assume that NONE of the dependents fulfill the criteria
+            headfulfills=False
+            if word.ListDependents(sentence):
+                #import ipdb; ipdb.set_trace()
+                #If there are no dependends, assume the search FAILED
+                #IF the word has a head, move on to testing the head
+                for wordinsent in word.dependentlist:
+                    if self.depcond2['column'][0] == '!':
+                        #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
+                        if getattr(wordinsent, self.depcond2['column'][1:]) in self.depcond2['values']:
+                            headfulfills = False
+                            break
+                    else:
+                        #If this is a positive condition:
+                        if getattr(wordinsent, self.depcond2['column']) in self.depcond2['values']:
+                            headfulfills = True
+                            break
+            elif self.depcond2['column'][0] == '!':
+                #EXCEPT IF THIS WAS A negative condition
+                headfulfills = True
             if not headfulfills:
                 #If the head of the word did not meet the criteria
                 return False
@@ -1681,7 +1711,7 @@ class Word:
 
     def IsThisFiniteVerb(self):
         """Return true if the word object is by its feat a finite verb form"""
-        if self.feat[0:3] in ('Vmi','Vmm') or ItemInString(['Mood=Ind','Mood=Imprt','Mood=Pot','Mood=Cond'],self.feat,True):
+        if self.feat[0:3] in ('Vmi','Vmm') or ItemInString(['Mood=Ind','Mood=Imprt','Mood=Pot','Mood=Cond','VerbForm=Fin'],self.feat,True):
             return True
         else:
             return False
