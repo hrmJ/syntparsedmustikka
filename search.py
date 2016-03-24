@@ -390,8 +390,8 @@ class Search:
                 #import ipdb; ipdb.set_trace()
                 #If there is no finite head, assume the search FAILED
                 #IF the word has a finite head, move on to testing the head
-                sentence.listDependents(word.finitehead.tokenid)
-                for wordinsent in sentence.dependentlist:
+                word.finitehead.ListDependents(sentence)
+                for wordinsent in word.finitehead.dependentlist:
                     if self.finheaddepcond['column'][0] == '!':
                         #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
                         if getattr(wordinsent, self.finheaddepcond['column'][1:]) in self.finheaddepcond['values']:
@@ -976,7 +976,7 @@ class Match:
             self.CatchHead()
             #Do it in a better way (leaving the above for compatibility's sake):
             self.positionmatchword.CatchHead(self.matchedsentence)
-            if self.headword.pos in ('S') or self.headword.token in ('aikana','välein'):
+            if self.headword.pos in ('S') or self.headword.token in ('aikana','välein') or self.pos == 'A':
                 #if the match is actually a dependent of a pronoun (or the Finnish 'aikana')
                 # LIST all the other possible cases as well!
                 self.positionmatchword = self.headword
@@ -984,6 +984,7 @@ class Match:
                 if self.headshead.pos in ('S') and self.headword.pos != 'V':
                     #or if the match's head  is actually a dependent of a pronoun (AND the match's head is not a verb)
                     self.positionmatchword = self.headshead
+
             try:
                 self.headword = self.matchedsentence.words[self.positionmatchword.head]
             except KeyError:
@@ -1104,6 +1105,35 @@ class Match:
             self.all_codeps   = ''
 
         return True
+
+    def TransitiveSentenceDistancies(self):
+        """ If the word's finite head has a dobj as its dependent, compare the position of the match and the dobj  """
+        #1. In the beginning of the clause
+        self.DefinePositionMatch()
+
+        if not hasattr(self.positionmatchword,'finitehead'):
+            self.positionmatchword.IterateToFiniteHead()
+
+        if self.positionmatchword.tokenid < self.positionmatchword.finitehead.tokenid:
+            #What if the object precedes the verb, too?
+            return "beforeverb"
+
+        #... Find the object
+        for word in self.positionmatchword.finitehead.dependentlist:
+            if word.deprel == 'dobj':
+                dobj = word
+                break
+
+        #2. In relation to the object
+        if self.positionmatchword.tokenid < dobj.tokenid:
+            return "beforeobject"
+        elif self.positionmatchword.tokenid > dobj.tokenid:
+            return "afterobject"
+        else:
+            return "failed"
+
+
+
 
 class MonoMatch(Match):
 
@@ -1334,6 +1364,7 @@ class Sentence:
                 return this_tokenid
         #If a marker for the next clause was met, assume that the previous word was the last of the current clause:
         return this_tokenid - 1
+
 
 class Clause(Sentence):
     """An attemp to separate clauses from sentences"""
