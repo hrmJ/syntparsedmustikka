@@ -19,7 +19,7 @@ def simpleupdate(thisSearch,dbcon, deprel, dbtable):
     dbcon.query('UPDATE {table} SET contr_deprel = %(deprel)s WHERE id in %(idlist)s'.format(table=dbtable),{'deprel':deprel,'idlist':thisSearch.idlist})
     logging.info('to be updated: {} database rows.'.format(dbcon.cur.rowcount))
 
-def makeSearch(ConditionColumns,database,dbtable,headcond=None,depcond=None,headdepcond=None, finheaddepcond=None,depcond2=None,appendconditioncolumns=True,isparallel=False,extralog='',limited=None, monoling=False):
+def makeSearch(ConditionColumns,database,dbtable,headcond=None,depcond=None,headdepcond=None,secondnextcond=None, finheaddepcond=None,depcond2=None,nextcond=None,prevcond=None,appendconditioncolumns=True,isparallel=False,extralog='',limited=None, monoling=False):
     Db.searched_table = dbtable
     logging.info('Starting the search..')
     if extralog:
@@ -38,6 +38,9 @@ def makeSearch(ConditionColumns,database,dbtable,headcond=None,depcond=None,head
     thisSearch.depcond2 = depcond2
     thisSearch.headdepcond = headdepcond
     thisSearch.finheaddepcond = finheaddepcond
+    thisSearch.prevcond = prevcond
+    thisSearch.nextcond = nextcond
+    thisSearch.secondnextcond = secondnextcond
     thisSearch.BuildSubQuery()
     thisSearch.find()
     logging.info('Search committed')
@@ -88,9 +91,6 @@ def DependentToHead(dbcon,thisSearch,dbtable,matchdep,headdep):
     log('Update done. This will potentially effect {} database rows.'.format(dbcon.cur.rowcount))
     if error_sids:
         log('Key errors with sids {} (total {})'.format(','.join(error_sids),len(error_sids)))
-
-
-
 
 class DepTypeUpdater:
     """General class for many kinds of updates"""
