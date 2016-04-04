@@ -5,7 +5,7 @@ from texttable import Texttable, get_color_string, bcolors
 import os
 
 class Menu:
-    """Any command line menus that are used to ask the user for input"""
+    """Command line menus used for asking the user for input"""
     def prompt_valid(self,definedquestion=''):
             try:
                 if self.clearscreen:
