@@ -82,11 +82,15 @@ class Search:
         self.headdepcond = dict()
         #Initiate an attribute that will be dealing with the word's FINITE head's other dependents' parameters
         self.finheaddepcond = dict()
+        #FOr testing matches inside the  same sentence
+        self.samesentencecond = dict()
         #A Clumsy way of searching for adjacent words
         self.prevcond = dict()
         self.nextcond = dict()
+        self.prevornext = {'ison':False,'isfulfilled':False}
         #THIS IS AWFUL>>>!
         self.secondnextcond = dict()
+        self.secondpreviouscond = dict()
         #Record information about db
         self.queried_db = queried_db
         self.queried_table = Db.searched_table
@@ -281,6 +285,8 @@ class Search:
 
     def evaluateWordrow(self, word,sentence):
         'Test a word (in a sentence) according to criteria'
+        #This is a special condition concerning collocates, somewhat hacky
+        self.prevornext["isfulfilled"] = False
         #Iterate over the list of the sepcified column value pairs
         for MultipleValuePair in self.ConditionColumns:
             pairmatch=True
@@ -324,22 +330,25 @@ class Search:
                         #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
                         if getattr(wordinsent, self.prevcond['column'][1:]) not in self.prevcond['values']:
                             fulfills = True
-                            break
                         else:
                             fulfills = False
-                            break
                     else:
                         #If this is a positive condition:
                         #import ipdb; ipdb.set_trace()
                         if getattr(wordinsent, self.prevcond['column']) in self.prevcond['values']:
                             fulfills = True
-                            break
+                        else:
+                            fulfills = False
+                    #The actual previous word reached, stop the WHILE loop
+                    break
 
-            if not fulfills:
+            if not fulfills and not self.prevornext["ison"]:
                 #If the previous word did not meet the criteria
                 return False
+            elif fulfills and self.prevornext["ison"]:
+                self.prevornext["isfulfilled"] = True
 
-        if self.nextcond:
+        if self.nextcond and not self.prevornext["isfulfilled"]:
             #use this variable to test if the following word fulfills the criteria
             #Assume that the pw DOES NOT fulfill the criteria
             fulfills=False
@@ -352,22 +361,25 @@ class Search:
                         #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
                         if getattr(wordinsent, self.nextcond['column'][1:]) not in self.nextcond['values']:
                             fulfills = True
-                            break
                         else:
                             fulfills = False
-                            break
                     else:
                         #If this is a positive condition:
                         #import ipdb; ipdb.set_trace()
                         if getattr(wordinsent, self.nextcond['column']) in self.nextcond['values']:
                             fulfills = True
-                            break
+                        else:
+                            fulfills = False
+                    #The actual next word reached, stop the WHILE loop
+                    break
 
-            if not fulfills:
+            if not fulfills and not self.prevornext["ison"]:
                 #If the previous word did not meet the criteria
                 return False
+            elif fulfills and self.prevornext["ison"]:
+                self.prevornext["isfulfilled"] = True
 
-        if self.secondnextcond:
+        if self.secondnextcond and not self.prevornext["isfulfilled"]:
             #use this variable to test if the word after the following word fulfills the criteria
             #Assume that the pw DOES NOT fulfill the criteria
             fulfills=False
@@ -380,16 +392,46 @@ class Search:
                         #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
                         if getattr(wordinsent, self.nextcond['column'][1:]) not in self.nextcond['values']:
                             fulfills = True
-                            break
                         else:
                             fulfills = False
-                            break
                     else:
                         #If this is a positive condition:
                         #import ipdb; ipdb.set_trace()
                         if getattr(wordinsent, self.nextcond['column']) in self.nextcond['values']:
                             fulfills = True
-                            break
+                        else:
+                            fulfills = False
+                    break
+
+            if not fulfills and not self.prevornext["ison"]:
+                #If the previous word did not meet the criteria
+                return False
+            elif fulfills and self.prevornext["ison"]:
+                self.prevornext["isfulfilled"] = True
+
+        if self.secondpreviouscond and not self.prevornext["isfulfilled"]:
+            #use this variable to test if the word after the following word fulfills the criteria
+            #Assume that the pw DOES NOT fulfill the criteria
+            fulfills=False
+            wkey = word.tokenid - 1
+            while wkey-1 in sentence.words:
+                wkey -= 1
+                wordinsent = sentence.words[wkey]
+                if wordinsent.deprel.lower() not in ('punct','punc'):
+                    if self.nextcond['column'][0] == '!':
+                        #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
+                        if getattr(wordinsent, self.nextcond['column'][1:]) not in self.nextcond['values']:
+                            fulfills = True
+                        else:
+                            fulfills = False
+                    else:
+                        #If this is a positive condition:
+                        #import ipdb; ipdb.set_trace()
+                        if getattr(wordinsent, self.nextcond['column']) in self.nextcond['values']:
+                            fulfills = True
+                        else:
+                            fulfills = False
+                    break
 
             if not fulfills:
                 #If the previous word did not meet the criteria
@@ -449,6 +491,24 @@ class Search:
                 #If the head of the word did not meet the criteria
                 return False
         #-------------------------------------------------------------------------------------
+        #Test if in a certain word with certain properties is found in the same sentence
+        if self.samesentencecond:
+            fulfills = False
+            for tokenid, wordinsent in sentence.words.items():
+                    if self.samesentencecond['column'][0] == '!':
+                        #If this is a negative condition:
+                        if getattr(wordinsent, self.samesentencecond['column'][1:]) in self.samesentencecond['values']:
+                            fulfills = False
+                            break
+                    else:
+                        #If this is a positive condition:
+                        if getattr(wordinsent, self.samesentencecond['column']) in self.samesentencecond['values']:
+                            fulfills = True
+                            break
+            if not fulfills:
+                #If the head of the word did not meet the criteria
+                return False
+
         #Test conditions based on the dependents of the word
         if self.depcond2:
             #use this variable to test if EVEN ONE of the DEPENDENTS of the mathcing word fulfill the criteria
@@ -462,6 +522,13 @@ class Search:
                         #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
                         if getattr(wordinsent, self.depcond2['column'][1:]) in self.depcond2['values']:
                             headfulfills = False
+                            break
+                    elif self.depcond2['column'][0] == '#':
+                        #If this is a fuzzy condition, i.e. the head MUST have, say, an objects as its dependent and this must be tested with a regex:
+                        exp = re.compile(self.depcond2['values'])
+                        haystackvalue =  getattr(wordinsent, self.depcond2['column'][1:]) 
+                        if exp.match(haystackvalue):
+                            headfulfills=True
                             break
                     else:
                         #If this is a positive condition:
@@ -923,6 +990,9 @@ class Match:
         except AttributeError:
             self.tlcontextstring = ''
 
+    def PrintSentence(self):
+        self.matchedsentence.buildPrintString()
+        print(self.matchedsentence.printstring)
 
     def BuildSentencePrintString(self):
         """Constructs a printable sentence and highliths the match
