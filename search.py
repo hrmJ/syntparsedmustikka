@@ -152,15 +152,19 @@ class Search:
         The search.subquery attribute can be any query that selects a group of align_ids
         From the syntpar...databases
         """
-        sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id"
-        sqlq = "SELECT {0} FROM {1} WHERE {3} in ({2}) order by {3}, id".format(sql_cols, Db.searched_table, self.subquery, self.toplevel)
-        if self.limited:
-            #If the user wants to limit the search e.g. for testing large corpora
-            sqlq = "SELECT {0} FROM {1} WHERE {4} in ({2}) order by {4}, id LIMIT {3}".format(sql_cols, Db.searched_table, self.subquery, self.limited, self.toplevel)
-        start = time.time()
-        print("Starting the query...")
-        wordrows = Db.con.dictquery(sqlq,self.subqueryvalues)
-        print("Query completed in {} seconds".format(time.time()-start))
+        if self.non_db_data:
+            #if dealing with data not in the standard way but from external sources
+            wordrows = self.non_db_data
+        else:
+            sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id"
+            sqlq = "SELECT {0} FROM {1} WHERE {3} in ({2}) order by {3}, id".format(sql_cols, Db.searched_table, self.subquery, self.toplevel)
+            if self.limited:
+                #If the user wants to limit the search e.g. for testing large corpora
+                sqlq = "SELECT {0} FROM {1} WHERE {4} in ({2}) order by {4}, id LIMIT {3}".format(sql_cols, Db.searched_table, self.subquery, self.limited, self.toplevel)
+            start = time.time()
+            print("Starting the query...")
+            wordrows = Db.con.dictquery(sqlq,self.subqueryvalues)
+            print("Query completed in {} seconds".format(time.time()-start))
         if wordrows:
             start = time.time()
             print('Starting to analyze {} rows...'.format(len(wordrows)))
@@ -181,12 +185,17 @@ class Search:
         The search.subquery attribute can be any query that selects a group of sentence_ids
         From the databases.
         """
-        sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id"
-        sqlq = "SELECT {0} FROM {1} WHERE align_id in ({2}) order by align_id, id".format(sql_cols, Db.searched_table, self.subquery)
-        if self.limited:
-            #If the user wants to limit the search e.g. for testing large corpora
-            sqlq = "SELECT {0} FROM {1} WHERE align_id in ({2}) order by align_id, id LIMIT {3}".format(sql_cols, Db.searched_table, self.subquery, self.limited)
-        wordrows = Db.con.dictquery(sqlq,self.subqueryvalues)
+        if self.non_db_data:
+            #if dealing with data not in the standard way but from external sources
+            wordrows = self.non_db_data
+        else:
+            sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id"
+            sqlq = "SELECT {0} FROM {1} WHERE align_id in ({2}) order by align_id, id".format(sql_cols, Db.searched_table, self.subquery)
+            if self.limited:
+                #If the user wants to limit the search e.g. for testing large corpora
+                sqlq = "SELECT {0} FROM {1} WHERE align_id in ({2}) order by align_id, id LIMIT {3}".format(sql_cols, Db.searched_table, self.subquery, self.limited)
+            wordrows = Db.con.dictquery(sqlq,self.subqueryvalues)
+
         print('Analyzing...')
         if wordrows:
             self.pickFromAlign_ids(wordrows)
@@ -448,6 +457,7 @@ class Search:
                 wordinsent = sentence.words[wkey]
                 if word.head == wordinsent.tokenid:
                     #When the loop reaches the head of the word
+                    import ipdb; ipdb.set_trace()
                     isRoot = False
                     if self.headcond['column'][0] == '!':
                         #If this is a negative condition:
@@ -1799,7 +1809,6 @@ class Word:
             if word.tokenid == self.head:
                 self.hashead = False
 
-
     def IterateToFiniteHead(self, sentence):
         """Go up the dependency chain until a finite verb is found. If no V, return false"""
         word = self
@@ -1819,7 +1828,6 @@ class Word:
         #If no finite head found, return False
         self.finitehead = None
         return False
-
 
     def ListDependentsRecursive(self, sentence):
         """return a recursive list of dependents of the specified word"""
@@ -1870,7 +1878,7 @@ class Word:
 
     def IsThisFiniteVerb(self):
         """Return true if the word object is by its feat a finite verb form"""
-        if self.feat[0:3] in ('Vmi','Vmm') or ItemInString(['Mood=Ind','Mood=Imprt','Mood=Pot','Mood=Cond','VerbForm=Fin'],self.feat,True):
+        if self.feat[0:3] in ('Vmi','Vmm') or ItemInString(['Mood=Ind','Mood=Imprt','Mood=Pot','Mood=Cond','VerbForm=Fin','MOOD_Ind','MOOD_Cond'],self.feat,True):
             return True
         else:
             return False
@@ -2186,4 +2194,35 @@ def AssignDoubleLanguageValue(row,key,languagevalues):
     for langstatus, value in languagevalues.items():
         row[langstatus + '_' + key] = value
     return row
+
+
+def ParseKorpJson(rawdata):
+    sentences = rawdata["kwic"]
+    wordrows = list()
+    for sentence in sentences:
+        source = sentence['structs']['text_label']
+        for token in sentence['tokens']:
+            token['token'] = token['word']
+            token['tokenid'] = int(token['ref'])
+            token['head'] = int(token['dephead'])
+            token['feat'] = token['msd']
+            token['text_id'] = source
+            token['sentence_id'] = sentence['structs']['sentence_id']
+            token['id'] = 999999
+            wordrows.append(token)
+    return wordrows
+
+
+def ParseKorpSentence(tokenlist, sentence_id, source):
+    #import ipdb; ipdb.set_trace()
+    #thissent = Sentence(sentence_id)
+    for token in tokenlist:
+        token['token'] = token['word']
+        token['tokenid'] = int(token['ref'])
+        token['head'] = int(token['dephead'])
+        token['feat'] = token['msd']
+        token['text_id'] = source
+        token['id'] = 999999
+        thissent.words[int(token['ref'])] = Word(token)
+    return thissent
 
