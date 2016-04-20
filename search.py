@@ -57,10 +57,6 @@ class Search:
         searchtype = this helps to determine search-specific conditions
         matches = The matches will be saved as lists in a dict with align_ids as keys.
         """
-        if pseudo:
-            #for creating an empty search object populated by parsed serialized results
-            return 0
-        
         self.matches = defaultdict(list)
         #Save the search object to a list of all conducted searches during the session
         Search.all_searches.append(self)
@@ -96,11 +92,12 @@ class Search:
         #THIS IS AWFUL>>>!
         self.secondnextcond = dict()
         self.secondpreviouscond = dict()
-        #Record information about db
-        self.queried_db = queried_db
-        self.queried_table = Db.searched_table
-        #Change the default connection:
-        Db.con = mydatabase(queried_db,'juho')
+        if not pseudo:
+            #Record information about db
+            self.queried_db = queried_db
+            self.queried_table = Db.searched_table
+            #Change the default connection:
+            Db.con = mydatabase(queried_db,'juho')
         #Initialize a log for errors associated with this search
         self.errorLog = ''
         #By default, make monoconcordances

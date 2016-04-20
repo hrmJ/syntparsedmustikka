@@ -52,6 +52,37 @@ def makeSearch(ConditionColumns,database,dbtable,headcond=None,depcond=None,head
     logging.info('Search committed')
     return thisSearch
 
+def makeNondbSearch(ConditionColumns, headcond=None,depcond=None,headdepcond=None,secondnextcond=None, finheaddepcond=None,depcond2=None,nextcond=None,prevcond=None,prevornext=False, appendconditioncolumns=True,isparallel=False,extralog='',limited=None, monoling=False,samesentencecond=None, secondpreviouscond=None,non_db_data=None):
+    logging.info('Starting the search..')
+    if extralog:
+        logging.info(extralog)
+    thisSearch = Search(askname=False,pseudo=True)
+    thisSearch.isparallel = isparallel
+    thisSearch.limited = limited
+    if monoling:
+        thisSearch.toplevel = "sentence_id"
+    if appendconditioncolumns:
+        thisSearch.ConditionColumns.append(ConditionColumns)
+    else:
+        thisSearch.ConditionColumns = ConditionColumns
+    thisSearch.headcond = headcond
+    thisSearch.depcond = depcond
+    thisSearch.depcond2 = depcond2
+    thisSearch.headdepcond = headdepcond
+    thisSearch.finheaddepcond = finheaddepcond
+    thisSearch.prevcond = prevcond
+    thisSearch.nextcond = nextcond
+    thisSearch.samesentencecond = samesentencecond
+    thisSearch.secondnextcond = secondnextcond
+    thisSearch.secondpreviouscond = secondpreviouscond
+    thisSearch.non_db_data = non_db_data
+    if prevornext:
+        #In situations where it is enough for either of the surrounding words to fulfill a criterion
+        thisSearch.prevornext['ison'] = True
+    thisSearch.find()
+    logging.info('Search committed')
+    return thisSearch
+
 def DependentSameAsHead(dbcon,thisSearch,dbtable,matchdep):
     """Make the matched word'shead same as the head's head"""
     updated=0
