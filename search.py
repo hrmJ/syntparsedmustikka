@@ -20,6 +20,7 @@ from texttable import Texttable, get_color_string, bcolors
 import time
 import datetime
 from statistics import mean, median
+import json
 #from analysistools import InsertDeprelColumns, ListSisters
 
 class Db:
@@ -49,13 +50,17 @@ class Search:
     """This is the very
     basic class that is used to retrieve data from the corpus"""
     all_searches = []
-    def __init__(self,queried_db='',askname=True):
+    def __init__(self,queried_db='',askname=True, pseudo=False):
         """Initialize a search object. 
         ----------------------------------------
         attributes:
         searchtype = this helps to determine search-specific conditions
         matches = The matches will be saved as lists in a dict with align_ids as keys.
         """
+        if pseudo:
+            #for creating an empty search object populated by parsed serialized results
+            return 0
+        
         self.matches = defaultdict(list)
         #Save the search object to a list of all conducted searches during the session
         Search.all_searches.append(self)
@@ -107,6 +112,42 @@ class Search:
         """Save the search object as a pickle file"""
         savepickle(self.filename,self)
         input('Pickle succesfully saved.')
+
+    def SerializeMonoMatches(self, fname=None):
+        matchlist = list()
+        for sentence_id, matches in self.matches.items():
+            for match in matches:
+                matchlist.append(match.Serialize())
+
+        if fname:
+            with open(fname, 'w') as outfile:
+                json.dump(matchlist, outfile, ensure_ascii=False)
+
+    def SerializeSentences(self, fname=None):
+        wordrows = list()
+        for sentence_id in self.matches.keys():
+            sentence = self.matches[sentence_id][0].matchedsentence
+            for wkey in sorted(map(int, sentence.words)):
+                row=dict()
+                word = sentence.words[wkey]
+                row["sentence_id"]   = sentence_id
+                row["token"]         = word.token     
+                row["lemma"]         = word.lemma     
+                row["pos"]           = word.pos       
+                row["feat"]          = word.feat      
+                row["head"]          = word.head      
+                row["deprel"]        = word.deprel    
+                row["tokenid"]       = word.tokenid   
+                row["text_id"]       = word.sourcetextid 
+                row["id"]            = word.dbid
+                wordrows.append(row)
+
+        self.serialized_sentences = wordrows
+
+        if fname:
+            with open(fname, 'w') as outfile:
+                json.dump(wordrows, outfile, ensure_ascii=False)
+
 
     def BuildSubQuery(self):
         """Builds a subquery to be used in the find method"""
@@ -457,7 +498,7 @@ class Search:
                 wordinsent = sentence.words[wkey]
                 if word.head == wordinsent.tokenid:
                     #When the loop reaches the head of the word
-                    import ipdb; ipdb.set_trace()
+                    #import ipdb; ipdb.set_trace()
                     isRoot = False
                     if self.headcond['column'][0] == '!':
                         #If this is a negative condition:
@@ -942,6 +983,7 @@ class Match:
         self.rejectreason = ''
         self.align_id = align_id
 
+
     def postprocess(self,rejectreason):
         """If the user wants to filter the matches and mark some of them manually as accepted and some rejected"""
         self.postprocessed = True
@@ -1351,6 +1393,9 @@ class MonoMatch(Match):
         #For post processing purposes
         self.postprocessed = False
 
+    def Serialize(self):
+        return {'matchedsentence':self.matchedsentence.Serialize(), 'matchedword':self.matchedword.Serialize(self.matchedsentence.sentence_id)}
+
 class Sentence:
     """
     The sentence consists of words (which can actually also be punctuation marks).
@@ -1363,6 +1408,15 @@ class Sentence:
         self.words = dict()
         #By default, the sentence's matchids attribute is an empty list = no matches in this sentence
         self.matchids = list()
+
+    def Serialize(self):
+        swords = dict()
+        for wkey in sorted(map(int,self.words)):
+            swords[wkey] = self.words[wkey].Serialize(self.sentence_id)
+
+        return {'words':swords,'sentence_id':self.sentence_id}
+
+
 
     def BuildHighlightedPrintString(self,matchedword):
         """Constructs a printable sentence and highliths the match
@@ -1784,6 +1838,23 @@ class Word:
         #The general id in the db conll table
         self.dbid =  row["id"]
 
+    def Serialize(self, sentence_id):
+
+        row = dict()
+        row["sentence_id"]   = sentence_id
+        row["token"]         = self.token     
+        row["lemma"]         = self.lemma     
+        row["pos"]           = self.pos       
+        row["feat"]          = self.feat      
+        row["head"]          = self.head      
+        row["deprel"]        = self.deprel    
+        row["tokenid"]       = self.tokenid   
+        row["text_id"]       = self.sourcetextid 
+        row["id"]            = self.dbid
+
+        return row
+
+
     def printAttributes(self):
         print('Attributes of the word:\n token = {} \n lemma = {} \n feat = {} \n  pos = {}'.format(self.token,self.lemma,self.feat,self.pos))
 
@@ -1883,7 +1954,64 @@ class Word:
         else:
             return False
 
-######################################################################
+class Condition():
+
+    def __init__(self, attr, vals, ttype="Positive"):
+        self.attr = attr 
+        self.vals = vals
+        self.testtype  = ttype
+
+    def Reset(self):
+        self.tested = False
+        #Depending on the test type, start with either assuming the test passed or failed
+        ttypes = {'Positive':False,'Negative':True,'Fuzzy':True}
+        self.passed = ttypes[self.testtype]
+
+    def Test(self, word):
+        ttypes = {'Positive':self.TestPositive,'Negative':self.TestNegative,'Fuzzy':self.TestFuzzy}
+        ttypes[self.testtype](word)
+        self.tested = True
+
+    def TestPositive(self, word):
+        """At the moment even one single positive instance makes the test pass"""
+        if getattr(word, self.attr) in self.vals:
+            self.passed = True
+
+    def TestNegative(self, word):
+        """This does not work yet, it is just a sketch for future use"""
+        #import ipdb; ipdb.set_trace()
+        if getattr(word, self.attr) in self.vals:
+            self.passed = False
+
+    def TestFuzzy(self, word):
+        """This does not work yet, it is just a sketch for future use"""
+        if getattr(word, self.attr) in self.vals:
+            self.passed = True
+
+class MatchFilter():
+    """This class is intended to replace the messy evaluatewordrow method"""
+
+    def __init__(self, match, condition):
+        self.word = match.matchedword
+        self.sentence = match.matchedsentence
+        self.condition = condition
+        self.condition.Reset()
+
+    def FilterByFiniteHeadDep(self):
+        """
+        - This condition is applied on the basis of the first finite verb in the chain of the matching words heads (fhead)
+        - Positive: if there is even one word in the [fhead]'s dependents matching the [vals], the test will pass
+        - Negative: if there is even one word in the [fhead]'s dependents matching the [vals], the test will not pass
+        """
+        if self.word.IterateToFiniteHead(self.sentence):
+            self.word.finitehead.ListDependents(self.sentence)
+            for thisword in self.word.finitehead.dependentlist:
+                self.condition.Test(thisword)
+        return self.condition.passed
+
+
+
+    ######################################################################
 
 def PrintTimeInformation(elapsedtimes,start,done,matchcount,bar):
     """ Print information about the manual annotations etc"""
@@ -2195,21 +2323,28 @@ def AssignDoubleLanguageValue(row,key,languagevalues):
         row[langstatus + '_' + key] = value
     return row
 
+def MatchdataToRaw():
+    """Convert a search to pseudo-database rows for a consequent search limited on the once matched material"""
+    wordrows = list()
 
 def ParseKorpJson(rawdata):
     sentences = rawdata["kwic"]
     wordrows = list()
     for sentence in sentences:
-        source = sentence['structs']['text_label']
-        for token in sentence['tokens']:
-            token['token'] = token['word']
-            token['tokenid'] = int(token['ref'])
-            token['head'] = int(token['dephead'])
-            token['feat'] = token['msd']
-            token['text_id'] = source
-            token['sentence_id'] = sentence['structs']['sentence_id']
-            token['id'] = 999999
-            wordrows.append(token)
+        try:
+            source = sentence['structs']['text_label']
+            for token in sentence['tokens']:
+                token['token'] = token['word']
+                token['tokenid'] = int(token['ref'])
+                token['head'] = int(token['dephead'])
+                token['feat'] = token['msd']
+                token['text_id'] = source
+                token['sentence_id'] = sentence['structs']['sentence_id']
+                token['id'] = 999999
+                wordrows.append(token)
+        except KeyError:
+            print('Ei sanomalehtiaineistoa, skipataan...')
+            pass
     return wordrows
 
 
@@ -2225,4 +2360,20 @@ def ParseKorpSentence(tokenlist, sentence_id, source):
         token['id'] = 999999
         thissent.words[int(token['ref'])] = Word(token)
     return thissent
+
+def ParseSerializedMonoMatch(matchdict):
+    matchedsentence = Sentence(matchdict['matchedsentence']['sentence_id'])
+    words = matchdict['matchedsentence']['words']
+    for wkey in sorted(map(int, words)):
+        matchedsentence.words[wkey] = Word(words[str(wkey)])
+        matchedsentence.matchids.append(int(matchdict['matchedword']['tokenid']))
+    return MonoMatch(int(matchdict['matchedword']['tokenid']), matchedsentence)
+
+def ParseMatchList(matchlist):
+    matches = list()
+    for match in matchlist:
+        matches.append(ParseSerializedMonoMatch(match))
+    return matches
+
+
 
