@@ -1350,7 +1350,7 @@ class Match:
         self.DefinePositionMatch()
 
         if not hasattr(self.positionmatchword,'finitehead'):
-            self.positionmatchword.IterateToFiniteHead()
+            self.positionmatchword.IterateToFiniteHead(self.matchedsentence)
 
         if self.positionmatchword.tokenid < self.positionmatchword.finitehead.tokenid:
             #What if the object precedes the verb, too?
@@ -1358,7 +1358,7 @@ class Match:
 
         #... Find the object
         for word in self.positionmatchword.finitehead.dependentlist:
-            if word.deprel == 'dobj':
+            if word.deprel in ('1-компл','dobj'):
                 dobj = word
                 break
 
