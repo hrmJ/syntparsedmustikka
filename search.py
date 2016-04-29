@@ -1344,7 +1344,7 @@ class Match:
 
         return True
 
-    def TransitiveSentenceDistancies(self):
+    def TransitiveSentenceDistancies(self, p2active=False):
         """ If the word's finite head has a dobj as its dependent, compare the position of the match and the dobj  """
         #1. In the beginning of the clause
         self.DefinePositionMatch()
@@ -1352,25 +1352,57 @@ class Match:
         if not hasattr(self.positionmatchword,'finitehead'):
             self.positionmatchword.IterateToFiniteHead(self.matchedsentence)
 
-        if self.positionmatchword.tokenid < self.positionmatchword.finitehead.tokenid:
-            #What if the object precedes the verb, too?
-            return "beforeverb"
 
-        #... Find the object
+        #... Find the object and the subject
+        dobj = None
+        nsubj = None
         for word in self.positionmatchword.finitehead.dependentlist:
-            if word.deprel in ('1-компл','dobj'):
+            if word.deprel in ('1-компл','dobj') and not dobj:
+                #Take the first 1-kompl
                 dobj = word
-                break
+            if word.deprel in ('предик','nsubj'):
+                nsubj = word
 
-        #2. In relation to the object
-        if self.positionmatchword.tokenid < dobj.tokenid:
-            return "beforeobject"
-        elif self.positionmatchword.tokenid > dobj.tokenid:
-            return "afterobject"
+        #Test, which word the matched word precedes
+        #import ipdb; ipdb.set_trace()
+        comps = self.MatchPrecedes({'verb':self.positionmatchword.finitehead, 'dobj':dobj, 'nsubj':nsubj})
+
+        if not p2active:
+            if not comps['verb'] and comps ['dobj']:
+                return "beforeobject"
+            elif not comps['verb'] and not comps['dobj']:
+                return "afterobject"
+            elif comps['verb'] and comps['dobj']:
+                return "beforeverb"
         else:
-            return "failed"
+            if comps['nsubj'] and comps['verb'] and comps['dobj']:
+                return "beforeverb_and_subject"
+            elif not comps['nsubj'] and comps['verb'] and comps['dobj']:
+                return "beforeverb"
+            elif not comps['nsubj'] and not comps['verb'] and comps['dobj']:
+                return "beforeobject"
+            elif not comps['nsubj'] and not comps['verb'] and not comps['dobj']:
+                return "afterobject"
+
+        return "failed"
 
 
+
+    def MatchPrecedes(self, comps):
+        """ compare a word to a list of other words in the sentence 
+        - comps: a dict of word objects and their names
+        """
+        results = dict()
+        for compname, compword in comps.items():
+            #f = failed
+            results[compname] = "failed"
+            if compword:
+                if self.matchedword.tokenid > compword.tokenid:
+                    results[compname] = False
+                elif self.matchedword.tokenid < compword.tokenid:
+                    results[compname] = True
+
+        return results
 
 
 class MonoMatch(Match):
@@ -2371,6 +2403,4 @@ def ParseMatchList(matchlist):
     for match in matchlist:
         matches.append(ParseSerializedMonoMatch(match))
     return matches
-
-
 
