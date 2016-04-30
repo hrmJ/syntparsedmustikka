@@ -23,16 +23,18 @@ class psycopg:
         else:
             self.tablenames = tablenames
 
-    def query(self, SQL, valuetuple=("empty",)):
+    def query(self, SQL, valuetuple=("empty",),commit=False):
         """A general query for inserting updating etc."""
         try:
             self.cur.execute(SQL, valuetuple)
+            if commit:
+                self.connection.commit()
         except psycopg2.Error as e:
             print("Somerthing wrong with the query")
             print ("Psql gives the error: {}".format(e.pgerror))
 
 
-    def FetchQuery(self, SQL,valuetuple=("empty",),usedict=False):
+    def FetchQuery(self, SQL,valuetuple=("empty",),usedict=False, flatten=False):
         " Query with a non-dictionary cursor "
         try:
             if usedict:
@@ -40,7 +42,13 @@ class psycopg:
                 return self.dictcur.fetchall()
             else:
                 self.cur.execute(SQL, valuetuple)
-                return self.cur.fetchall()
+                if flatten:
+                    #Change the list of lists to list of single elements if the user wishes
+                    #i.e. usually when only one column asked for
+                    res = self.cur.fetchall()
+                    return [item for sublist in res for item in sublist]
+                else:
+                    return self.cur.fetchall()
         except psycopg2.Error as e:
             print("Something wrong with the query")
             print(SQL)

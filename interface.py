@@ -100,7 +100,10 @@ class MainMenu:
            # addheadcond = input('Press enter to move on, h to add conditions concerning the head of the matching word')
            # if addheadcond == 'h':
            #     self.conditionset.AddConditions(headcond=True)
-            self.search = makeSearch(database=Db.con.dbname, dbtable=Db.searched_table, ConditionColumns=self.conditionset.condcols,headcond=self.conditionset.headcols, isparallel=parallelon)
+            if parallelon:
+                self.search = makeSearch(database=Db.con.dbname, dbtable=Db.searched_table, ConditionColumns=self.conditionset.condcols,headcond=self.conditionset.headcols, isparallel=parallelon)
+            else:
+                self.search = makeSearch(database=Db.con.dbname, dbtable=Db.searched_table, ConditionColumns=self.conditionset.condcols,headcond=self.conditionset.headcols, isparallel=parallelon, monoling=True)
             printResults(self.search)
             self.searchcommitted = True
 

@@ -86,7 +86,12 @@ class SourceText(TextPair):
             super().__init__(table, inputfile, conllinput=conllinput)
         #Insert this text to the text_ids table
         if blogmeta:
-            con.query("INSERT INTO text_ids (title, source_blog, post_id, parsedate) values(%s,%s,%s,%s)", (blogmeta['source'],blogmeta['source'],blogmeta['id'],blogmeta['parsed']),commit=True)
+            try:
+                con.query("INSERT INTO text_ids (title, source_blog, post_id, parsedate) values(%s,%s,%s,%s)", (blogmeta['source'],blogmeta['source'],blogmeta['id'],blogmeta['parsed']),commit=True)
+            except TypeError:
+                con.query("INSERT INTO text_ids (title) values(%s)", (blogmeta,),commit=True)
+            except KeyError:
+                con.query("INSERT INTO text_ids (title) values(%s)", (blogmeta,),commit=True)
         else:
             con.query("INSERT INTO text_ids (title) values(%s)", (self.inputfile,),commit=True)
         self.sentence_id = GetLastValue(con.FetchQuery("SELECT max(sentence_id) FROM {}".format(self.table)))
