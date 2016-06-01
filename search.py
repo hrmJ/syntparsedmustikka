@@ -16,7 +16,7 @@ from dbmodule import mydatabase, psycopg
 from menus import Menu, multimenu, yesnomenu 
 from itertools import chain
 from progress.bar import Bar
-from texttable import Texttable, get_color_string, bcolors
+#from texttable import Texttable, get_color_string, bcolors
 import time
 import datetime
 from statistics import mean, median
@@ -57,6 +57,9 @@ class Search:
         searchtype = this helps to determine search-specific conditions
         matches = The matches will be saved as lists in a dict with align_ids as keys.
         """
+
+        #The relevant columns used 
+        self.sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id"
         self.matches = defaultdict(list)
         #Save the search object to a list of all conducted searches during the session
         Search.all_searches.append(self)
@@ -156,7 +159,17 @@ class Search:
                 MultipleValuePairs += " OR "
             MultipleValuePairs += "({})".format(self.BuildSubqString(ivaluedict,sqlidx))
             sqlidx += 1
-        self.subquery = """SELECT {} FROM {} WHERE {} """.format(self.toplevel, Db.searched_table,MultipleValuePairs)
+
+        #restricting the search scope by groups
+        target = Db.searched_table
+        if hasattr(self, 'groupname'):
+            if self.groupname:
+                target = self.BuildRestrictedSet()
+
+        self.subquery = """SELECT {} FROM {} WHERE {} """.format(self.toplevel, target, MultipleValuePairs)
+
+    def BuildRestrictedSet(self):
+        return  "(SELECT {} FROM {} WHERE sentence_id IN (SELECT sentence_id FROM groups WHERE name = '{}')) AS groupq".format(self.sql_cols, Db.searched_table, self.groupname)
 
     def BuildSubqString(self, ivaluedict,parentidx):
         """ Constructs the actual condition. Values must be TUPLES."""
@@ -194,11 +207,10 @@ class Search:
             #if dealing with data not in the standard way but from external sources
             wordrows = self.non_db_data
         else:
-            sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id"
-            sqlq = "SELECT {0} FROM {1} WHERE {3} in ({2}) order by {3}, id".format(sql_cols, Db.searched_table, self.subquery, self.toplevel)
+            sqlq = "SELECT {0} FROM {1} WHERE {3} in ({2}) order by {3}, id".format(self.sql_cols, Db.searched_table, self.subquery, self.toplevel)
             if self.limited:
                 #If the user wants to limit the search e.g. for testing large corpora
-                sqlq = "SELECT {0} FROM {1} WHERE {4} in ({2}) order by {4}, id LIMIT {3}".format(sql_cols, Db.searched_table, self.subquery, self.limited, self.toplevel)
+                sqlq = "SELECT {0} FROM {1} WHERE {4} in ({2}) order by {4}, id LIMIT {3}".format(self.sql_cols, Db.searched_table, self.subquery, self.limited, self.toplevel)
             start = time.time()
             print("Starting the query...")
             wordrows = Db.con.dictquery(sqlq,self.subqueryvalues)
@@ -227,11 +239,9 @@ class Search:
             #if dealing with data not in the standard way but from external sources
             wordrows = self.non_db_data
         else:
-            sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id"
-            sqlq = "SELECT {0} FROM {1} WHERE align_id in ({2}) order by align_id, id".format(sql_cols, Db.searched_table, self.subquery)
             if self.limited:
                 #If the user wants to limit the search e.g. for testing large corpora
-                sqlq = "SELECT {0} FROM {1} WHERE align_id in ({2}) order by align_id, id LIMIT {3}".format(sql_cols, Db.searched_table, self.subquery, self.limited)
+                sqlq = "SELECT {0} FROM {1} WHERE align_id in ({2}) order by align_id, id LIMIT {3}".format(self.sql_cols, Db.searched_table, self.subquery, self.limited)
             wordrows = Db.con.dictquery(sqlq,self.subqueryvalues)
 
         print('Analyzing...')
@@ -644,8 +654,7 @@ class Search:
 
     def FetchPreviousAlign(self,align_id):
         """Fetches the previous align unit from the db"""
-        sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id"
-        sqlq = "SELECT {0} FROM {1} WHERE align_id = {2} order by align_id, id".format(sql_cols, Db.searched_table, align_id)
+        sqlq = "SELECT {0} FROM {1} WHERE align_id = {2} order by align_id, id".format(self.sql_cols, Db.searched_table, align_id)
         wordrows = Db.con.dictquery(sqlq)
 
     def listMatchids(self):
@@ -700,8 +709,7 @@ class Search:
         elif self.queried_table == 'ru_conll':
             self.parallel_table = 'fi_conll'
 
-        sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id, contr_deprel, contr_head"
-        sqlq = "SELECT {0} FROM {1} WHERE align_id in %(ids)s order by align_id, id".format(sql_cols, self.parallel_table)
+        sqlq = "SELECT {0} FROM {1} WHERE align_id in %(ids)s order by align_id, id".format(self.sql_cols, self.parallel_table)
         print('Quering the database, this might take a while...')
         wordrows = con.FetchQuery(sqlq,{'ids':tuple(self.matches.keys())},usedict=True)
         print('Analyzing...')

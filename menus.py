@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 #Classes{{{1
 #Menu{{{2
-from texttable import Texttable, get_color_string, bcolors
+#from texttable import Texttable, get_color_string, bcolors
 import os
 
 class Menu:
