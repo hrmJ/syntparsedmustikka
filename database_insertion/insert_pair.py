@@ -214,16 +214,23 @@ def BulkInsert():
         print('Inserting {} and its translation...'.format(pair['sl']))
         InsertPair(database,pair['sl'],pair['tl'], sltable, tltable)
 
-def InsertPair(dbname=None,slfile=None,tlfile=None,sl_tablename=None,tl_tablename=None, reference_file=None):
+def InsertPair(dbname=None,slfile=None,tlfile=None,sl_tablename=None,tl_tablename=None, reference_file=None, retrans=False):
     """Method for inserting one file pair either according to cmdline arguments or by function arguments"""
     if not dbname:
         #If not run from another method, get command line input:
         try:
-            dbname = sys.argv[1]
-            slfile = sys.argv[2]
-            tlfile = sys.argv[3]
-            sl_tablename = sys.argv[4] + '_conll'
-            tl_tablename = sys.argv[5] + '_conll'
+            if retrans:
+                dbname = sys.argv[2]
+                slfile = sys.argv[3]
+                tlfiles = sys.argv[4:]
+                sl_tablename = 'ru_conll'
+                tl_tablename = 'fi_conll'
+            else:
+                dbname = sys.argv[1]
+                slfile = sys.argv[2]
+                tlfile = sys.argv[3]
+                sl_tablename = sys.argv[4] + '_conll'
+                tl_tablename = sys.argv[5] + '_conll'
         except IndexError:
             raise ArgumentError('Usage: {} <database name> <sl file> <tl file> <source language> <target language>'.format(sys.argv[0]))
 
@@ -234,10 +241,17 @@ def InsertPair(dbname=None,slfile=None,tlfile=None,sl_tablename=None,tl_tablenam
     sl.InsertToDb(con)
 
     if tl_tablename:
-        #If this is a bilingual file
-        tl  = Translation(tl_tablename, tlfile, con, sl.text_id, sl.table)
-        tl.CollectSegments()
-        tl.InsertToDb(con)
+        if retrans:
+            tltexts = list()
+            for tlfile in tlfiles:
+                tltexts.append(Translation(tl_tablename, tlfile, con, sl.text_id, sl.table))
+                tltexts[-1].CollectSegments()
+            return [sl,tltexts]
+        else:
+            #If this is an ordinary bilingual file
+            tl  = Translation(tl_tablename, tlfile, con, sl.text_id, sl.table)
+            tl.CollectSegments()
+            tl.InsertToDb(con)
 
 #============================================================
 
@@ -245,7 +259,9 @@ if __name__ == "__main__":
     try:
         if sys.argv[1] == 'bulk':
             BulkInsert()
+        elif sys.argv[1] == 'retrans':
+            InsertPair(retrans=True)
         else:
-            InsertPair()
+            pair = InsertPair()
     except IndexError:
         raise ArgumentError('Usage: {} <database name> <sl file> <tl file> <source language> <target language>'.format(sys.argv[0]))
