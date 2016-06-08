@@ -12,9 +12,8 @@ CREATE TABLE
 		align_id BIGINT,
 		text_id BIGINT,
 		translation_id BIGINT,
-		id SERIAL PRIMARY KEY,
-		contr_deprel VARCHAR,
-		contr_head SMALLINT);
+		id SERIAL PRIMARY KEY
+		);
 CREATE TABLE
 	fi_conll
 		(
@@ -29,9 +28,8 @@ CREATE TABLE
 		align_id BIGINT,
 		text_id BIGINT,
 		translation_id BIGINT,
-		id SERIAL PRIMARY KEY,
-		contr_deprel VARCHAR,
-		contr_head SMALLINT);
+		id SERIAL PRIMARY KEY
+		);
 CREATE TABLE
 	text_ids
 		(
@@ -63,3 +61,17 @@ CREATE TABLE
 		genre VARCHAR
 		);
 
+
+CREATE TABLE groups
+(
+  id serial NOT NULL,
+  name character varying,
+  sentence_id bigint,
+  corpus character varying,
+  CONSTRAINT groups_pkey PRIMARY KEY (id)
+)
+WITH (
+  OIDS=FALSE
+);
+ALTER TABLE groups
+  OWNER TO juho;

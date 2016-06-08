@@ -3,10 +3,11 @@ import re
 from insert_pair import TrimList, Bar, psycopg, AddRow, TextPair, GetLastValue
 
 class InsData():
-    def __init__(self, conllfile, metadatafile, dbname, lang, groupname=''):
+    def __init__(self, conllfile, metadatafile, dbname, lang, groupname='',corpusname=''):
         self.table = lang + '_conll'
         self.con = psycopg(dbname,'juho')
         self.groupname = groupname
+        self.corpusname = corpusname
         self.GetMeta(metadatafile)
         with open(conllfile,'r') as f:
             self.conllinput = f.read()
@@ -46,6 +47,7 @@ class InsData():
         last_segment_idx    = GetLastValue(self.con.FetchQuery("SELECT max(align_id) FROM {}".format(self.table)))
         self.rowlist = list()
         self.groupnamelist = list()
+        #import ipdb; ipdb.set_trace()
         bar=Bar('Reading the conll input...',max=int(len(self.segments)/100))
         for segment_idx, segment in enumerate(self.segments):
             align_id = last_segment_idx + segment_idx + 1
@@ -54,11 +56,16 @@ class InsData():
                 if word == '':
                     #empty lines are sentence breaks
                     sentence_id += 1
-                    self.groupnamelist.append({'name': self.groupname,'sentence_id': sentence_id})
+                    self.groupnamelist.append({'name': self.groupname,'sentence_id': sentence_id, 'corpus':self.corpusname})
                 else:
                     columns = word.split('\t')
                     #0 is for "translation_id" that doesn't exist for momolingual files
-                    self.rowlist.append(AddRow(columns, align_id, sentence_id, self.GetTextId(self.reflist[segment_idx]), self.table, 0))
+                    try:
+                        self.rowlist.append(AddRow(columns, align_id, sentence_id, self.GetTextId(self.reflist[segment_idx]), self.table, 0))
+                    except IndexError:
+                        #hacky! just using the previous reference if the reflist is 1 line too long
+                        self.rowlist.append(AddRow(columns, align_id, sentence_id, self.GetTextId(self.reflist[-1]), self.table, 0))
+                        print('some problem with the number of segments and the number of references...')
             if segment_idx % 100 == 0:
                 bar.next()
 
@@ -97,7 +104,7 @@ class InsData():
         print('Inserted {} rows.'.format(self.con.cur.rowcount))
 
 if (len(sys.argv)<5):
-    sys.exit('Usage: {} <conllinput> <references> <dbname> <lang> <groupname>'.format(sys.argv[0]))
+    sys.exit('Usage: {} <conllinput> <references> <dbname> <lang> <groupname> <corpus name>'.format(sys.argv[0]))
 
 thisdata = InsData(*sys.argv[1:])
 thisdata.PrepareConllToDb()

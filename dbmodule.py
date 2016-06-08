@@ -9,7 +9,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sys import platform as _platform
 
 class psycopg:
-    def __init__(self,dbname,username,autocom=False, tablenames=None):
+    def __init__(self,dbname,username='juho',autocom=False, tablenames=None):
         if _platform == "linux" or _platform == "linux2":
             self.connection = psycopg2.connect("dbname='{}' user='{}'".format(dbname, username))
         elif _platform == "cygwin":

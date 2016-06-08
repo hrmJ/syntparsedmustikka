@@ -21,36 +21,25 @@ import time
 import datetime
 from statistics import mean, median
 import json
+from sys import platform as _platform
 #from analysistools import InsertDeprelColumns, ListSisters
 
-class Db:
-    """ A class to include some shared properties for the search and
-    the match classes"""
-    # What is the language table used in the queries
-    searched_table = ''
-    #a connection to db
-    #con = mydatabase('syntparfin','juho')
+if _platform == "linux" or _platform == "linux2":
+    scriptdir = '/home/juho/syntparsedmustikka'
+    phddir = '/home/juho/phdmanuscript'
+elif _platform == "cygwin":
+    scriptdir = '/cygdrive/k/corpora/syntparsedmustikka'
+    phddir = '/cygdrive/k/phdmanuscript'
 
-class ConstQuery:
-    """Some often used queries can be saved as instances of this class"""
-    # What is the language table used in the queries
-    independentByLemma2 ="""SELECT lemmaQ.align_id FROM 
-                            (SELECT * FROM {0} WHERE lemma = %s) as lemmaQ, {0}
-                                WHERE {0}.tokenid = lemmaQ.head AND 
-                                {0}.sentence_id = lemmaQ.sentence_id AND
-                                {0}.deprel='ROOT'""".format('ru_conll')
+sys.path.append(phddir)
 
-    independentByLemma ="""SELECT lemmaQ.id, lemmaQ.align_id, lemmaQ.text_id, lemmaQ.sentence_id FROM 
-                            (SELECT * FROM {0} WHERE lemma = %s) as lemmaQ, {0}
-                                WHERE {0}.tokenid = lemmaQ.head AND 
-                                {0}.sentence_id = lemmaQ.sentence_id AND
-                                {0}.deprel='ROOT'""".format('ru_conll')
+import  monograph.kasittely.luku2.get_nkrja_json as nkrjamodule
 
 class Search:
     """This is the very
     basic class that is used to retrieve data from the corpus"""
     all_searches = []
-    def __init__(self,queried_db='',askname=True, pseudo=False):
+    def __init__(self,queried_db='',askname=False, pseudo=False):
         """Initialize a search object. 
         ----------------------------------------
         attributes:
@@ -95,18 +84,36 @@ class Search:
         #THIS IS AWFUL>>>!
         self.secondnextcond = dict()
         self.secondpreviouscond = dict()
+        self.queried_table = ''
         if not pseudo:
             #Record information about db
             self.queried_db = queried_db
-            self.queried_table = Db.searched_table
+            #self.queried_table = Db.searched_table
             #Change the default connection:
-            Db.con = mydatabase(queried_db,'juho')
+            self.con = mydatabase(queried_db,'juho')
         #Initialize a log for errors associated with this search
         self.errorLog = ''
         #By default, make monoconcordances
         self.isparallel = False
         #Count the numnber of actual matches
         self.absolutematchcount = 0
+
+    def Reset(self, parameters=list()):
+        self.absolutematchcount = 0
+        self.matches = defaultdict(list)
+        for parameter in parameters:
+            thisparameter = getattr(self, parameter) 
+            if isinstance(thisparameter, list):
+                setattr(self, parameter, list())
+            if isinstance(thisparameter, dict):
+                setattr(self, parameter, dict())
+            else:
+                setattr(self, parameter, None)
+        self.prevornext = {'ison':False,'isfulfilled':False}
+
+    def Run(self, nogroup=False):
+        self.BuildSubQuery(nogroup)
+        self.Find()
 
     def Save(self):
         """Save the search object as a pickle file"""
@@ -149,11 +156,13 @@ class Search:
                 json.dump(wordrows, outfile, ensure_ascii=False)
 
 
-    def BuildSubQuery(self):
+    def BuildSubQuery(self, nogroup=False):
         """Builds a subquery to be used in the find method"""
         MultipleValuePairs = ''
         #This is to make sure psycopg2 uses the correct %s values
         sqlidx=0
+        if not isinstance(self.ConditionColumns,list):
+            self.ConditionColumns = [self.ConditionColumns]
         for ivaluedict in self.ConditionColumns:
             if MultipleValuePairs:
                 MultipleValuePairs += " OR "
@@ -161,15 +170,15 @@ class Search:
             sqlidx += 1
 
         #restricting the search scope by groups
-        target = Db.searched_table
-        if hasattr(self, 'groupname'):
+        target = self.queried_table
+        if hasattr(self, 'groupname') and not nogroup:
             if self.groupname:
                 target = self.BuildRestrictedSet()
 
         self.subquery = """SELECT {} FROM {} WHERE {} """.format(self.toplevel, target, MultipleValuePairs)
 
     def BuildRestrictedSet(self):
-        return  "(SELECT {} FROM {} WHERE sentence_id IN (SELECT sentence_id FROM groups WHERE name = '{}')) AS groupq".format(self.sql_cols, Db.searched_table, self.groupname)
+        return  "(SELECT {} FROM {} WHERE sentence_id IN (SELECT sentence_id FROM groups WHERE name = '{}')) AS groupq".format(self.sql_cols, self.queried_table, self.groupname)
 
     def BuildSubqString(self, ivaluedict,parentidx):
         """ Constructs the actual condition. Values must be TUPLES."""
@@ -198,7 +207,7 @@ class Search:
             sqlidx += 1
         return condition
 
-    def find(self):
+    def Find(self):
         """Query the database according to instructions from the user
         The search.subquery attribute can be any query that selects a group of align_ids
         From the syntpar...databases
@@ -207,13 +216,13 @@ class Search:
             #if dealing with data not in the standard way but from external sources
             wordrows = self.non_db_data
         else:
-            sqlq = "SELECT {0} FROM {1} WHERE {3} in ({2}) order by {3}, id".format(self.sql_cols, Db.searched_table, self.subquery, self.toplevel)
+            sqlq = "SELECT {0} FROM {1} WHERE {3} in ({2}) order by {3}, id".format(self.sql_cols, self.queried_table, self.subquery, self.toplevel)
             if self.limited:
                 #If the user wants to limit the search e.g. for testing large corpora
-                sqlq = "SELECT {0} FROM {1} WHERE {4} in ({2}) order by {4}, id LIMIT {3}".format(self.sql_cols, Db.searched_table, self.subquery, self.limited, self.toplevel)
+                sqlq = "SELECT {0} FROM {1} WHERE {4} in ({2}) order by {4}, id LIMIT {3}".format(self.sql_cols, self.queried_table, self.subquery, self.limited, self.toplevel)
             start = time.time()
             print("Starting the query...")
-            wordrows = Db.con.dictquery(sqlq,self.subqueryvalues)
+            wordrows = self.con.FetchQuery(sqlq,self.subqueryvalues,usedict=True)
             print("Query completed in {} seconds".format(time.time()-start))
         if wordrows:
             start = time.time()
@@ -229,28 +238,6 @@ class Search:
             print('Analysis completed in {} seconds, {} matches found!'.format(time.time()-start, self.absolutematchcount))
         else:
             return print('Nothing found..')
-
-    def FindMonoLing(self):
-        """Query the database OF A MONOLINGUAL corpus according to instructions from the user.
-        The search.subquery attribute can be any query that selects a group of sentence_ids
-        From the databases.
-        """
-        if self.non_db_data:
-            #if dealing with data not in the standard way but from external sources
-            wordrows = self.non_db_data
-        else:
-            if self.limited:
-                #If the user wants to limit the search e.g. for testing large corpora
-                sqlq = "SELECT {0} FROM {1} WHERE align_id in ({2}) order by align_id, id LIMIT {3}".format(self.sql_cols, Db.searched_table, self.subquery, self.limited)
-            wordrows = Db.con.dictquery(sqlq,self.subqueryvalues)
-
-        print('Analyzing...')
-        if wordrows:
-            self.pickFromAlign_ids(wordrows)
-            if self.isparallel:
-                self.FindParallelSegmentsAfterwards()
-        else:
-            return input('Nothing found..')
 
     def pickFromAlign_ids(self, wordrows):
         """Process the data from database query
@@ -327,7 +314,6 @@ class Search:
                 elif self.toplevel == "align_id":
                     sentence.matchids.append(word.tokenid)
         self.bar.next()
-
 
     def ProcessSentencesOfAlign(self, alignkey):
         """ Process all the sentences in the previous align unit and check for matches
@@ -654,8 +640,8 @@ class Search:
 
     def FetchPreviousAlign(self,align_id):
         """Fetches the previous align unit from the db"""
-        sqlq = "SELECT {0} FROM {1} WHERE align_id = {2} order by align_id, id".format(self.sql_cols, Db.searched_table, align_id)
-        wordrows = Db.con.dictquery(sqlq)
+        sqlq = "SELECT {0} FROM {1} WHERE align_id = {2} order by align_id, id".format(self.sql_cols, self.queried_table, align_id)
+        wordrows = self.con.FetchQuery(sqlq,usedict=True)
 
     def listMatchids(self):
         """Returns a tuple of all the DATABASE ids of the matches in this Search"""
@@ -1412,6 +1398,20 @@ class Match:
 
         return results
 
+    def PrintInfoDict(self, additionalinfo):
+        self.BuildSentencePrintString()
+        try:
+            row =  {'tokenid':self.matchedword.tokenid, 'sentid':self.matchedsentence.sentence_id,'sent':self.matchedsentence.printstring,
+                    'dfunct':'','headverb':self.matchedword.finitehead.lemma,
+                    'headverbdep':self.matchedword.finitehead.deprel}
+        except AttributeError:
+            print('No finite head for sent {}!'.format(result.matchedsentence.printstring))
+            row =  {'tokenid':self.matchedword.tokenid, 'sentid':self.matchedsentence.sentence_id,'sent':self.matchedsentence.printstring,
+                    'dfunct':'','headverb':'',
+                    'headverbdep':''}
+
+        row.update(additionalinfo)
+        return row
 
 class MonoMatch(Match):
 
@@ -1501,7 +1501,7 @@ class Sentence:
                 #Surround the match with <>
                 self.printstring += spacechar + '<' + word.token  + '>'
                 self.Headhlprintstring += spacechar + '<<' + word.token  + '>>Y'
-                self.colorprintstring += spacechar + bcolors.GREEN + word.token + bcolors.ENDC 
+                #self.colorprintstring += spacechar + bcolors.GREEN + word.token + bcolors.ENDC 
             elif word.tokenid == matchedword.head:
                 self.Headhlprintstring += spacechar + '<' + word.token  + '>X'
                 self.printstring += spacechar + word.token
@@ -1985,7 +1985,10 @@ class Word:
                         self.phraseborder['right'] = dep.tokenid
 
     def IsThisFiniteVerb(self):
-        """Return true if the word object is by its feat a finite verb form"""
+        """Return true if the word object is by its feat a finite verb form
+        - Suomen kieltoverbit?
+        
+        """
         if self.feat[0:3] in ('Vmi','Vmm') or ItemInString(['Mood=Ind','Mood=Imprt','Mood=Pot','Mood=Cond','VerbForm=Fin','MOOD_Ind','MOOD_Cond'],self.feat,True):
             return True
         else:
@@ -2047,8 +2050,30 @@ class MatchFilter():
         return self.condition.passed
 
 
+class FailedKorp():
 
-    ######################################################################
+    instances = defaultdict(list)
+
+    def __init__(self, thissentence):
+        words = list()
+        for token in thissentence['tokens']:
+            if token['word']:
+                #make sure there ore no "nonish" words
+                words.append(token['word'])
+        source = thissentence['structs']['text_lemmie_corpus']
+
+        try:
+            FailedKorp.instances[source].append(nkrjamodule.BuildString(words))
+        except:
+            import ipdb; ipdb.set_trace()
+            pass
+
+    @classmethod
+    def WriteToFiles(self):
+        prefix = "/cygdrive/c/data/korp/failed/"
+        for corpname, sentencelist in FailedKorp.instances.items():
+            with open('{}{}.txt'.format(prefix, corpname),'w') as f:
+                f.write('\n'.join(sentencelist))
 
 def PrintTimeInformation(elapsedtimes,start,done,matchcount,bar):
     """ Print information about the manual annotations etc"""
@@ -2367,10 +2392,15 @@ def MatchdataToRaw():
 def ParseKorpJson(rawdata):
     sentences = rawdata["kwic"]
     wordrows = list()
+    nofullannot = 0
+    noannot_corpus = list()
     for sentence in sentences:
         try:
             source = sentence['structs']['text_label']
-            for token in sentence['tokens']:
+        except KeyError:
+            source = '{}_{}_{}'.format(sentence['structs']['text_title'],sentence['structs']['text_source'],sentence['structs']['text_date'])
+        for token in sentence['tokens']:
+            try:
                 token['token'] = token['word']
                 token['tokenid'] = int(token['ref'])
                 token['head'] = int(token['dephead'])
@@ -2379,10 +2409,17 @@ def ParseKorpJson(rawdata):
                 token['sentence_id'] = sentence['structs']['sentence_id']
                 token['id'] = 999999
                 wordrows.append(token)
-        except KeyError:
-            print('Ei sanomalehtiaineistoa, skipataan...')
-            pass
+            except KeyError:
+                nofullannot += 1
+                if sentence['structs']['text_source'] not in noannot_corpus:
+                    noannot_corpus.append(sentence['structs']['text_source'])
+                failer = FailedKorp(sentence)
+                break
+    #if nofullannot>0:
+        #print('{} sanalta puuttui kokonainen annotointi. Ongelmalliset korpukset: '.format(nofullannot))
+        #print('\n'.join(noannot_corpus))
     return wordrows
+
 
 
 def ParseKorpSentence(tokenlist, sentence_id, source):

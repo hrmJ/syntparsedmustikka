@@ -1,5 +1,5 @@
 import logging
-from search import Search, Match, Sentence, Word, ConstQuery, Db 
+from search import Search, Match, Sentence, Word
 from collections import defaultdict
 
 def LogNewDeprel(message):
@@ -80,7 +80,7 @@ def makeNondbSearch(ConditionColumns, headcond=None,depcond=None,headdepcond=Non
     if prevornext:
         #In situations where it is enough for either of the surrounding words to fulfill a criterion
         thisSearch.prevornext['ison'] = True
-    thisSearch.find()
+    thisSearch.Find()
     logging.info('Search committed')
     return thisSearch
 
