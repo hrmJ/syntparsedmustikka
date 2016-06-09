@@ -973,6 +973,7 @@ class Match:
         self.postprocessed = False
         self.rejectreason = ''
         self.align_id = align_id
+        self.prodrop = 'No'
 
 
     def postprocess(self,rejectreason):
@@ -1338,7 +1339,7 @@ class Match:
 
         return True
 
-    def TransitiveSentenceDistancies(self, p2active=False):
+    def TransitiveSentenceDistancies(self, p2active=False, lang='fi'):
         """ If the word's finite head has a dobj as its dependent, compare the position of the match and the dobj  """
         #1. In the beginning of the clause
         self.DefinePositionMatch()
@@ -1351,32 +1352,40 @@ class Match:
         dobj = None
         nsubj = None
         for word in self.positionmatchword.finitehead.dependentlist:
-            if word.deprel in ('1-компл','dobj') and not dobj:
+            if word.IsObject(lang) and not dobj:
                 #Take the first 1-kompl
                 dobj = word
-            if word.deprel in ('предик','nsubj'):
+            if word.IsSubject(lang):
                 nsubj = word
 
         #Test, which word the matched word precedes
         #import ipdb; ipdb.set_trace()
         comps = self.MatchPrecedes({'verb':self.positionmatchword.finitehead, 'dobj':dobj, 'nsubj':nsubj})
 
-        if not p2active:
-            if not comps['verb'] and comps ['dobj']:
-                return "beforeobject"
-            elif not comps['verb'] and not comps['dobj']:
-                return "afterobject"
-            elif comps['verb'] and comps['dobj']:
-                return "beforeverb"
+        if self.prodrop == 'No':
+            if not p2active:
+                if not comps['verb'] and comps ['dobj']:
+                    return "beforeobject"
+                elif not comps['verb'] and not comps['dobj']:
+                    return "afterobject"
+                elif comps['verb'] and comps['dobj']:
+                    return "beforeverb"
+            else:
+                if comps['nsubj'] and comps['verb'] and comps['dobj']:
+                    return "beforeverb_and_subject"
+                elif not comps['nsubj'] and comps['verb'] and comps['dobj']:
+                    return "beforeverb"
+                elif not comps['nsubj'] and not comps['verb'] and comps['dobj']:
+                    return "beforeobject"
+                elif not comps['nsubj'] and not comps['verb'] and not comps['dobj']:
+                    return "afterobject"
         else:
-            if comps['nsubj'] and comps['verb'] and comps['dobj']:
-                return "beforeverb_and_subject"
-            elif not comps['nsubj'] and comps['verb'] and comps['dobj']:
-                return "beforeverb"
-            elif not comps['nsubj'] and not comps['verb'] and comps['dobj']:
-                return "beforeobject"
-            elif not comps['nsubj'] and not comps['verb'] and not comps['dobj']:
-                return "afterobject"
+                if comps['verb'] and comps['dobj']:
+                    return "beforeverb"
+                elif not comps['verb'] and comps['dobj']:
+                    return "beforeobject"
+                elif not comps['verb'] and not comps['dobj']:
+                    return "afterobject"
 
         return "failed"
 
@@ -1402,16 +1411,40 @@ class Match:
         self.BuildSentencePrintString()
         try:
             row =  {'tokenid':self.matchedword.tokenid, 'sentid':self.matchedsentence.sentence_id,'sent':self.matchedsentence.printstring,
-                    'dfunct':'','headverb':self.matchedword.finitehead.lemma,
+                    'dfunct':'','headverb':self.matchedword.finitehead.lemma,'prodrop':self.prodrop,'etta_jos':self.TestSubOord(),
                     'headverbdep':self.matchedword.finitehead.deprel}
         except AttributeError:
-            print('No finite head for sent {}!'.format(result.matchedsentence.printstring))
-            row =  {'tokenid':self.matchedword.tokenid, 'sentid':self.matchedsentence.sentence_id,'sent':self.matchedsentence.printstring,
-                    'dfunct':'','headverb':'',
+            print('No finite head for sent {}!'.format(self.matchedsentence.printstring))
+            row =  {'tokenid':self.matchedword.tokenid, 'sentid':self.matchedsentence.sentence_id,'sent':self.matchedsentence.printstring,'prodrop':self.prodrop,
+                    'dfunct':'','headverb':'','etta_jos':self.TestSubOord(),
                     'headverbdep':''}
 
         row.update(additionalinfo)
         return row
+
+    def TestProDrop(self, lang):
+       head = self.matchedword.finitehead
+       if lang == 'fi':
+            if ItemInString(['Person=1','Person=2'],head.feat,True):
+                self.prodrop = 'Yes'
+       elif lang == 'ru':
+            if ItemInString(['Person=1','Person=2'],head.feat,True):
+                self.prodrop = 'Yes'
+
+    def TestSubOord(self):
+        """Testaa, onko lause, joka sisältää osuman, että- tai jos-lause"""
+        tokenid = self.matchedword.tokenid
+        is_subo = "No"
+        while tokenid in self.matchedsentence.words:
+            thisword = self.matchedsentence.words[tokenid]
+            if thisword.token.lower() in [',',';']:
+                #Jos pilkku tai puolipiste(?) ennen konjunktiota, älä hyväksy
+                break
+            if thisword.IsConjunction():
+                is_subo = "Yes"
+                break
+            tokenid -= 1
+        return is_subo
 
 class MonoMatch(Match):
 
@@ -1429,6 +1462,7 @@ class MonoMatch(Match):
         self.sourcetextid = self.matchedword.sourcetextid
         #For post processing purposes
         self.postprocessed = False
+        self.prodrop = 'No'
 
     def Serialize(self):
         return {'matchedsentence':self.matchedsentence.Serialize(), 'matchedword':self.matchedword.Serialize(self.matchedsentence.sentence_id)}
@@ -1654,7 +1688,6 @@ class Sentence:
                 return this_tokenid
         #If a marker for the next clause was met, assume that the previous word was the last of the current clause:
         return this_tokenid - 1
-
 
 class Clause(Sentence):
     """An attemp to separate clauses from sentences"""
@@ -1994,6 +2027,43 @@ class Word:
         else:
             return False
 
+    def IsObject(self, lang):
+        """Return true if the word object is by its deprel a direct object
+        """
+        if lang == 'fi':
+            if self.deprel == 'dobj':
+                return True
+            else:
+                return False
+        elif lang == 'ru':
+            if self.deprel == '1-компл':
+                return True
+            else:
+                return False
+
+    def IsSubject(self, lang):
+        """Return true if the word object is by its deprel a direct object
+        """
+        if lang == 'fi':
+            if self.deprel == 'nsubj':
+                return True
+            else:
+                return False
+        elif lang == 'ru':
+            if self.deprel == 'предик':
+                return True
+            else:
+                return False
+
+    def IsConjunction(self):
+        """Käsittää vain tietyt konjunktiot"""
+        ficons = ['että','jos']
+        rucons = ['что','если']
+        if self.token in ficons or self.token in rucons:
+            return True
+        return False
+
+
 class Condition():
 
     def __init__(self, attr, vals, ttype="Positive"):
@@ -2049,6 +2119,17 @@ class MatchFilter():
                 self.condition.Test(thisword)
         return self.condition.passed
 
+    def FilterByOrder(self):
+        """
+        - This condition is applied on the basis of the first finite verb in the chain of the matching words heads (fhead)
+        - Positive: if there is even one word in the [fhead]'s dependents matching the [vals], the test will pass
+        - Negative: if there is even one word in the [fhead]'s dependents matching the [vals], the test will not pass
+        """
+        if self.word.IterateToFiniteHead(self.sentence):
+            self.word.finitehead.ListDependents(self.sentence)
+            for thisword in self.word.finitehead.dependentlist:
+                self.condition.Test(thisword)
+        return self.condition.passed
 
 class FailedKorp():
 
