@@ -250,15 +250,20 @@ class Search:
 
     def Collocator(self):
         """Collocates"""
-        #1. etsi kaikki sanat, jotka vastaavat kriteeriä
-        self.Find()
-        #2. etsi edellinen sana
         self.SimplifyResultSet()
-        self.collocats = {'-1':dict(),'+1':dict()}
-        print('Processing collocates...')
+        self.collocates = {'-1':defaultdict(int),'+1':defaultdict(int)}
+        thisbar = Bar('Processing collocates...', max=len(self.results))
         for result in self.results:
-            result.matchedword.IterateToPreviousWord(result.matchedsentence)
+            col = result.matchedword.GetCollocate(self, result.matchedsentence, 1, 1)
+            self.collocates['+1'][col.lemma] += 1
+            col = result.matchedword.GetCollocate(self, result.matchedsentence, -1, 1)
+            self.collocates['-1'][col.lemma] += 1
+            thisbar.next()
+        thisbar.finish()
 
+    def PrintCollocateTable(self, fname='collocates.json'):
+        with open(fname, 'w') as outfile:
+            json.dump(self.collocates, outfile, ensure_ascii=False)
 
     def pickFromAlign_ids(self, wordrows):
         """Process the data from database query
@@ -340,7 +345,8 @@ class Search:
                         self.absolutematchcount += 1
                     elif self.toplevel == "align_id":
                         sentence.matchids.append(word.tokenid)
-        self.bar.next()
+        if evaluate:
+            self.bar.next()
 
     def ProcessSentencesOfAlign(self, alignkey):
         """ Process all the sentences in the previous align unit and check for matches
@@ -2100,26 +2106,27 @@ class Word:
             return True
         return False
 
-    def GetCollocates(self, sentence):
-        pass
-        
     def GetCollocate(self, search, sentence, direction, count):
-        #KESKEN
-        sentence.buildPrintString()
-        print(sentence.printstring)
+        """ 
+        direction : -1 tai 1
+        count: niin mones sana, kuin mitä halutaan tutkia
+        - jos sanan oma lause ei riitä, hakee tietokannasta seuraavia / edellisiä...
+        """
 
         wkey = self.tokenid
         position = 0
-        wordinsent = None
+
         while (wkey + direction in sentence.words) and position < count:
             wkey = wkey + direction
             wordinsent = sentence.words[wkey]
             if wordinsent.deprel.lower() not in ('punct','punc'):
                 #following words
                 position += 1
+        
         safety = 0
 
         while position < count:
+            #Jos pitää ladata lisää lauseita tietokannasta
             sentence = search.GetMoreContext(sentence, direction)
 
             if direction > 0:
@@ -2135,16 +2142,11 @@ class Word:
                     #following words
                     position += 1
             #<<<<
-
             safety += 1
             if safety > 100:
                 break
 
-        sentence.buildPrintString()
-        print(sentence.printstring)
-        print(wordinsent.token)
-        print("{}/{}".format(position,count))
-        return [sentence, wordinsent]
+        return wordinsent
 
 
 class Condition():
