@@ -20,7 +20,6 @@ def simpleupdate(thisSearch,dbcon, deprel, dbtable):
     logging.info('to be updated: {} database rows.'.format(dbcon.cur.rowcount))
 
 def makeSearch(ConditionColumns,database,dbtable,headcond=None,depcond=None,headdepcond=None,secondnextcond=None, finheaddepcond=None,depcond2=None,nextcond=None,prevcond=None,prevornext=False, appendconditioncolumns=True,isparallel=False,extralog='',limited=None, monoling=False,samesentencecond=None, secondpreviouscond=None,non_db_data=None, group=None):
-    Db.searched_table = dbtable
     logging.info('Starting the search..')
     if extralog:
         logging.info(extralog)
@@ -45,11 +44,12 @@ def makeSearch(ConditionColumns,database,dbtable,headcond=None,depcond=None,head
     thisSearch.secondpreviouscond = secondpreviouscond
     thisSearch.non_db_data = non_db_data
     thisSearch.groupname = group
+    thisSearch.queried_table = dbtable
     if prevornext:
         #In situations where it is enough for either of the surrounding words to fulfill a criterion
         thisSearch.prevornext['ison'] = True
     thisSearch.BuildSubQuery()
-    thisSearch.find()
+    thisSearch.Find()
     logging.info('Search committed')
     return thisSearch
 

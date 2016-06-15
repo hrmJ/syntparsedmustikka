@@ -12,7 +12,7 @@ import re
 from termcolor import colored
 from tools.objecttools import savepickle, loadpickle
 #local modules
-from dbmodule import mydatabase, psycopg
+from dbmodule import psycopg
 from menus import Menu, multimenu, yesnomenu 
 from itertools import chain
 from progress.bar import Bar
@@ -39,7 +39,7 @@ class Search:
     """This is the very
     basic class that is used to retrieve data from the corpus"""
     all_searches = []
-    def __init__(self,queried_db='',askname=False, pseudo=False):
+    def __init__(self,queried_db='',askname=False, pseudo=False, interactive=False):
         """Initialize a search object. 
         ----------------------------------------
         attributes:
@@ -90,13 +90,16 @@ class Search:
             self.queried_db = queried_db
             #self.queried_table = Db.searched_table
             #Change the default connection:
-            self.con = mydatabase(queried_db,'juho')
+            self.con = psycopg(queried_db,'juho')
         #Initialize a log for errors associated with this search
         self.errorLog = ''
         #By default, make monoconcordances
         self.isparallel = False
         #Count the numnber of actual matches
         self.absolutematchcount = 0
+
+    def DefineInteractive(self):
+        pass
 
     def Reset(self, parameters=list()):
         self.absolutematchcount = 0
@@ -239,6 +242,24 @@ class Search:
         else:
             return print('Nothing found..')
 
+    def SimplifyResultSet(self):
+        self.results = list()
+        for sentence_id, matches in self.matches.items():
+            for match in matches:
+                self.results.append(match)
+
+    def Collocator(self):
+        """Collocates"""
+        #1. etsi kaikki sanat, jotka vastaavat kriteeriä
+        self.Find()
+        #2. etsi edellinen sana
+        self.SimplifyResultSet()
+        self.collocats = {'-1':dict(),'+1':dict()}
+        print('Processing collocates...')
+        for result in self.results:
+            result.matchedword.IterateToPreviousWord(result.matchedsentence)
+
+
     def pickFromAlign_ids(self, wordrows):
         """Process the data from database query
         This is done word by word."""
@@ -273,7 +294,7 @@ class Search:
             self.processWordsOfSentence(previous_align,previous_sentence)
             self.ProcessSentencesOfAlign(previous_align)
 
-    def PickFromSentence_ids(self, wordrows):
+    def PickFromSentence_ids(self, wordrows, evaluate=True):
         """Process the data from database query
         This is done word by word."""
         self.sentences = dict()
@@ -293,9 +314,14 @@ class Search:
             self.sentences[wordrow['sentence_id']].words[wordrow['tokenid']] = Word(wordrow)
         #Finally, process all the words in the last sentence (if the original query didn't fail)
         if wordrows:
-            self.processWordsOfSentence(0,previous_sentence)
+            self.processWordsOfSentence(0, previous_sentence, evaluate)
+        if not evaluate:
+            sentences = list()
+            for sentece_id, sentence in self.sentences.items():
+                sentences.append(sentence)
+            return sentences
 
-    def processWordsOfSentence(self,alignkey,sentencekey):
+    def processWordsOfSentence(self,alignkey,sentencekey, evaluate=True):
         """ Process every word of a sentence and check if a search condition is met.
         The purpose of this function is to simplify the pickFromAlign_ids function"""
         # The sentence is processed word by word
@@ -305,14 +331,15 @@ class Search:
             sentence = self.aligns[alignkey][sentencekey]
         for wkey in sorted(map(int, sentence.words)):
             word = sentence.words[wkey]
-            if self.evaluateWordrow(word,sentence):  
-                #if the evaluation function returns true
-                if self.toplevel == "sentence_id":
-                    sentence.matchids.append(word.tokenid)
-                    self.matches[sentencekey].append(MonoMatch(word.tokenid,sentence))
-                    self.absolutematchcount += 1
-                elif self.toplevel == "align_id":
-                    sentence.matchids.append(word.tokenid)
+            if evaluate:
+                if self.evaluateWordrow(word,sentence):  
+                    #if the evaluation function returns true
+                    if self.toplevel == "sentence_id":
+                        sentence.matchids.append(word.tokenid)
+                        self.matches[sentencekey].append(MonoMatch(word.tokenid,sentence))
+                        self.absolutematchcount += 1
+                    elif self.toplevel == "align_id":
+                        sentence.matchids.append(word.tokenid)
         self.bar.next()
 
     def ProcessSentencesOfAlign(self, alignkey):
@@ -764,6 +791,16 @@ class Search:
     def PickRandomMatch(self):
         """Return a random match"""
         return self.matches[random.choice(list(self.matches.keys()))][0]
+
+    def GetMoreContext(self, sentence, direction):
+        if direction == 1:
+            query = "SELECT {0} from {1} WHERE sentence_id = (SELECT min(sentence_id) FROM {1} WHERE sentence_id > %s)".format(self.sql_cols,self.queried_table) 
+        else:
+            query = "SELECT {0} from {1} WHERE sentence_id = (SELECT max(sentence_id) FROM {1} WHERE sentence_id < %s)".format(self.sql_cols,self.queried_table) 
+        #import ipdb; ipdb.set_trace()
+        wordrows = self.con.FetchQuery(query, (sentence.sentence_id,),usedict=True)
+        sentences = self.PickFromSentence_ids(wordrows,evaluate=False)
+        return sentences[-1]
 
     def InsertTmeToResults(self,tablename='tme',applyfilter=True,nolargecontext=False):
         """Insert to exzternal database"""
@@ -2063,6 +2100,52 @@ class Word:
             return True
         return False
 
+    def GetCollocates(self, sentence):
+        pass
+        
+    def GetCollocate(self, search, sentence, direction, count):
+        #KESKEN
+        sentence.buildPrintString()
+        print(sentence.printstring)
+
+        wkey = self.tokenid
+        position = 0
+        wordinsent = None
+        while (wkey + direction in sentence.words) and position < count:
+            wkey = wkey + direction
+            wordinsent = sentence.words[wkey]
+            if wordinsent.deprel.lower() not in ('punct','punc'):
+                #following words
+                position += 1
+        safety = 0
+
+        while position < count:
+            sentence = search.GetMoreContext(sentence, direction)
+
+            if direction > 0:
+                wkey = min(sentence.words.keys()) - 1 
+            else:
+                wkey = max(sentence.words.keys()) + 1
+
+            #ABSTRACT !
+            while (wkey + direction in sentence.words) and position < count:
+                wkey = wkey + direction
+                wordinsent = sentence.words[wkey]
+                if wordinsent.deprel.lower() not in ('punct','punc'):
+                    #following words
+                    position += 1
+            #<<<<
+
+            safety += 1
+            if safety > 100:
+                break
+
+        sentence.buildPrintString()
+        print(sentence.printstring)
+        print(wordinsent.token)
+        print("{}/{}".format(position,count))
+        return [sentence, wordinsent]
+
 
 class Condition():
 
@@ -2529,4 +2612,12 @@ def ParseMatchList(matchlist):
     for match in matchlist:
         matches.append(ParseSerializedMonoMatch(match))
     return matches
+
+def IterateWords(sentence, wkey, position, count):
+    while (wkey + direction in sentence.words) and position < count:
+        wkey = wkey + direction
+        wordinsent = sentence.words[wkey]
+        if wordinsent.deprel.lower() not in ('punct','punc'):
+            #following words
+            position += 1
 
