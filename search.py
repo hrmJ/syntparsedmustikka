@@ -29,7 +29,7 @@ if _platform == "linux" or _platform == "linux2":
     phddir = '/home/juho/phdmanuscript'
 elif _platform == "cygwin":
     scriptdir = '/cygdrive/k/corpora/syntparsedmustikka'
-    phddir = '/cygdrive/k/phdmanuscript'
+    phddir = '/cygdrive/c/phdmanuscript'
 
 sys.path.append(phddir)
 
@@ -341,7 +341,10 @@ class Search:
                     #if the evaluation function returns true
                     if self.toplevel == "sentence_id":
                         sentence.matchids.append(word.tokenid)
-                        self.matches[sentencekey].append(MonoMatch(word.tokenid,sentence))
+                        if hasattr(self,'broadcontext'):
+                            self.matches[sentencekey].append(MonoMatch(word.tokenid,sentence, True, self))
+                        else:
+                            self.matches[sentencekey].append(MonoMatch(word.tokenid,sentence))
                         self.absolutematchcount += 1
                     elif self.toplevel == "align_id":
                         sentence.matchids.append(word.tokenid)
@@ -356,7 +359,10 @@ class Search:
         for sentence_id in sorted(map(int,self.aligns[alignkey])):
             #Process all the matches in the sentence that contained one or more matches
             for matchid in self.aligns[alignkey][sentence_id].matchids:
-                self.matches[alignkey].append(Match(self.aligns[alignkey],matchid,sentence_id,alignkey))
+                if hasattr(self,'broadcontext'):
+                    self.matches[alignkey].append(Match(self.aligns[alignkey],matchid,sentence_id,alignkey,True,self))
+                else:
+                    self.matches[alignkey].append(Match(self.aligns[alignkey],matchid,sentence_id,alignkey))
                 self.absolutematchcount += 1
 
     def evaluateWordrow(self, word,sentence):
@@ -591,6 +597,11 @@ class Search:
             #use this variable to test if EVEN ONE of the DEPENDENTS of the mathcing word fulfill the criteria
             #Assume that NONE of the dependents fulfill the criteria
             headfulfills=False
+
+            #HOWEVER, If the condition is NEGATIVE, start by assuming a positive result
+            if self.depcond2['column'][0] == '!':
+                headfulfills = True
+
             if word.ListDependents(sentence):
                 #If there are no dependends, assume the search FAILED
                 #IF the word has a head, move on to testing the head
@@ -799,14 +810,20 @@ class Search:
         return self.matches[random.choice(list(self.matches.keys()))][0]
 
     def GetMoreContext(self, sentence, direction):
-        if direction == 1:
-            query = "SELECT {0} from {1} WHERE sentence_id = (SELECT min(sentence_id) FROM {1} WHERE sentence_id > %s)".format(self.sql_cols,self.queried_table) 
+        if direction == 2:
+            query = "SELECT {0} from {1} WHERE sentence_id = (SELECT min(sentence_id) FROM {1} WHERE sentence_id > %(sid)s) OR sentence_id = (SELECT max(sentence_id) FROM {1} WHERE sentence_id < %(sid)s)".format(self.sql_cols,self.queried_table) 
+            wordrows = self.con.FetchQuery(query, {'sid':sentence.sentence_id}, usedict=True)
+            sentences = self.PickFromSentence_ids(wordrows,evaluate=False)
+            return sentences
         else:
-            query = "SELECT {0} from {1} WHERE sentence_id = (SELECT max(sentence_id) FROM {1} WHERE sentence_id < %s)".format(self.sql_cols,self.queried_table) 
-        #import ipdb; ipdb.set_trace()
-        wordrows = self.con.FetchQuery(query, (sentence.sentence_id,),usedict=True)
-        sentences = self.PickFromSentence_ids(wordrows,evaluate=False)
-        return sentences[-1]
+            if direction == 1:
+                query = "SELECT {0} from {1} WHERE sentence_id = (SELECT min(sentence_id) FROM {1} WHERE sentence_id > %s)".format(self.sql_cols,self.queried_table) 
+            else:
+                query = "SELECT {0} from {1} WHERE sentence_id = (SELECT max(sentence_id) FROM {1} WHERE sentence_id < %s)".format(self.sql_cols,self.queried_table) 
+            #import ipdb; ipdb.set_trace()
+            wordrows = self.con.FetchQuery(query, (sentence.sentence_id,),usedict=True)
+            sentences = self.PickFromSentence_ids(wordrows,evaluate=False)
+            return sentences[-1]
 
     def InsertTmeToResults(self,tablename='tme',applyfilter=True,nolargecontext=False):
         """Insert to exzternal database"""
@@ -998,7 +1015,7 @@ class Match:
     is the reason for a specific match to be registered.
     """
     # A list containing the ids of all the matches found
-    def __init__(self,alignsegment,matchid,sentence_id,align_id=None):
+    def __init__(self,alignsegment,matchid,sentence_id,align_id=None, broadcontext=False, search=None):
         """
         Creates a match object.
         Variables:
@@ -1491,7 +1508,7 @@ class Match:
 
 class MonoMatch(Match):
 
-    def __init__(self,matchid,sentence):
+    def __init__(self,matchid,sentence, broadcontext=False, search=None):
         """
         Creates a MONOLINGUAL match object.
         Variables:
@@ -1506,9 +1523,15 @@ class MonoMatch(Match):
         #For post processing purposes
         self.postprocessed = False
         self.prodrop = 'No'
+        self.surroundingsentences = None
+        if broadcontext:
+            self.surroundingsentences = search.GetMoreContext(self.matchedsentence, 2)
 
     def Serialize(self):
-        return {'matchedsentence':self.matchedsentence.Serialize(), 'matchedword':self.matchedword.Serialize(self.matchedsentence.sentence_id)}
+        if self.surroundingsentences:
+            return {'previous_sentence':self.surroundingsentences[1].Serialize(),'following_sentence':self.surroundingsentences[0].Serialize(),'matchedsentence':self.matchedsentence.Serialize(), 'matchedword':self.matchedword.Serialize(self.matchedsentence.sentence_id)}
+        else:
+            return {'matchedsentence':self.matchedsentence.Serialize(), 'matchedword':self.matchedword.Serialize(self.matchedsentence.sentence_id)}
 
 class Sentence:
     """
@@ -1731,6 +1754,17 @@ class Sentence:
                 return this_tokenid
         #If a marker for the next clause was met, assume that the previous word was the last of the current clause:
         return this_tokenid - 1
+
+    def ListFiniteVerbs(self):
+        """Esimerkiksi myöhempää semanttista analyysia varten: kerää kaikki virkkeen finiittiverbit"""
+        self.finiteverbs = list()
+        self.finitelemmas = list()
+        for tokenid, word in self.words.items():
+            if word.IsThisFiniteVerb():
+                self.finiteverbs.append(word)
+                self.finitelemmas.append(word.lemma)
+
+
 
 class Clause(Sentence):
     """An attemp to separate clauses from sentences"""
@@ -2607,7 +2641,22 @@ def ParseSerializedMonoMatch(matchdict):
     for wkey in sorted(map(int, words)):
         matchedsentence.words[wkey] = Word(words[str(wkey)])
         matchedsentence.matchids.append(int(matchdict['matchedword']['tokenid']))
-    return MonoMatch(int(matchdict['matchedword']['tokenid']), matchedsentence)
+    if 'previous_sentence' in matchdict:
+        #Jos laajennettu konteksti käytössä
+        ps_words = matchdict['previous_sentence']['words']
+        fs_words = matchdict['following_sentence']['words']
+        p_sentence = Sentence(matchdict['previous_sentence']['sentence_id'])
+        f_sentence = Sentence(matchdict['following_sentence']['sentence_id'])
+        for wkey in sorted(map(int, ps_words)):
+            p_sentence.words[wkey] = Word(ps_words[str(wkey)])
+        for wkey in sorted(map(int, fs_words)):
+            f_sentence.words[wkey] = Word(fs_words[str(wkey)])
+        thismatch = MonoMatch(int(matchdict['matchedword']['tokenid']), matchedsentence)
+        thismatch.broadcontext = [p_sentence, f_sentence]
+        return thismatch
+    else:
+        return MonoMatch(int(matchdict['matchedword']['tokenid']), matchedsentence)
+
 
 def ParseMatchList(matchlist):
     matches = list()
@@ -2623,3 +2672,12 @@ def IterateWords(sentence, wkey, position, count):
             #following words
             position += 1
 
+
+def SerializeMonoMatchList(results, fname=None):
+    matchlist = list()
+    for match in results:
+        matchlist.append(match.Serialize())
+
+    if fname:
+        with open(fname, 'w') as outfile:
+            json.dump(matchlist, outfile, ensure_ascii=False)
