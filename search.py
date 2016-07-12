@@ -39,7 +39,7 @@ class Search:
     """This is the very
     basic class that is used to retrieve data from the corpus"""
     all_searches = []
-    def __init__(self,queried_db='',askname=False, pseudo=False, interactive=False):
+    def __init__(self,queried_db='',askname=False, pseudo=False, interactive=False, con = None):
         """Initialize a search object. 
         ----------------------------------------
         attributes:
@@ -90,7 +90,11 @@ class Search:
             self.queried_db = queried_db
             #self.queried_table = Db.searched_table
             #Change the default connection:
-            self.con = psycopg(queried_db,'juho')
+            if not con:
+                self.con = psycopg(queried_db,'juho')
+            else:
+                #Make it possible to reuse connections and not always open a new one
+                self.con = con
         #Initialize a log for errors associated with this search
         self.errorLog = ''
         #By default, make monoconcordances
@@ -1982,6 +1986,8 @@ class Word:
         self.deprel = row["deprel"] 
         self.tokenid = row["tokenid"] 
         self.sourcetextid = row["text_id"]
+        if hasattr(row, "translation_id"):
+            self.sourcetextid = row["translation_id"]
         #The general id in the db conll table
         self.dbid =  row["id"]
 

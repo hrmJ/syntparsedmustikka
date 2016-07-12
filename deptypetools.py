@@ -19,15 +19,19 @@ def simpleupdate(thisSearch,dbcon, deprel, dbtable):
     dbcon.query('UPDATE {table} SET contr_deprel = %(deprel)s WHERE id in %(idlist)s'.format(table=dbtable),{'deprel':deprel,'idlist':thisSearch.idlist})
     logging.info('to be updated: {} database rows.'.format(dbcon.cur.rowcount))
 
-def makeSearch(ConditionColumns,database,dbtable,headcond=None,depcond=None,headdepcond=None,secondnextcond=None, finheaddepcond=None,depcond2=None,nextcond=None,prevcond=None,prevornext=False, appendconditioncolumns=True,isparallel=False,extralog='',limited=None, monoling=False,samesentencecond=None, secondpreviouscond=None,non_db_data=None, group=None,broad=False):
+def makeSearch(ConditionColumns,database,dbtable,headcond=None,depcond=None,headdepcond=None,secondnextcond=None, finheaddepcond=None,depcond2=None,nextcond=None,prevcond=None,prevornext=False, appendconditioncolumns=True,isparallel=False,extralog='',limited=None, monoling=False,samesentencecond=None, secondpreviouscond=None,non_db_data=None, group=None,broad=False,trmeta=False):
     logging.info('Starting the search..')
     if extralog:
         logging.info(extralog)
     thisSearch = Search(database,askname=False)
+    if trmeta:
+        thisSearch.sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id, translation_id"
     thisSearch.isparallel = isparallel
     thisSearch.limited = limited
     if monoling:
         thisSearch.toplevel = "sentence_id"
+    else:
+        thisSearch.toplevel = "align_id"
     if appendconditioncolumns:
         thisSearch.ConditionColumns.append(ConditionColumns)
     else:
@@ -53,6 +57,7 @@ def makeSearch(ConditionColumns,database,dbtable,headcond=None,depcond=None,head
     thisSearch.BuildSubQuery()
     thisSearch.Find()
     logging.info('Search committed')
+    thisSearch.SimplifyResultSet()
     return thisSearch
 
 def makeNondbSearch(ConditionColumns, headcond=None,depcond=None,headdepcond=None,secondnextcond=None, finheaddepcond=None,depcond2=None,nextcond=None,prevcond=None,prevornext=False, appendconditioncolumns=True,isparallel=False,extralog='',limited=None, monoling=False,samesentencecond=None, secondpreviouscond=None,non_db_data=None):

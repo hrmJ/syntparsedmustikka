@@ -246,6 +246,7 @@ def InsertPair(dbname=None,slfile=None,tlfile=None,sl_tablename=None,tl_tablenam
             for tlfile in tlfiles:
                 tltexts.append(Translation(tl_tablename, tlfile, con, sl.text_id, sl.table))
                 tltexts[-1].CollectSegments()
+                tltexts[-1].InsertToDb(con)
             return [sl,tltexts]
         else:
             #If this is an ordinary bilingual file
