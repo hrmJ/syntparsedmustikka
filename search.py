@@ -48,7 +48,7 @@ class Search:
         """
 
         #The relevant columns used 
-        self.sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id"
+        self.sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id, translation_id"
         self.matches = defaultdict(list)
         #Save the search object to a list of all conducted searches during the session
         Search.all_searches.append(self)
@@ -1986,8 +1986,8 @@ class Word:
         self.deprel = row["deprel"] 
         self.tokenid = row["tokenid"] 
         self.sourcetextid = row["text_id"]
-        if hasattr(row, "translation_id"):
-            self.sourcetextid = row["translation_id"]
+        if "translation_id" in row:
+            self.transid = row["translation_id"]
         #The general id in the db conll table
         self.dbid =  row["id"]
 
@@ -2036,7 +2036,8 @@ class Word:
     def IterateToFiniteHead(self, sentence):
         """Go up the dependency chain until a finite verb is found. If no V, return false"""
         word = self
-        while word.CatchHead(sentence):
+        iterations = 0
+        while word.CatchHead(sentence) and iterations < 48:
             #import ipdb; ipdb.set_trace()
             if word.headword.IsThisFiniteVerb():
                 self.finitehead = word.headword
@@ -2044,6 +2045,10 @@ class Word:
             else:
                 if word.headword:
                     word = word.headword
+            iterations +=1 
+
+        if iterations > 47:
+            return False
         #AND a test for the ROOT...
         #import ipdb; ipdb.set_trace()
         if word.IsThisFiniteVerb():
