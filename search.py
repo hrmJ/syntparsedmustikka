@@ -1415,12 +1415,15 @@ class Match:
         #... Find the object and the subject
         dobj = None
         nsubj = None
-        for word in self.positionmatchword.finitehead.dependentlist:
-            if word.IsObject(lang) and not dobj:
-                #Take the first 1-kompl
-                dobj = word
-            if word.IsSubject(lang):
-                nsubj = word
+        try:
+            for word in self.positionmatchword.finitehead.dependentlist:
+                if word.IsObject(lang) and not dobj:
+                    #Take the first 1-kompl
+                    dobj = word
+                if word.IsSubject(lang):
+                    nsubj = word
+        except AttributeError:
+            return 'Failed'
 
         #Test, which word the matched word precedes
         #import ipdb; ipdb.set_trace()
@@ -2036,9 +2039,8 @@ class Word:
     def IterateToFiniteHead(self, sentence):
         """Go up the dependency chain until a finite verb is found. If no V, return false"""
         word = self
-        iterations = 0
+        iterations = 0 
         while word.CatchHead(sentence) and iterations < 48:
-            #import ipdb; ipdb.set_trace()
             if word.headword.IsThisFiniteVerb():
                 self.finitehead = word.headword
                 return True
@@ -2049,8 +2051,7 @@ class Word:
 
         if iterations > 47:
             return False
-        #AND a test for the ROOT...
-        #import ipdb; ipdb.set_trace()
+
         if word.IsThisFiniteVerb():
             self.finitehead = word
             return True

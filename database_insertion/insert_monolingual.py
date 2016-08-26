@@ -12,7 +12,7 @@ if __name__ == "__main__":
         dbname = sys.argv[1]
         slfile = sys.argv[2]
         sl_tablename = sys.argv[3] + '_conll'
-        reference_file = sys.argv[4]
+        reference_file = None
         insert_pair.InsertPair(dbname,slfile,sl_tablename=sl_tablename, reference_file=reference_file)
     except IndexError:
         #import ipdb; ipdb.set_trace()
