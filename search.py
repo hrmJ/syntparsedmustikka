@@ -35,6 +35,8 @@ sys.path.append(phddir)
 
 import  monograph.kasittely.luku2.get_nkrja_json as nkrjamodule
 
+
+
 class Search:
     """This is the very
     basic class that is used to retrieve data from the corpus"""
@@ -1403,7 +1405,7 @@ class Match:
 
         return True
 
-    def TransitiveSentenceDistancies(self, p2active=False, lang='fi'):
+    def TransitiveSentenceDistancies(self, p2active=False, lang='fi', sentence=None, strict=False):
         """ If the word's finite head has a dobj as its dependent, compare the position of the match and the dobj  """
         #1. In the beginning of the clause
         self.DefinePositionMatch()
@@ -1417,7 +1419,7 @@ class Match:
         nsubj = None
         try:
             for word in self.positionmatchword.finitehead.dependentlist:
-                if word.IsObject(lang) and not dobj:
+                if word.IsObject(lang, sentence, strict) and not dobj:
                     #Take the first 1-kompl
                     dobj = word
                 if word.IsSubject(lang):
@@ -1663,6 +1665,55 @@ class Sentence:
                     self.printstring += spacechar + word.token
             except AttributeError:
                 self.printstring += spacechar + word.token
+
+    def BuildDependencyString(self):
+        """Constructs a printable sentence with information about dependencies
+        attached"""
+        self.depstring = ''
+        isqmark = False
+        for idx in sorted(self.words.keys()):
+            spacechar = ' '
+            word = self.words[idx]
+            try:
+                previous_word = self.words[idx-1]
+                #if previous tag is a word:
+                if previous_word.pos != 'Punct' and previous_word.token not in string.punctuation:
+                    #...and the current tag is a punctuation mark. Notice that exception is made for hyphens, since in mustikka they are often used as dashes
+                    if word.token in string.punctuation and word.token != '-':
+                        #..don't insert whitespace
+                        spacechar = ''
+                        #except if this is the first quotation mark
+                        if word.token == '\"' and not isqmark:
+                            isqmark = True
+                            spacechar = ' '
+                        elif word.token == '\"' and isqmark:
+                            isqmark = False
+                            spacechar = ''
+                #if previous tag was not a word
+                elif previous_word.token in string.punctuation:
+                    #...and this tag is a punctuation mark
+                    if (word.token in string.punctuation and word.token != '-' and word.token != '\"') or isqmark:
+                        #..don't insert whitespace
+                        spacechar = ''
+                    if previous_word.token == '\"':
+                        spacechar = ''
+                        isqmark = True
+                    else:
+                        spacechar = ' '
+            except:
+                #if this is the first word
+                spacechar = ''
+            #if this word is a match:
+            try:
+                if word.tokenid in self.matchids:
+                    self.depstring += spacechar + '*' + word.token  + '*'
+                else:
+                    self.depstring += spacechar + word.token
+            except AttributeError:
+                self.depstring += spacechar + word.token
+
+            if word.token not in string.punctuation:
+                self.depstring += " [{}|{}-->{}] \n".format(word.deprel, idx, word.head)
 
     def buildStringToVisualize(self):
         """Build a string to be saved in a file to be run through the TDT visualizer"""
@@ -1979,6 +2030,12 @@ class TargetSentence(Sentence):
         
 class Word:
     """A word object containing all the morhpological and syntactic information"""
+
+    #luokkamuuttujia objektin määrittelyä varten (ks. ObjectCaseFilter)
+    dativelist = list()
+    instrlist = list()
+    genlist = list()
+
     def __init__(self,row):
         #Initialize all properties according to information from the database
         self.token = row["token"]
@@ -2116,8 +2173,9 @@ class Word:
         else:
             return False
 
-    def IsObject(self, lang):
+    def IsObject(self, lang, sentence, strict=False):
         """Return true if the word object is by its deprel a direct object
+        - strict kertoo, käytetäänkö (venäjässä) tiukkaa seulaa
         """
         if lang == 'fi':
             if self.deprel == 'dobj':
@@ -2125,8 +2183,14 @@ class Word:
             else:
                 return False
         elif lang == 'ru':
-            if self.deprel == '1-компл':
-                return True
+            if self.deprel == '1-компл' and self.pos not in ('Q','S','R','C') and self.feat != '-':
+                #1. askel: deprel = 1-kompl
+                if strict:
+                    if self.pos not in('V','Q','S','R','C','A') and self.ObjectCaseFilter(sentence):
+                        #2. askel: ei ole prepositio
+                        return True
+                else:
+                    return True
             else:
                 return False
 
@@ -2193,6 +2257,75 @@ class Word:
                 break
 
         return wordinsent
+
+    def ObjectCaseFilter(self, sentence):
+        """Tarkoitus laskea objektiksi tiettyjen verbien esim.
+        datiivitäydennykset
+        Muuten "ylitiukka" suodatin, joka pudottaa pois mahdollisesti paljon helmiäkin, joten käyttö
+        pitää perustella.
+        """
+
+        animacy = 'n'
+        if len(self.feat) < 4:
+            return False
+        if self.pos in ('N','M'):
+            case = self.feat[4]
+            if self.pos == 'N':
+                animacy = self.feat[5]
+        elif self.pos == 'P':
+            case = self.feat[5]
+
+        self.IterateToFiniteHead(sentence)
+
+
+        if case == 'a':
+            #0. Selvä akkusatiivi:
+            return True
+
+        if case == 'n':
+            if animacy == 'n' and self.feat[3] in ['m','n']:
+                #Hyväksy neutri / maskuliini, jos eloton ja nominatiivi (liian iso recall?)
+                return True
+        if case == 'g':
+            #1. Genetiivi
+            if not Word.genlist:
+                with open('{}/monograph/kasittely/luku2/data/genlist.txt'.format(phddir)) as f:
+                    Word.gen = f.read().splitlines()
+            if self.finitehead.lemma in Word.genlist:
+                print('genlist!')
+                input(' | '.join([self.headword.lemma, self.feat, self.pos, self.token]))
+                return True
+            if animacy == 'y':
+                #Elollinen, genetiivissä
+                numpat = re.compile('\d')
+                if int(self.tokenid)-1 in sentence.words:
+                    leftcol = sentence.words[int(self.tokenid)-1]
+                    if leftcol.feat[0] == 'M' and numpat.search(leftcol.token):
+                        #Uhrataan kattavuutta tarkkuuden kustannuksella: jos vasempi sana numero
+                        #joka kirjoitettu numeroin, hylätään AINA
+                        return False
+                return True
+        elif case == 'd':
+            #2. Datiivi
+            if not Word.dativelist:
+                with open('{}/monograph/kasittely/luku2/data/dativelist.txt'.format(phddir)) as f:
+                    Word.dativelist = f.read().splitlines()
+            if self.finitehead.lemma in Word.dativelist:
+                return True
+        elif case == 'i':
+            #3. instrumentaali
+            if not Word.instrlist:
+                with open('{}/monograph/kasittely/luku2/data/instrlist.txt'.format(phddir)) as f:
+                    Word.instrlist = f.read().splitlines()
+            if self.finitehead.lemma in Word.instrlist:
+                return True
+
+        #If no match, return false
+        return False
+
+
+
+
 
 
 class Condition():
