@@ -67,7 +67,10 @@ class InsData():
                         self.rowlist.append(AddRow(columns, align_id, sentence_id, self.GetTextId(self.reflist[-1]), self.table, 0))
                         print('some problem with the number of segments and the number of references...')
             if segment_idx % 100 == 0:
-                bar.next()
+                try:
+                    bar.next()
+                except ZeroDivisionError:
+                    print('The progress bar cannot be moved at segment idx number {}'.format(segment_idx))
 
         bar.finish()
 

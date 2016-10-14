@@ -15,27 +15,32 @@ class Menu:
             if definedquestion:
                 self.question = definedquestion
             if len(self.validanswers) > 10 and 'n' not in self.validanswers and 'nn' not in self.validanswers:
-                dontchangequestion=False
-                #If there are lots of options, arrange them in columns:
-                colcount = 0
-                optioncols = list()
-                table = Texttable()
-                optioncols.append(' ')
-                colaligns = ["l"]
-                answerkeys = sorted(map(int,self.validanswers))
-                for answer in answerkeys:
-                    value = self.validanswers[str(answer)]
-                    colcount += 1
-                    optioncols[-1] += '{}:{}\n'.format(answer,value)
-                    if colcount == 10:
-                        colcount = 0
-                        optioncols.append(' ')
-                        colaligns.append("l") 
-                table.set_cols_align(colaligns)
-                table.add_rows([optioncols])
-                print(table.draw() + "\n")
-                if not dontchangequestion:
-                    question = self.question + "\n>"
+                try:
+                    dontchangequestion=False
+                    #If there are lots of options, arrange them in columns:
+                    colcount = 0
+                    optioncols = list()
+                    table = Texttable()
+                    optioncols.append(' ')
+                    colaligns = ["l"]
+                    answerkeys = sorted(map(int,self.validanswers))
+                    for answer in answerkeys:
+                        value = self.validanswers[str(answer)]
+                        colcount += 1
+                        optioncols[-1] += '{}:{}\n'.format(answer,value)
+                        if colcount == 10:
+                            colcount = 0
+                            optioncols.append(' ')
+                            colaligns.append("l") 
+                    table.set_cols_align(colaligns)
+                    table.add_rows([optioncols])
+                    print(table.draw() + "\n")
+                    if not dontchangequestion:
+                        question = self.question + "\n>"
+                except NameError:
+                    #Jos ei TextTable-moduulia asenettu
+                    options = '\n                '.join("{!s}: {!s}".format(key,val) for (key,val) in sorted(self.validanswers.items()))
+                    question = "{}\n{}{}\n>".format(self.question,'                ',options)
             else:
                 #Make a printable string from the dict:
                 options = '\n                '.join("{!s}: {!s}".format(key,val) for (key,val) in sorted(self.validanswers.items()))

@@ -131,13 +131,22 @@ class Search:
 
     def SerializeMonoMatches(self, fname=None):
         matchlist = list()
+        counter = 0
+        treshold = 25000
         for sentence_id, matches in self.matches.items():
             for match in matches:
                 matchlist.append(match.Serialize())
+            counter += 1
+            if counter % 25 == 0:
+                print('{}/{}'.format(counter,len(self.matches)), end='\r')
+            if counter > treshold:
+                print('LIMITING the number of serializible matches to {}'.format(treshold))
+                break
+        print('\nSerialization ready.')
 
         if fname:
             with open(fname, 'w') as outfile:
-                json.dump(matchlist, outfile, ensure_ascii=False)
+                json.dump(matchlist, outfile, ensure_ascii=False,indent=0)
 
     def SerializeSentences(self, fname=None):
         wordrows = list()
@@ -476,16 +485,16 @@ class Search:
                 wkey += 1
                 wordinsent = sentence.words[wkey]
                 if wordinsent.deprel.lower() not in ('punct','punc'):
-                    if self.nextcond['column'][0] == '!':
+                    if self.secondnextcond['column'][0] == '!':
                         #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
-                        if getattr(wordinsent, self.nextcond['column'][1:]) not in self.nextcond['values']:
+                        if getattr(wordinsent, self.secondnextcond['column'][1:]) not in self.secondnextcond['values']:
                             fulfills = True
                         else:
                             fulfills = False
                     else:
                         #If this is a positive condition:
                         #import ipdb; ipdb.set_trace()
-                        if getattr(wordinsent, self.nextcond['column']) in self.nextcond['values']:
+                        if getattr(wordinsent, self.secondnextcond['column']) in self.secondnextcond['values']:
                             fulfills = True
                         else:
                             fulfills = False
@@ -498,7 +507,7 @@ class Search:
                 self.prevornext["isfulfilled"] = True
 
         if self.secondpreviouscond and not self.prevornext["isfulfilled"]:
-            #use this variable to test if the word after the following word fulfills the criteria
+            #use this variable to test if the word before the preceding word fulfills the criteria
             #Assume that the pw DOES NOT fulfill the criteria
             fulfills=False
             wkey = word.tokenid - 1
@@ -506,16 +515,16 @@ class Search:
                 wkey -= 1
                 wordinsent = sentence.words[wkey]
                 if wordinsent.deprel.lower() not in ('punct','punc'):
-                    if self.nextcond['column'][0] == '!':
+                    if self.secondpreviouscond['column'][0] == '!':
                         #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
-                        if getattr(wordinsent, self.nextcond['column'][1:]) not in self.nextcond['values']:
+                        if getattr(wordinsent, self.secondpreviouscond['column'][1:]) not in self.secondpreviouscond['values']:
                             fulfills = True
                         else:
                             fulfills = False
                     else:
                         #If this is a positive condition:
                         #import ipdb; ipdb.set_trace()
-                        if getattr(wordinsent, self.nextcond['column']) in self.nextcond['values']:
+                        if getattr(wordinsent, self.secondpreviouscond['column']) in self.secondpreviouscond['values']:
                             fulfills = True
                         else:
                             fulfills = False
@@ -2734,35 +2743,62 @@ def MatchdataToRaw():
     """Convert a search to pseudo-database rows for a consequent search limited on the once matched material"""
     wordrows = list()
 
-def ParseKorpJson(rawdata):
+def ParseKorpJson(rawdata, outputtext=False):
     sentences = rawdata["kwic"]
     wordrows = list()
     nofullannot = 0
     noannot_corpus = list()
+    if outputtext:
+        outputsentences = list()
+        outputsources = list()
     for sentence in sentences:
-        try:
-            source = sentence['structs']['text_label']
-        except KeyError:
-            source = '{}_{}_{}'.format(sentence['structs']['text_title'],sentence['structs']['text_source'],sentence['structs']['text_date'])
-        for token in sentence['tokens']:
+        if outputtext:
             try:
-                token['token'] = token['word']
-                token['tokenid'] = int(token['ref'])
-                token['head'] = int(token['dephead'])
-                token['feat'] = token['msd']
-                token['text_id'] = source
-                token['sentence_id'] = sentence['structs']['sentence_id']
-                token['id'] = 999999
-                wordrows.append(token)
+                source = sentence['structs']['text_label']
             except KeyError:
-                nofullannot += 1
-                if sentence['structs']['text_source'] not in noannot_corpus:
-                    noannot_corpus.append(sentence['structs']['text_source'])
-                failer = FailedKorp(sentence)
-                break
+                try:
+                    source = '{}_{}_{}'.format(sentence['structs']['text_title'],sentence['structs']['text_source'],sentence['structs']['text_date'])
+                except:
+                    source = '{}_{}'.format(sentence['structs']['text_issue_title'], sentence['structs']['text_issue_date'])
+            wordlist = list()
+            for token in sentence['tokens']:
+                wordlist.append(token['word'])
+            outputsentences.append(nkrjamodule.BuildString(wordlist))
+            outputsources.append(source)
+
+        else:
+            try:
+                source = sentence['structs']['text_label']
+            except KeyError:
+                try:
+                    source = '{}_{}_{}'.format(sentence['structs']['text_title'],sentence['structs']['text_source'],sentence['structs']['text_date'])
+                except:
+                    source = '{}_{}'.format(sentence['structs']['text_issue_title'], sentence['structs']['text_issue_date'])
+            for token in sentence['tokens']:
+                try:
+                    token['token'] = token['word']
+                    token['tokenid'] = int(token['ref'])
+                    try:
+                        token['head'] = int(token['dephead'])
+                    except ValueError:
+                        token['head'] = int(0)
+                    token['feat'] = token['msd']
+                    token['text_id'] = source
+                    token['sentence_id'] = sentence['structs']['sentence_id']
+                    token['id'] = 999999
+                    wordrows.append(token)
+                    #import ipdb; ipdb.set_trace()
+                except KeyError:
+                    nofullannot += 1
+                    if sentence['structs']['text_source'] not in noannot_corpus:
+                        noannot_corpus.append(sentence['structs']['text_source'])
+                    failer = FailedKorp(sentence)
+                    break
     #if nofullannot>0:
         #print('{} sanalta puuttui kokonainen annotointi. Ongelmalliset korpukset: '.format(nofullannot))
         #print('\n'.join(noannot_corpus))
+    if outputtext:
+        return {'sentences':outputsentences, 'sources': outputsources}
     return wordrows
 
 
@@ -2820,8 +2856,15 @@ def IterateWords(sentence, wkey, position, count):
 
 def SerializeMonoMatchList(results, fname=None):
     matchlist = list()
-    for match in results:
+    treshold = 25000
+    for counter, match in enumerate(results):
         matchlist.append(match.Serialize())
+        if counter % 25 == 0:
+            print('{}/{}'.format(counter,len(results)), end='\r')
+        if counter > treshold:
+            ('LIMITING the number of serialized matches to {}'.format(treshold))
+            break
+    print('')
 
     if fname:
         with open(fname, 'w') as outfile:
