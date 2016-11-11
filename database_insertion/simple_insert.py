@@ -1,6 +1,7 @@
 import sys
 import re
 from insert_pair import TrimList, Bar, psycopg, AddRow, TextPair, GetLastValue
+import glob
 
 class InsData():
     def __init__(self, conllfile, metadatafile, dbname, lang, groupname='',corpusname=''):
@@ -106,8 +107,27 @@ class InsData():
         self.con.BatchInsert('groups', self.groupnamelist)
         print('Inserted {} rows.'.format(self.con.cur.rowcount))
 
-if (len(sys.argv)<5):
+
+if (sys.argv[1]=="bulk"):
+    #Olettaa, että kaikki syötettävät tiedostot kansiossa, niin että nimetty tyylillä:
+    #lc0a   lc0a.sources
+    #lc0b   lc0b.sources
+    #jne.
+    for filename in glob.glob(sys.argv[2] + "*"):
+        if 'sources' not in filename:
+            #conllfile, metadatafile,        dbname,       lang,      groupname='',corpusname=''):
+            groupname = filename
+            if ("/" in filename):
+                groupname = filename[filename.rfind("/")+1:]
+            print('STARTING to insert {}'.format(groupname))
+            thisdata = InsData(*[filename, filename + ".sources", sys.argv[3], sys.argv[4], groupname, sys.argv[5]])
+            thisdata.PrepareConllToDb()
+            thisdata.InsertToDb()
+    sys.exit('Usage: {} <BULK> <path to folder> <dbname> <lang> <corpus name>'.format(sys.argv[0]))
+
+elif (len(sys.argv)<5):
     sys.exit('Usage: {} <conllinput> <references> <dbname> <lang> <groupname> <corpus name>'.format(sys.argv[0]))
+
 
 thisdata = InsData(*sys.argv[1:])
 thisdata.PrepareConllToDb()
