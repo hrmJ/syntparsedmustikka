@@ -82,6 +82,7 @@ class Search:
         #A Clumsy way of searching for adjacent words
         self.prevcond = dict()
         self.nextcond = dict()
+        #If searching for either of the surrounding words
         self.prevornext = {'ison':False,'isfulfilled':False}
         #THIS IS AWFUL>>>!
         self.secondnextcond = dict()
@@ -419,25 +420,31 @@ class Search:
             #Assume that the pw DOES NOT fulfill the criteria
             fulfills=False
             wkey = word.tokenid
-            while wkey-1 in sentence.words:
-                wkey -= 1
-                wordinsent = sentence.words[wkey]
-                if wordinsent.deprel.lower() not in ('punct','punc'):
-                    if self.prevcond['column'][0] == '!':
-                        #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
-                        if getattr(wordinsent, self.prevcond['column'][1:]) not in self.prevcond['values']:
-                            fulfills = True
+            nopreviousword = word.IsFirstInCLause(sentence)
+            if self.prevcond['column'][0]=='!' and nopreviousword:
+                #IF  negative condition and the last element IN **CLAUSE**:
+                fulfills = True
+            else:
+                #UNDER normal circumstances (non-negative condition or negative but not the last in clause)
+                while wkey-1 in sentence.words:
+                    wkey -= 1
+                    wordinsent = sentence.words[wkey]
+                    if wordinsent.deprel.lower() not in ('punct','punc'):
+                        if self.prevcond['column'][0] == '!':
+                            #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
+                            if getattr(wordinsent, self.prevcond['column'][1:]) not in self.prevcond['values']:
+                                fulfills = True
+                            else:
+                                fulfills = False
                         else:
-                            fulfills = False
-                    else:
-                        #If this is a positive condition:
-                        #import ipdb; ipdb.set_trace()
-                        if getattr(wordinsent, self.prevcond['column']) in self.prevcond['values']:
-                            fulfills = True
-                        else:
-                            fulfills = False
-                    #The actual previous word reached, stop the WHILE loop
-                    break
+                            #If this is a positive condition:
+                            #import ipdb; ipdb.set_trace()
+                            if getattr(wordinsent, self.prevcond['column']) in self.prevcond['values']:
+                                fulfills = True
+                            else:
+                                fulfills = False
+                        #The actual previous word reached, stop the WHILE loop
+                        break
 
             if not fulfills and not self.prevornext["ison"]:
                 #If the previous word did not meet the criteria
@@ -450,25 +457,31 @@ class Search:
             #Assume that the pw DOES NOT fulfill the criteria
             fulfills=False
             wkey = word.tokenid
-            while wkey+1 in sentence.words:
-                wkey += 1
-                wordinsent = sentence.words[wkey]
-                if wordinsent.deprel.lower() not in ('punct','punc'):
-                    if self.nextcond['column'][0] == '!':
-                        #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
-                        if getattr(wordinsent, self.nextcond['column'][1:]) not in self.nextcond['values']:
-                            fulfills = True
+            nonextword = word.IsLastInCLause(sentence)
+            if self.nextcond['column'][0]=='!' and nonextword:
+                #IF  negative condition and the last element IN **CLAUSE**:
+                fulfills = True
+            else:
+                #UNDER normal circumstances (non-negative condition or negative but not the last in clause)
+                while wkey+1 in sentence.words:
+                    wkey += 1
+                    wordinsent = sentence.words[wkey]
+                    if wordinsent.deprel.lower() not in ('punct','punc'):
+                        if self.nextcond['column'][0] == '!':
+                            #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
+                            if getattr(wordinsent, self.nextcond['column'][1:]) not in self.nextcond['values']:
+                                fulfills = True
+                            else:
+                                fulfills = False
                         else:
-                            fulfills = False
-                    else:
-                        #If this is a positive condition:
-                        #import ipdb; ipdb.set_trace()
-                        if getattr(wordinsent, self.nextcond['column']) in self.nextcond['values']:
-                            fulfills = True
-                        else:
-                            fulfills = False
-                    #The actual next word reached, stop the WHILE loop
-                    break
+                            #If this is a positive condition:
+                            #import ipdb; ipdb.set_trace()
+                            if getattr(wordinsent, self.nextcond['column']) in self.nextcond['values']:
+                                fulfills = True
+                            else:
+                                fulfills = False
+                        #The actual next word reached, stop the WHILE loop
+                        break
 
             if not fulfills and not self.prevornext["ison"]:
                 #If the previous word did not meet the criteria
@@ -481,24 +494,40 @@ class Search:
             #Assume that the pw DOES NOT fulfill the criteria
             fulfills=False
             wkey = word.tokenid + 1
-            while wkey+1 in sentence.words:
-                wkey += 1
-                wordinsent = sentence.words[wkey]
-                if wordinsent.deprel.lower() not in ('punct','punc'):
-                    if self.secondnextcond['column'][0] == '!':
-                        #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
-                        if getattr(wordinsent, self.secondnextcond['column'][1:]) not in self.secondnextcond['values']:
-                            fulfills = True
+
+            if not fulfills and self.secondnextcond['column'][0]=='!' and word.IsLastInCLause(sentence):
+                #IF  negative condition and MATCH is the last element IN **CLAUSE**:
+                fulfills = True
+            if not fulfills and self.secondnextcond['column'][0]=='!' and wkey in sentence.words:
+                #TÄnne voi päätyä vain, jos 1) lauseessa on elementtejä osuman jälkeen ja 2)osuman jölkeinen elementti ei ole lauseen päättävä välimerkki
+                if sentence.words[wkey].token in ('"','\'',')',']') and wkey + 1 in sentence.words:
+                    if sentence.words[wkey+1].IsLastInCLause(sentence):
+                        #Jos seuraava sana lainausmerkki ja lainausmerkkiä seuraava lauseen vika
+                        fulfills = True
+                elif sentence.words[wkey].IsLastInCLause(sentence):
+                    # if checkinc MATCH +2 but MATCH +1 is the last word, accept
+                    fulfills=True
+
+            if not fulfills:
+                #UNDER normal circumstances (non-negative condition or negative but not the last in clause)
+                while wkey+1 in sentence.words:
+                    wkey += 1
+                    wordinsent = sentence.words[wkey]
+                    if wordinsent.deprel.lower() not in ('punct','punc'):
+                        if self.secondnextcond['column'][0] == '!':
+                            #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
+                            if getattr(wordinsent, self.secondnextcond['column'][1:]) not in self.secondnextcond['values']:
+                                fulfills = True
+                            else:
+                                fulfills = False
                         else:
-                            fulfills = False
-                    else:
-                        #If this is a positive condition:
-                        #import ipdb; ipdb.set_trace()
-                        if getattr(wordinsent, self.secondnextcond['column']) in self.secondnextcond['values']:
-                            fulfills = True
-                        else:
-                            fulfills = False
-                    break
+                            #If this is a positive condition:
+                            #import ipdb; ipdb.set_trace()
+                            if getattr(wordinsent, self.secondnextcond['column']) in self.secondnextcond['values']:
+                                fulfills = True
+                            else:
+                                fulfills = False
+                        break
 
             if not fulfills and not self.prevornext["ison"]:
                 #If the previous word did not meet the criteria
@@ -511,24 +540,35 @@ class Search:
             #Assume that the pw DOES NOT fulfill the criteria
             fulfills=False
             wkey = word.tokenid - 1
-            while wkey-1 in sentence.words:
-                wkey -= 1
-                wordinsent = sentence.words[wkey]
-                if wordinsent.deprel.lower() not in ('punct','punc'):
-                    if self.secondpreviouscond['column'][0] == '!':
-                        #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
-                        if getattr(wordinsent, self.secondpreviouscond['column'][1:]) not in self.secondpreviouscond['values']:
-                            fulfills = True
+
+            if not fulfills and self.secondpreviouscond['column'][0]=='!' and word.IsFirstInCLause(sentence):
+                #IF  negative condition and MATCH is the first element IN **CLAUSE**:
+                fulfills = True
+            if not fulfills and  self.secondpreviouscond['column'][0]=='!' and wkey in sentence.words:
+                if sentence.words[wkey].IsFirstInCLause(sentence):
+                    # if checking MATCH -2 but MATCH -1 is the first word, accept
+                    fulfills=True
+
+            if not fulfills:
+                #Go on and test:
+                while wkey-1 in sentence.words:
+                    wkey -= 1
+                    wordinsent = sentence.words[wkey]
+                    if wordinsent.deprel.lower() not in ('punct','punc'):
+                        if self.secondpreviouscond['column'][0] == '!':
+                            #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
+                            if getattr(wordinsent, self.secondpreviouscond['column'][1:]) not in self.secondpreviouscond['values']:
+                                fulfills = True
+                            else:
+                                fulfills = False
                         else:
-                            fulfills = False
-                    else:
-                        #If this is a positive condition:
-                        #import ipdb; ipdb.set_trace()
-                        if getattr(wordinsent, self.secondpreviouscond['column']) in self.secondpreviouscond['values']:
-                            fulfills = True
-                        else:
-                            fulfills = False
-                    break
+                            #If this is a positive condition:
+                            #import ipdb; ipdb.set_trace()
+                            if getattr(wordinsent, self.secondpreviouscond['column']) in self.secondpreviouscond['values']:
+                                fulfills = True
+                            else:
+                                fulfills = False
+                        break
 
             if not fulfills:
                 #If the previous word did not meet the criteria
@@ -2332,6 +2372,43 @@ class Word:
         #If no match, return false
         return False
 
+    def IsLastInCLause(self, sentence):
+        if self.tokenid + 1 not in sentence.words:
+            # a) the last item in the words dictionary
+            return True
+        elif sentence.words[self.tokenid + 1].token in ('!','?','.',':',';',','):
+            # b) not the last item in the words dictionary BUT followed by a comma, colon, etc
+            return True
+        elif sentence.words[self.tokenid + 1].token in ('"','\'',')',']'):
+            # c) not the last item in the words dictionary BUT followed by quotation mark, bracket etc
+            if self.tokenid + 2 not in sentence.words:
+                #c.1) the quotation mark is the last element of the dictionary
+                return True
+            elif sentence.words[self.tokenid + 2].token in ('!','?','.',':',';',','):
+                #c.2) the quotation mark is followed by a clause-ending punctuation mark
+                return True
+        else:
+            #If all tests fail, assume that NOT the last word of a clause
+            return False
+
+    def IsFirstInCLause(self, sentence):
+        if self.tokenid - 1 not in sentence.words:
+            # a) the first item in the words dictionary
+            return True
+        elif sentence.words[self.tokenid - 1].token in ('!','?','.',':',';',','):
+            # b) not the first item in the words dictionary BUT preceded by a comma, colon, etc
+            return True
+        elif sentence.words[self.tokenid - 1].token in ('"','\'','(','['):
+            # c) not the last item in the words dictionary BUT preceded by quotation mark, bracket etc
+            if self.tokenid - 2 not in sentence.words:
+                #c.1) the quotation mark is the first element of the dictionary
+                return True
+            elif sentence.words[self.tokenid - 2].token in ('!','?','.',':',';',','):
+                #c.2) the quotation mark is preceded by a clause-ending punctuation mark
+                return True
+        else:
+            #If all tests fail, assume that NOT the first word of a clause
+            return False
 
 
 
