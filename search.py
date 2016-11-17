@@ -391,21 +391,21 @@ class Search:
             for column, value in MultipleValuePair.items():
                 #If this is a negative condition:
                 if column[0] == '!':
-                    if getattr(word, column[1:]) in value:
+                    if getattr(word, column[1:]).lower() in value:
                         #if the requested value of the specified column is what's not being looked for, regard this a non-match
                         pairmatch = False
                 #If this is a fuzzy condition:
                 elif column[0] == '?':
-                    if value.replace('%','') not in getattr(word, column[1:]):
+                    if value.replace('%','') not in getattr(word, column[1:]).lower():
                         #if the requested value of the specified column isn't what's being looked for, regard this a non-match
                         pairmatch = False
                 elif column[0] == '#':
                     pattern  = re.compile(value)
-                    if not pattern.match(getattr(word,column[1:])):
+                    if not pattern.match(getattr(word,column[1:]).lower()):
                         #if the requested value of the specified column isn't what's being looked for, regard this a non-match
                         pairmatch = False
                 else:
-                    if getattr(word, column) not in value:
+                    if getattr(word, column).lower() not in value:
                         #if the requested value of the specified column isn't what's being looked for, regard this a non-match
                         pairmatch = False
             if pairmatch:
@@ -439,7 +439,7 @@ class Search:
                         else:
                             #If this is a positive condition:
                             #import ipdb; ipdb.set_trace()
-                            if getattr(wordinsent, self.prevcond['column']) in self.prevcond['values']:
+                            if getattr(wordinsent, self.prevcond['column']).lower() in self.prevcond['values']:
                                 fulfills = True
                             else:
                                 fulfills = False
@@ -469,14 +469,14 @@ class Search:
                     if wordinsent.deprel.lower() not in ('punct','punc'):
                         if self.nextcond['column'][0] == '!':
                             #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
-                            if getattr(wordinsent, self.nextcond['column'][1:]) not in self.nextcond['values']:
+                            if getattr(wordinsent, self.nextcond['column'][1:]).lower() not in self.nextcond['values']:
                                 fulfills = True
                             else:
                                 fulfills = False
                         else:
                             #If this is a positive condition:
                             #import ipdb; ipdb.set_trace()
-                            if getattr(wordinsent, self.nextcond['column']) in self.nextcond['values']:
+                            if getattr(wordinsent, self.nextcond['column']).lower() in self.nextcond['values']:
                                 fulfills = True
                             else:
                                 fulfills = False
@@ -516,14 +516,14 @@ class Search:
                     if wordinsent.deprel.lower() not in ('punct','punc'):
                         if self.secondnextcond['column'][0] == '!':
                             #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
-                            if getattr(wordinsent, self.secondnextcond['column'][1:]) not in self.secondnextcond['values']:
+                            if getattr(wordinsent, self.secondnextcond['column'][1:]).lower() not in self.secondnextcond['values']:
                                 fulfills = True
                             else:
                                 fulfills = False
                         else:
                             #If this is a positive condition:
                             #import ipdb; ipdb.set_trace()
-                            if getattr(wordinsent, self.secondnextcond['column']) in self.secondnextcond['values']:
+                            if getattr(wordinsent, self.secondnextcond['column']).lower() in self.secondnextcond['values']:
                                 fulfills = True
                             else:
                                 fulfills = False
@@ -557,14 +557,14 @@ class Search:
                     if wordinsent.deprel.lower() not in ('punct','punc'):
                         if self.secondpreviouscond['column'][0] == '!':
                             #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
-                            if getattr(wordinsent, self.secondpreviouscond['column'][1:]) not in self.secondpreviouscond['values']:
+                            if getattr(wordinsent, self.secondpreviouscond['column'][1:]).lower() not in self.secondpreviouscond['values']:
                                 fulfills = True
                             else:
                                 fulfills = False
                         else:
                             #If this is a positive condition:
                             #import ipdb; ipdb.set_trace()
-                            if getattr(wordinsent, self.secondpreviouscond['column']) in self.secondpreviouscond['values']:
+                            if getattr(wordinsent, self.secondpreviouscond['column']).lower() in self.secondpreviouscond['values']:
                                 fulfills = True
                             else:
                                 fulfills = False
@@ -589,13 +589,13 @@ class Search:
                     isRoot = False
                     if self.headcond['column'][0] == '!':
                         #If this is a negative condition:
-                        if getattr(wordinsent, self.headcond['column'][1:]) in self.headcond['values']:
+                        if getattr(wordinsent, self.headcond['column'][1:]).lower() in self.headcond['values']:
                             #If condition negative and the head of the examined word matches the condition:
                             headfulfills = False
                             break
                     else:
                         #If this is a positive condition:
-                        if getattr(wordinsent, self.headcond['column']) not in self.headcond['values']:
+                        if getattr(wordinsent, self.headcond['column']).lower() not in self.headcond['values']:
                             #If condition positive and the head of the examined word doesn't match the condition:
                             headfulfills = False
                             break
@@ -617,12 +617,12 @@ class Search:
                     #When the loop reaches a dependent of the examined word
                     if self.depcond['column'][0] == '!':
                         #If this is a negative condition:
-                        if getattr(wordinsent, self.depcond['column'][1:]) in self.depcond['values']:
+                        if getattr(wordinsent, self.depcond['column'][1:]).lower() in self.depcond['values']:
                             headfulfills = False
                             break
                     else:
                         #If this is a positive condition:
-                        if getattr(wordinsent, self.depcond['column']) not in self.depcond['values']:
+                        if getattr(wordinsent, self.depcond['column']).lower() not in self.depcond['values']:
                             headfulfills = False
                             break
             if not headfulfills:
@@ -635,12 +635,12 @@ class Search:
             for tokenid, wordinsent in sentence.words.items():
                     if self.samesentencecond['column'][0] == '!':
                         #If this is a negative condition:
-                        if getattr(wordinsent, self.samesentencecond['column'][1:]) in self.samesentencecond['values']:
+                        if getattr(wordinsent, self.samesentencecond['column'][1:]).lower() in self.samesentencecond['values']:
                             fulfills = False
                             break
                     else:
                         #If this is a positive condition:
-                        if getattr(wordinsent, self.samesentencecond['column']) in self.samesentencecond['values']:
+                        if getattr(wordinsent, self.samesentencecond['column']).lower() in self.samesentencecond['values']:
                             fulfills = True
                             break
             if not fulfills:
@@ -663,19 +663,19 @@ class Search:
                 for wordinsent in word.dependentlist:
                     if self.depcond2['column'][0] == '!':
                         #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
-                        if getattr(wordinsent, self.depcond2['column'][1:]) in self.depcond2['values']:
+                        if getattr(wordinsent, self.depcond2['column'][1:]).lower() in self.depcond2['values']:
                             headfulfills = False
                             break
                     elif self.depcond2['column'][0] == '#':
                         #If this is a fuzzy condition, i.e. the head MUST have, say, an objects as its dependent and this must be tested with a regex:
                         exp = re.compile(self.depcond2['values'])
-                        haystackvalue =  getattr(wordinsent, self.depcond2['column'][1:]) 
+                        haystackvalue =  getattr(wordinsent, self.depcond2['column'][1:]).lower() 
                         if exp.match(haystackvalue):
                             headfulfills=True
                             break
                     else:
                         #If this is a positive condition:
-                        if getattr(wordinsent, self.depcond2['column']) in self.depcond2['values']:
+                        if getattr(wordinsent, self.depcond2['column']).lower() in self.depcond2['values']:
                             headfulfills = True
                             break
             elif self.depcond2['column'][0] == '!':
@@ -698,12 +698,12 @@ class Search:
                 for wordinsent in sentence.dependentlist:
                     if self.headdepcond['column'][0] == '!':
                         #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
-                        if getattr(wordinsent, self.headdepcond['column'][1:]) in self.headdepcond['values']:
+                        if getattr(wordinsent, self.headdepcond['column'][1:]).lower() in self.headdepcond['values']:
                             headfulfills = False
                             break
                     else:
                         #If this is a positive condition:
-                        if getattr(wordinsent, self.headdepcond['column']) in self.headdepcond['values']:
+                        if getattr(wordinsent, self.headdepcond['column']).lower() in self.headdepcond['values']:
                             headfulfills = True
                             break
             if not headfulfills:
@@ -723,12 +723,12 @@ class Search:
                 for wordinsent in word.finitehead.dependentlist:
                     if self.finheaddepcond['column'][0] == '!':
                         #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
-                        if getattr(wordinsent, self.finheaddepcond['column'][1:]) in self.finheaddepcond['values']:
+                        if getattr(wordinsent, self.finheaddepcond['column'][1:]).lower() in self.finheaddepcond['values']:
                             headfulfills = False
                             break
                     else:
                         #If this is a positive condition:
-                        if getattr(wordinsent, self.finheaddepcond['column']) in self.finheaddepcond['values']:
+                        if getattr(wordinsent, self.finheaddepcond['column']).lower() in self.finheaddepcond['values']:
                             headfulfills = True
                             break
             if not headfulfills:
