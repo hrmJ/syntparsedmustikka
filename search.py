@@ -87,6 +87,7 @@ class Search:
         self.prevornext = {'ison':False,'isfulfilled':False}
         #THIS IS AWFUL>>>!
         self.secondnextcond = dict()
+        self.thirdnextcond = dict()
         self.secondpreviouscond = dict()
         self.queried_table = ''
         if not pseudo:
@@ -662,6 +663,82 @@ class Search:
                 #If the previous word did not meet the criteria
                 return False
 
+
+        if self.thirdnextcond:
+            #use this variable to test if the word after the following word fulfills the criteria
+            #Assume that the pw DOES NOT fulfill the criteria
+            fulfills=False
+
+            islastword = word.IsLastInCLause(sentence, self.beforecommacountsaslast)
+
+            prevcondcolumnlist = self.thirdnextcond['column']
+            prevcondvalueslist = self.thirdnextcond['values']
+
+            if not isinstance(prevcondcolumnlist, list):
+                #IF only a single condition, make them into a list, too
+                # in order to make multiple conds possible
+                prevcondcolumnlist = [prevcondcolumnlist]
+                prevcondvalueslist = [prevcondvalueslist]
+
+            for cond_idx, prevcondcolumn in enumerate(prevcondcolumnlist):
+                prevcondvalues = prevcondvalueslist[cond_idx]
+                if not fulfills and cond_idx > 0:
+                    #If EVEN one of the possibly many conditions concerning the previous word FAILS, then stop testing and assume a FAILURE
+                    break
+
+                fulfills=False
+                #HUOM! + 2 = match + 3
+                wkey = word.tokenid + 2
+
+                if not fulfills and prevcondcolumn[0]=='!' and islastword:
+                    #IF  negative condition and MATCH is the last element IN **CLAUSE**:
+                    fulfills = True
+                if not fulfills and prevcondcolumn[0]=='!' and wkey in sentence.words:
+                    #TÄnne voi päätyä vain, jos 1) lauseessa on elementtejä osuman jälkeen ja 2)osuman jölkeinen elementti ei ole lauseen päättävä välimerkki
+                    if sentence.words[wkey].token in ('"','\'',')',']') and wkey + 1 in sentence.words:
+                        if sentence.words[wkey+1].IsLastInCLause(sentence, self.beforecommacountsaslast):
+                            #Jos seuraava sana lainausmerkki ja lainausmerkkiä seuraava lauseen vika
+                            fulfills = True
+                    elif sentence.words[wkey].IsLastInCLause(sentence, self.beforecommacountsaslast):
+                        # if checkinc MATCH +2 but MATCH +1 is the last word, accept
+                        fulfills=True
+
+                if not fulfills:
+                    #UNDER normal circumstances (non-negative condition or negative but not the last in clause)
+                    while wkey+1 in sentence.words:
+                        wkey += 1
+                        wordinsent = sentence.words[wkey]
+                        if wordinsent.deprel.lower() not in ('punct','punc'):
+                            if prevcondcolumn[0] == '!':
+                                #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
+                                if getattr(wordinsent, prevcondcolumn[1:]).lower() not in prevcondvalues:
+                                    fulfills = True
+                                else:
+                                    import ipdb; ipdb.set_trace()
+                                    fulfills = False
+                            elif prevcondcolumn[0] == '¤':
+                                #If a NEGATIVE regexp condition
+                                pattern  = re.compile(prevcondvalues)
+                                if pattern.match(getattr(wordinsent, prevcondcolumn[1:]).lower()):
+                                    #if the requested value of the specified column isn't what's being looked for, regard this a non-match
+                                    #import ipdb; ipdb.set_trace()
+                                    fulfills = False
+                                else:
+                                    fulfills = True
+                            else:
+                                #If this is a positive condition:
+                                #import ipdb; ipdb.set_trace()
+                                if getattr(wordinsent, prevcondcolumn).lower() in prevcondvalues:
+                                    fulfills = True
+                                else:
+                                    fulfills = False
+                            break
+
+            if not fulfills and not self.prevornext["ison"]:
+                #If the previous word did not meet the criteria
+                return False
+            elif fulfills and self.prevornext["ison"]:
+                self.prevornext["isfulfilled"] = True
         #Test conditions based on the head of the word
         if self.headcond:
             #To test if this has no head at all:
