@@ -53,11 +53,11 @@ class InsData():
         if len(self.segments)!=len(self.reflist):
             try:
                 logging.info("Ups! Tyhjiä segmenttejä tms. havaittu ryhmässä {}, tarkista esimerkiksi seuraava kohta:\n\n {} \n\n ".format(self.groupname, self.segments[self.segments.index('')-1]))
-            except ValueError:
+            except:
+                import ipdb; ipdb.set_trace()
                 lengths = [len(item) for item in self.segments]
                 min_idx = [idx for idx, item in enumerate(self.segments) if len(item)==min(lengths)]
                 logging.info("OHO! Joku isompi ongelma, joka johtuu siitä, että eri määrä segmenttejä ({} kpl)ja viitteitä ({}) ryhmässä {}. Tarkista esimerkiksi seuraava kohta:\n\n {}".format(len(self.segment), len(self.reflist), self.groupname, self.segments[min_idx[0]-1] ))
-                import ipdb; ipdb.set_trace()
             return False
         #Notice that +1 is added to the maximal sentence value
         sentence_id = GetLastValue(self.con.FetchQuery("SELECT max(sentence_id) FROM {}".format(self.table))) + 1

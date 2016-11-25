@@ -3,6 +3,7 @@
 #Menu{{{2
 #from texttable import Texttable, get_color_string, bcolors
 import os
+import collections
 
 class Menu:
     """Command line menus used for asking the user for input"""
@@ -39,8 +40,35 @@ class Menu:
                         question = self.question + "\n>"
                 except NameError:
                     #Jos ei TextTable-moduulia asenettu
-                    options = '\n                '.join("{!s}: {!s}".format(key,val) for (key,val) in sorted(self.validanswers.items()))
-                    question = "{}\n{}{}\n>".format(self.question,'                ',options)
+
+                    options = []
+                    answerkeys = sorted(map(int,self.validanswers))
+                    maxlength = 0
+                    for answer in answerkeys:
+                        if answer % 2 > 0:
+                            answertext =  '{}: {}  |'.format(answer, self.validanswers[str(answer)])
+                            if len(answertext) > maxlength:
+                                maxlength = len(answertext)
+                            #parittomat
+                            if answer + 1 in answerkeys:
+                                options.append('{}: {}  |  {}:  {}'.format(answer, self.validanswers[str(answer)], answer+1, self.validanswers[str(answer+1)]))
+                            else:
+                                options.append('{}: {}  |         '.format(answer, self.validanswers[str(answer)]))
+
+
+                    options = []
+                    for answer in answerkeys:
+                        if answer % 2 > 0:
+                            #parittomat
+                            answertext =  '{}: {}  |'.format(answer, self.validanswers[str(answer)])
+                            pakkeli = " "*(maxlength-len(answertext))
+                            if answer + 1 in answerkeys:
+                                options.append('{}: {}  {}|  {}:  {}'.format(answer, self.validanswers[str(answer)], pakkeli, answer+1, self.validanswers[str(answer+1)]))
+                            else:
+                                options.append('{}: {}  {}|         '.format(answer, self.validanswers[str(answer)],pakkeli))
+
+
+                    question = "{}\n\n{}\n>".format(self.question,'\n'.join(options))
             else:
                 #Make a printable string from the dict:
                 options = '\n                '.join("{!s}: {!s}".format(key,val) for (key,val) in sorted(self.validanswers.items()))
@@ -68,8 +96,19 @@ class yesnomenu(Menu):
     validanswers = { 'y':'yes','n':'no' }
 
 class multimenu(Menu):
-    def __init__(self, validanswers, promptnowquestion='', clearscreen=False):
-        self.validanswers=validanswers
+    def __init__(self, validanswers, promptnowquestion='', clearscreen=False, sortanswers=False):
+        if sortanswers:
+            ordered = collections.OrderedDict()
+            itemlist = []
+            for key,value in validanswers.items():
+                itemlist.append(value)
+            itemlist = sorted(itemlist)
+            for idx, item in enumerate(itemlist):
+                ordered[str(idx)] = item
+            self.validanswers=ordered
+        else:
+            self.validanswers=validanswers
+
         self.clearscreen = clearscreen
         if promptnowquestion:
             self.question = promptnowquestion

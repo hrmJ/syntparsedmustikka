@@ -714,7 +714,6 @@ class Search:
                                 if getattr(wordinsent, prevcondcolumn[1:]).lower() not in prevcondvalues:
                                     fulfills = True
                                 else:
-                                    import ipdb; ipdb.set_trace()
                                     fulfills = False
                             elif prevcondcolumn[0] == '¤':
                                 #If a NEGATIVE regexp condition
@@ -1633,16 +1632,19 @@ class Match:
         nsubj = None
         try:
             for word in self.positionmatchword.finitehead.dependentlist:
-                if word.IsObject(lang, sentence, strict) and not dobj:
-                    #Take the first 1-kompl
-                    dobj = word
-                if word.IsSubject(lang):
-                    nsubj = word
+                if self.matchedword.tokenid != word.tokenid:
+                    #IGNORE the matching word
+                    if word.IsObject(lang, sentence, strict) and not dobj:
+                        #Take the first 1-kompl
+                        dobj = word
+                    if word.IsSubject(lang):
+                        nsubj = word
         except AttributeError:
             return 'Failed'
 
         #Test, which word the matched word precedes
-        #import ipdb; ipdb.set_trace()
+        #if self.positionmatchword.finitehead.lemma == 'проводить':
+        #    import ipdb; ipdb.set_trace()
         comps = self.MatchPrecedes({'verb':self.positionmatchword.finitehead, 'dobj':dobj, 'nsubj':nsubj})
 
         if self.prodrop == 'No':
