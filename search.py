@@ -1695,14 +1695,36 @@ class Match:
     def PrintInfoDict(self, additionalinfo):
         self.BuildSentencePrintString()
         try:
+            headverb = self.matchedword.finitehead.lemma
+            auxlemma = self.matchedword.compoundfinitehead
+            neg = 'no'
+            if 'Negative=Yes' in self.matchedword.headword.feat:
+                neg = 'yes'
+            if self.matchedword.compoundfinitehead:
+                #Jos ksyeessä suomen apuverbi-/kielto-/?-muoto, tallenna semanttisessa mielessä pääverbin lemma ennemmin kuin apuverbin
+                headverb = self.matchedword.headword.lemma
+                if 'Negative=Yes' in self.matchedword.aux.feat:
+                    neg = 'yes'
+            if re.search('[а-я]+',self.matchedword.token):
+                #venäläisillä sanoilla testaa vielä, onko mielekkäämpää tallentaa pääverbi-informaatioksi muuta kuin apuverbilemmoja
+                hwdeplist = self.matchedword.headword.ListDependents(self.matchedsentence)
+                #russianaux = ['хотеть','мочь','смочь','быть']
+                for dep in hwdeplist:
+                    if dep.feat[:3]=='Vmn':
+                        headverb = dep.lemma
+                        auxlemma = self.matchedword.finitehead.lemma
+                    if dep.lemma in ['не', 'нет']:
+                        neg = 'yes'
+
+            firstword = FirstLemmaOfCurrentClause(self.matchedsentence,self.matchedword)
+
             row =  {'tokenid':self.matchedword.tokenid, 'sentid':self.matchedsentence.sentence_id,'sent':self.matchedsentence.printstring,
-                    'dfunct':'','headverb':self.matchedword.finitehead.lemma,'prodrop':self.prodrop,'etta_jos':self.TestSubOord(),
-                    'headverbdep':self.matchedword.finitehead.deprel}
+                    'dfunct':'','headverb':headverb,'prodrop':self.prodrop,'etta_jos':self.TestSubOord(),
+                    'headverbdep':self.matchedword.finitehead.deprel,'verbchain': auxlemma,'neg':neg,'firstlemma' : firstword.lemma, 'firstpos': firstword.pos, 'firsttoken':firstword.token}
         except AttributeError:
             print('No finite head for sent {}!'.format(self.matchedsentence.printstring))
             row =  {'tokenid':self.matchedword.tokenid, 'sentid':self.matchedsentence.sentence_id,'sent':self.matchedsentence.printstring,'prodrop':self.prodrop,
-                    'dfunct':'','headverb':'','etta_jos':self.TestSubOord(),
-                    'headverbdep':''}
+                    'dfunct':'','headverb':'','etta_jos':self.TestSubOord(),'verbchain':'', 'headverbdep':'','neg':'','firstlemma':'','firsttoken':'','firstpos':''}
 
         row.update(additionalinfo)
         return row
@@ -2262,6 +2284,7 @@ class Word:
         self.deprel = row["deprel"] 
         self.tokenid = row["tokenid"] 
         self.sourcetextid = row["text_id"]
+        self.compoundfinitehead = ''
         if "translation_id" in row:
             self.transid = row["translation_id"]
         #The general id in the db conll table
@@ -2328,7 +2351,24 @@ class Word:
         if word.IsThisFiniteVerb():
             self.finitehead = word
             return True
-        #If no finite head found, return False
+        #If no finite head found, 
+        #------------------------------------------------------------
+        #1. FIRST re-interpret Finnish compound forms
+        if self.headword:
+            hwdeplist = self.headword.ListDependents(sentence)
+            if self.headword.pos == 'VERB':
+                #JOS pääsana on verbi, muttei (selvästikään) ole finiittiverbi
+                for dep in hwdeplist:
+                    #Katso, onko tämän dependenttinä finiittiverbi
+                    #ja jos on, hyväksy se itse osuman finiittiverbiksi
+                    if dep.IsThisFiniteVerb():
+                        #import ipdb; ipdb.set_trace()
+                        self.finitehead = dep
+                        #Tallenna tieto apuverbin tyypistä
+                        self.compoundfinitehead = dep.lemma
+                        self.aux = dep
+                        return True
+        #2. If this fails, return False
         self.finitehead = None
         return False
 
@@ -2382,9 +2422,13 @@ class Word:
     def IsThisFiniteVerb(self):
         """Return true if the word object is by its feat a finite verb form
         - Suomen kieltoverbit?
+            - mukaan!
         
         """
-        if self.feat[0:3] in ('Vmi','Vmm') or ItemInString(['Mood=Ind','Mood=Imprt','Mood=Pot','Mood=Cond','VerbForm=Fin','MOOD_Ind','MOOD_Cond'],self.feat,True):
+        if 'Connegative=Yes' in self.feat:
+            #ÄLÄ  laske suomen kieltomuotoja itseään finiittisiksi vaan ota ennemmin kieltoverbit
+            return False
+        if self.feat[0:3] in ('Vmi','Vmm') or ItemInString(['Mood=Ind','Mood=Imprt','Mood=Pot','Mood=Cond','VerbForm=Fin','MOOD_Ind','MOOD_Cond','Negative=Yes','VerbForm=Fin'],self.feat,True):
             return True
         else:
             return False
