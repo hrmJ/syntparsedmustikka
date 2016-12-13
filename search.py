@@ -1631,15 +1631,33 @@ class Match:
         dobj = None
         nsubj = None
         try:
-            for word in self.positionmatchword.finitehead.dependentlist:
-                if self.matchedword.tokenid != word.tokenid:
-                    #IGNORE the matching word
+            if not self.positionmatchword.compoundfinitehead:
+                #JOS ei riipu apuverbin välityksellä vaan suoraan
+                root = self.positionmatchword.finitehead
+            else:
+                #Jos riippuu apuverbin välityksellä
+                root = self.positionmatchword.headword
+
+            #Listaa sanan omat dependentit sen varmistamiseksi, ettei esim. несколько минут luule минут:ia objektiksi
+            own_deps = self.positionmatchword.ListDependents(sentence)
+            own_deps_ids = []
+            for odep in own_deps:
+                own_deps_ids.append(odep.tokenid)
+
+            #if sentence.sentence_id == 51128:
+            #    import ipdb;ipdb.set_trace()
+
+            for word in root.dependentlist:
+                if self.positionmatchword.tokenid != word.tokenid and word.tokenid not in own_deps:
+                    #IGNORE the matching word AND its dependents
                     if word.IsObject(lang, sentence, strict) and not dobj:
                         #Take the first 1-kompl
                         dobj = word
                     if word.IsSubject(lang):
                         nsubj = word
-        except AttributeError:
+        except AttributeError as e:
+            #import ipdb;ipdb.set_trace()
+            print(e)
             return 'Failed'
 
         #Test, which word the matched word precedes
@@ -2284,6 +2302,7 @@ class Word:
         self.deprel = row["deprel"] 
         self.tokenid = row["tokenid"] 
         self.sourcetextid = row["text_id"]
+        #Suomen apuverbikytkösten selvittämiseksi:
         self.compoundfinitehead = ''
         if "translation_id" in row:
             self.transid = row["translation_id"]
