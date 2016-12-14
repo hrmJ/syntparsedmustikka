@@ -40,7 +40,8 @@ import  monograph.kasittely.luku2.get_nkrja_json as nkrjamodule
 class Search:
     """This is the very
     basic class that is used to retrieve data from the corpus"""
-    all_searches = []
+    currentsearch = None
+    lengthmeter = None
     def __init__(self,queried_db='',askname=False, pseudo=False, interactive=False, con = None):
         """Initialize a search object. 
         ----------------------------------------
@@ -53,14 +54,14 @@ class Search:
         self.sql_cols = "tokenid, token, lemma, pos, feat, head, deprel, align_id, id, sentence_id, text_id, translation_id"
         self.matches = defaultdict(list)
         #Save the search object to a list of all conducted searches during the session
-        Search.all_searches.append(self)
+        Search.currentsearch = self
         # save an id for the search for this session
         self.searchid = id(self)
         #Ask a name for the search (make this optional?)
         if askname:
             self.name = input('Give a name for this search:\n\n>')
         else:
-            self.name = 'unnamed_{}'.format(len(Search.all_searches))
+            self.name = 'unnamed_{}'.format(random.randint(1,999999999999999999999))
         self.searchtype = 'none'
         #Make a dict to contain column_name: string_value pairs to be matched
         self.ConditionColumns = list()
@@ -1738,11 +1739,12 @@ class Match:
 
             row =  {'tokenid':self.matchedword.tokenid, 'sentid':self.matchedsentence.sentence_id,'sent':self.matchedsentence.printstring,
                     'dfunct':'','headverb':headverb,'prodrop':self.prodrop,'etta_jos':self.TestSubOord(),
-                    'headverbdep':self.matchedword.finitehead.deprel,'verbchain': auxlemma,'neg':neg,'firstlemma' : firstword.lemma, 'firstpos': firstword.pos, 'firsttoken':firstword.token}
+                    'headverbdep':self.matchedword.finitehead.deprel,'verbchain': auxlemma,'neg':neg,'firstlemma' : firstword.lemma, 'firstpos': firstword.pos, 'firsttoken':firstword.token,
+                    'phraselength':self.CountPhraseLength()}
         except AttributeError:
             print('No finite head for sent {}!'.format(self.matchedsentence.printstring))
             row =  {'tokenid':self.matchedword.tokenid, 'sentid':self.matchedsentence.sentence_id,'sent':self.matchedsentence.printstring,'prodrop':self.prodrop,
-                    'dfunct':'','headverb':'','etta_jos':self.TestSubOord(),'verbchain':'', 'headverbdep':'','neg':'','firstlemma':'','firsttoken':'','firstpos':''}
+                    'dfunct':'','headverb':'','etta_jos':self.TestSubOord(),'verbchain':'', 'headverbdep':'','neg':'','firstlemma':'','firsttoken':'','firstpos':'','phraselength':self.CountPhraseLength()}
 
         row.update(additionalinfo)
         return row
@@ -1770,6 +1772,17 @@ class Match:
                 break
             tokenid -= 1
         return is_subo
+
+    def CountPhraseLength(self):
+        length = 0
+        start_token = self.matchedword.tokenid - Search.lengthmeter[0]
+        end_token = self.matchedword.tokenid + Search.lengthmeter[1]
+        try:
+            for tokenid in list(range(start_token,end_token+1)):
+                length += len(self.matchedsentence.words[tokenid].token)
+        except KeyError:
+            import ipdb;ipdb.set_trace()
+        return length
 
 class MonoMatch(Match):
 
