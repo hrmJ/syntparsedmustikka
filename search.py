@@ -1654,8 +1654,10 @@ class Match:
                     if word.IsObject(lang, sentence, strict) and not dobj:
                         #Take the first 1-kompl
                         dobj = word
+                        self.matchedsentence.object = word
                     if word.IsSubject(lang):
                         nsubj = word
+                        self.matchedsentence.subject = word
         except AttributeError as e:
             #import ipdb;ipdb.set_trace()
             print(e)
@@ -1715,6 +1717,7 @@ class Match:
         self.BuildSentencePrintString()
         try:
             headverb = self.matchedword.finitehead.lemma
+            headverbfeat = self.matchedword.finitehead.feat
             auxlemma = self.matchedword.compoundfinitehead
             neg = 'no'
             if 'Negative=Yes' in self.matchedword.headword.feat:
@@ -1722,6 +1725,7 @@ class Match:
             if self.matchedword.compoundfinitehead:
                 #Jos ksyeessä suomen apuverbi-/kielto-/?-muoto, tallenna semanttisessa mielessä pääverbin lemma ennemmin kuin apuverbin
                 headverb = self.matchedword.headword.lemma
+                headverbfeat = self.matchedword.headword.feat
                 if 'Negative=Yes' in self.matchedword.aux.feat:
                     neg = 'yes'
             if re.search('[а-я]+',self.matchedword.token):
@@ -1731,20 +1735,35 @@ class Match:
                 for dep in hwdeplist:
                     if dep.feat[:3]=='Vmn':
                         headverb = dep.lemma
+                        headverbfeat = dep.feat
                         auxlemma = self.matchedword.finitehead.lemma
                     if dep.lemma in ['не', 'нет']:
                         neg = 'yes'
 
             firstword = FirstLemmaOfCurrentClause(self.matchedsentence,self.matchedword)
 
+            #Information about object and subject
+            try:
+                objfeat = self.matchedsentence.object.feat
+                objlemma = self.matchedsentence.object.lemma
+            except AttributeError:
+                objfeat = ""
+                objlemma = ""
+            try:
+                subjfeat = self.matchedsentence.subject.feat
+                subjlemma = self.matchedsentence.subject.lemma
+            except AttributeError:
+                subjfeat = ""
+                subjlemma = ""
+
             row =  {'tokenid':self.matchedword.tokenid, 'sentid':self.matchedsentence.sentence_id,'sent':self.matchedsentence.printstring,
                     'dfunct':'','headverb':headverb,'prodrop':self.prodrop,'etta_jos':self.TestSubOord(),
                     'headverbdep':self.matchedword.finitehead.deprel,'verbchain': auxlemma,'neg':neg,'firstlemma' : firstword.lemma, 'firstpos': firstword.pos, 'firsttoken':firstword.token,
-                    'phraselength':self.CountPhraseLength()}
+                    'phraselength':self.CountPhraseLength(),'headverbfeat':headverbfeat, 'subjfeat':subjfeat, 'subjlemma':subjlemma, 'objfeat':objfeat,'objlemma':objlemma}
         except AttributeError:
             print('No finite head for sent {}!'.format(self.matchedsentence.printstring))
             row =  {'tokenid':self.matchedword.tokenid, 'sentid':self.matchedsentence.sentence_id,'sent':self.matchedsentence.printstring,'prodrop':self.prodrop,
-                    'dfunct':'','headverb':'','etta_jos':self.TestSubOord(),'verbchain':'', 'headverbdep':'','neg':'','firstlemma':'','firsttoken':'','firstpos':'','phraselength':self.CountPhraseLength()}
+                    'dfunct':'','headverb':'','etta_jos':self.TestSubOord(),'verbchain':'', 'headverbdep':'','neg':'','firstlemma':'','firsttoken':'','firstpos':'','phraselength':self.CountPhraseLength(),'headverbfeat':'', 'headverbfeat':headverbfeat, 'subjfeat':subjfeat, 'subjlemma':subjlemma, 'objfeat':objfeat,'objlemma':objlemma}
 
         row.update(additionalinfo)
         return row
