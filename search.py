@@ -1746,24 +1746,28 @@ class Match:
             try:
                 objfeat = self.matchedsentence.object.feat
                 objlemma = self.matchedsentence.object.lemma
+                objpos = self.matchedsentence.object.pos
             except AttributeError:
                 objfeat = ""
                 objlemma = ""
+                objpos = ""
             try:
                 subjfeat = self.matchedsentence.subject.feat
                 subjlemma = self.matchedsentence.subject.lemma
+                subjpos = self.matchedsentence.subject.pos
             except AttributeError:
                 subjfeat = ""
                 subjlemma = ""
+                subjpos = ""
 
             row =  {'tokenid':self.matchedword.tokenid, 'sentid':self.matchedsentence.sentence_id,'sent':self.matchedsentence.printstring,
                     'dfunct':'','headverb':headverb,'prodrop':self.prodrop,'etta_jos':self.TestSubOord(),
                     'headverbdep':self.matchedword.finitehead.deprel,'verbchain': auxlemma,'neg':neg,'firstlemma' : firstword.lemma, 'firstpos': firstword.pos, 'firsttoken':firstword.token,
-                    'phraselength':self.CountPhraseLength(),'headverbfeat':headverbfeat, 'subjfeat':subjfeat, 'subjlemma':subjlemma, 'objfeat':objfeat,'objlemma':objlemma}
+                    'phraselength':self.CountPhraseLength(),'headverbfeat':headverbfeat, 'subjfeat':subjfeat, 'subjlemma':subjlemma, 'objfeat':objfeat,'objlemma':objlemma,'objpos':objpos,'subjpos':subjpos}
         except AttributeError:
             print('No finite head for sent {}!'.format(self.matchedsentence.printstring))
             row =  {'tokenid':self.matchedword.tokenid, 'sentid':self.matchedsentence.sentence_id,'sent':self.matchedsentence.printstring,'prodrop':self.prodrop,
-                    'dfunct':'','headverb':'','etta_jos':self.TestSubOord(),'verbchain':'', 'headverbdep':'','neg':'','firstlemma':'','firsttoken':'','firstpos':'','phraselength':self.CountPhraseLength(),'headverbfeat':'', 'headverbfeat':headverbfeat, 'subjfeat':subjfeat, 'subjlemma':subjlemma, 'objfeat':objfeat,'objlemma':objlemma}
+                    'dfunct':'','headverb':'','etta_jos':self.TestSubOord(),'verbchain':'', 'headverbdep':'','neg':'','firstlemma':'','firsttoken':'','firstpos':'','phraselength':self.CountPhraseLength(),'headverbfeat':'', 'headverbfeat':headverbfeat, 'subjfeat':subjfeat, 'subjlemma':subjlemma, 'objfeat':objfeat,'objlemma':objlemma ,'objpos':objpos,'subjpos':subjpos}
 
         row.update(additionalinfo)
         return row
