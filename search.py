@@ -1757,9 +1757,10 @@ class Match:
                 subjpos = self.matchedsentence.subject.pos
                 #subjlength: koeta arvioida subjektin pituutta sillä, että mittaat subjektin ja verbin tai s2-lauseissa subjektin ja ajanilmauksen välistä etäisyyttä
                 if additionalinfo["location"] == "beforeverb":
-                    subjlength = int(self.matchedword.finitehead.tokenid) - int(self.matchedword.tokenid)
+                    lb = self.matchedword.tokenid + Search.lengthmeter[1]
+                    subjlength = self.CountSubjectLength(self.matchedsentence.words[lb], self.matchedword.finitehead)
                 else:
-                    subjlength = int(self.matchedword.finitehead.tokenid) - int(self.matchedsentence.subject.tokenid)
+                    subjlength = self.CountSubjectLength(self.matchedsentence.subject, self.matchedword.finitehead)
             except AttributeError:
                 subjfeat = ""
                 subjlemma = ""
@@ -1812,6 +1813,21 @@ class Match:
         except KeyError:
             import ipdb;ipdb.set_trace()
         return length
+
+    def CountSubjectLength(self, leftboundaryword, rightboundaryword):
+        subjlength = int(rightboundaryword.tokenid) - int(leftboundaryword.tokenid)
+        for i in range(int(leftboundaryword.tokenid)+1,int(rightboundaryword.tokenid)):
+            thisword = self.matchedsentence.words[i]
+            if thisword.deprel.lower() in ["punc", "punct"]:
+                subjlength -= 1
+            elif thisword.deprel == "обст":
+                subjlength -= 1
+                thisword.ListDependents(self.matchedsentence)
+                if thisword.dependentlist:
+                    for dep in thisword.dependentlist:
+                        if dep.tokenid > leftboundaryword.tokenid & dep.tokenid < rightboundaryword.tokenid:
+                            subjlength -= 1
+        return subjlength
 
 class MonoMatch(Match):
 
