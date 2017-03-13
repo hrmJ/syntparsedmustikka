@@ -1755,19 +1755,25 @@ class Match:
                 subjfeat = self.matchedsentence.subject.feat
                 subjlemma = self.matchedsentence.subject.lemma
                 subjpos = self.matchedsentence.subject.pos
+                #subjlength: koeta arvioida subjektin pituutta sillä, että mittaat subjektin ja verbin tai s2-lauseissa subjektin ja ajanilmauksen välistä etäisyyttä
+                if additionalinfo["location"] == "beforeverb":
+                    subjlength = int(self.matchedword.finitehead.tokenid) - int(self.matchedword.tokenid)
+                else:
+                    subjlength = int(self.matchedword.finitehead.tokenid) - int(self.matchedsentence.subject.tokenid)
             except AttributeError:
                 subjfeat = ""
                 subjlemma = ""
                 subjpos = ""
+                subjlength = ""
 
             row =  {'tokenid':self.matchedword.tokenid, 'sentid':self.matchedsentence.sentence_id,'sent':self.matchedsentence.printstring,
                     'dfunct':'','headverb':headverb,'prodrop':self.prodrop,'etta_jos':self.TestSubOord(),
                     'headverbdep':self.matchedword.finitehead.deprel,'verbchain': auxlemma,'neg':neg,'firstlemma' : firstword.lemma, 'firstpos': firstword.pos, 'firsttoken':firstword.token,
-                    'phraselength':self.CountPhraseLength(),'headverbfeat':headverbfeat, 'subjfeat':subjfeat, 'subjlemma':subjlemma, 'objfeat':objfeat,'objlemma':objlemma,'objpos':objpos,'subjpos':subjpos}
+                    'phraselength':self.CountPhraseLength(),'headverbfeat':headverbfeat, 'subjfeat':subjfeat, 'subjlemma':subjlemma, 'objfeat':objfeat,'objlemma':objlemma,'objpos':objpos,'subjpos':subjpos,'subjlength':subjlength}
         except AttributeError:
             print('No finite head for sent {}!'.format(self.matchedsentence.printstring))
             row =  {'tokenid':self.matchedword.tokenid, 'sentid':self.matchedsentence.sentence_id,'sent':self.matchedsentence.printstring,'prodrop':self.prodrop,
-                    'dfunct':'','headverb':'','etta_jos':self.TestSubOord(),'verbchain':'', 'headverbdep':'','neg':'','firstlemma':'','firsttoken':'','firstpos':'','phraselength':self.CountPhraseLength(),'headverbfeat':'', 'headverbfeat':headverbfeat, 'subjfeat':subjfeat, 'subjlemma':subjlemma, 'objfeat':objfeat,'objlemma':objlemma ,'objpos':objpos,'subjpos':subjpos}
+                    'dfunct':'','headverb':'','etta_jos':self.TestSubOord(),'verbchain':'', 'headverbdep':'','neg':'','firstlemma':'','firsttoken':'','firstpos':'','phraselength':self.CountPhraseLength(),'headverbfeat':'', 'headverbfeat':headverbfeat, 'subjfeat':subjfeat, 'subjlemma':subjlemma, 'objfeat':objfeat,'objlemma':objlemma ,'objpos':objpos,'subjpos':subjpos,'subjlength':subjlength}
 
         row.update(additionalinfo)
         return row
