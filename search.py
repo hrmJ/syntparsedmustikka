@@ -629,36 +629,60 @@ class Search:
             #use this variable to test if the word before the preceding word fulfills the criteria
             #Assume that the pw DOES NOT fulfill the criteria
             fulfills=False
-            wkey = word.tokenid - 1
+            #Check if the (PREVIOUS) word is the first one in the clause: relevant when checking for PREVIOUS words
+            try:
+                nopreviousword = sentence.words[word.tokenid-1].IsFirstInCLause(sentence)
+            except KeyError:
+                #Jos sana itse asiassa ensimmäinen
+                nopreviousword = True
 
-            if not fulfills and self.secondpreviouscond['column'][0]=='!' and word.IsFirstInCLause(sentence):
-                #IF  negative condition and MATCH is the first element IN **CLAUSE**:
-                fulfills = True
-            if not fulfills and  self.secondpreviouscond['column'][0]=='!' and wkey in sentence.words:
-                if sentence.words[wkey].IsFirstInCLause(sentence):
-                    # if checking MATCH -2 but MATCH -1 is the first word, accept
-                    fulfills=True
+            prevcondcolumnlist = self.secondpreviouscond['column']
+            prevcondvalueslist = self.secondpreviouscond['values']
 
-            if not fulfills:
-                #Go on and test:
-                while wkey-1 in sentence.words:
-                    wkey -= 1
-                    wordinsent = sentence.words[wkey]
-                    if wordinsent.deprel.lower() not in ('punct','punc'):
-                        if self.secondpreviouscond['column'][0] == '!':
-                            #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
-                            if getattr(wordinsent, self.secondpreviouscond['column'][1:]).lower() not in self.secondpreviouscond['values']:
-                                fulfills = True
+            if not isinstance(prevcondcolumnlist, list):
+                #IF only a single condition, make them into a list, too
+                # in order to make multiple conds possible
+                prevcondcolumnlist = [prevcondcolumnlist]
+                prevcondvalueslist = [prevcondvalueslist]
+
+            for cond_idx, prevcondcolumn in enumerate(prevcondcolumnlist):
+                prevcondvalues = prevcondvalueslist[cond_idx]
+                if not fulfills and cond_idx > 0:
+                    #If EVEN one of the possibly many conditions concerning the previous word FAILS, then stop testing and assume a FAILURE
+                    break
+                fulfills=False
+                if prevcondcolumn[0]=='!' and nopreviousword:
+                    #IF  negative condition and the first element IN **CLAUSE**:
+                    fulfills = True
+                else:
+                    wkey = word.tokenid - 1
+                    while wkey-1 in sentence.words:
+                        wkey -= 1
+                        wordinsent = sentence.words[wkey]
+                        if wordinsent.deprel.lower() not in ('punct','punc'):
+                            if prevcondcolumn[0] == '!':
+                                #If this is a negative condition, i.e. the head MUST NOT have, say, any objects as its dependents:
+                                if getattr(wordinsent, prevcondcolumn[1:]).lower() not in prevcondvalues:
+                                    fulfills = True
+                                else:
+                                    fulfills = False
+                            elif prevcondcolumn[0] == '¤':
+                                #If a NEGATIVE regexp condition
+                                pattern  = re.compile(prevcondvalues)
+                                if pattern.match(getattr(wordinsent, prevcondcolumn[1:]).lower()):
+                                    #if the requested value of the specified column isn't what's being looked for, regard this a non-match
+                                    #import ipdb; ipdb.set_trace()
+                                    fulfills = False
+                                else:
+                                    fulfills = True
                             else:
-                                fulfills = False
-                        else:
-                            #If this is a positive condition:
-                            #import ipdb; ipdb.set_trace()
-                            if getattr(wordinsent, self.secondpreviouscond['column']).lower() in self.secondpreviouscond['values']:
-                                fulfills = True
-                            else:
-                                fulfills = False
-                        break
+                                #If this is a positive condition:
+                                #import ipdb; ipdb.set_trace()
+                                if getattr(wordinsent, prevcondcolumn).lower() in prevcondvalues:
+                                    fulfills = True
+                                else:
+                                    fulfills = False
+                            break
 
             if not fulfills:
                 #If the previous word did not meet the criteria
@@ -1619,8 +1643,16 @@ class Match:
 
         return True
 
-    def TransitiveSentenceDistancies(self, p2active=False, lang='fi', sentence=None, strict=False):
+    def TransitiveSentenceDistancies(self, p2active=False, lang='fi', sentence=None, strict=False, stop=False):
         """ If the word's finite head has a dobj as its dependent, compare the position of the match and the dobj  """
+ 
+        stop=False
+        #if re.search("\* [а-я]+ть", self.matchedsentence.printstring):
+        #    stop = True
+
+        #if re.search("\* [а-я]+ть", self.matchedsentence.printstring):
+        #    stop = True
+
         #1. In the beginning of the clause
         self.DefinePositionMatch()
 
@@ -1628,9 +1660,16 @@ class Match:
             self.positionmatchword.IterateToFiniteHead(self.matchedsentence)
 
 
+        if stop:
+            import ipdb;ipdb.set_trace()
+
         #... Find the object and the subject
         dobj = None
         nsubj = None
+        infobj = None
+        #if self.matchedsentence.sentence_id = 682261:
+        #    import ipdb;ipdb.set_trace()
+
         try:
             if not self.positionmatchword.compoundfinitehead:
                 #JOS ei riipu apuverbin välityksellä vaan suoraan
@@ -1645,8 +1684,8 @@ class Match:
             for odep in own_deps:
                 own_deps_ids.append(odep.tokenid)
 
-            #if sentence.sentence_id == 51128:
-            #    import ipdb;ipdb.set_trace()
+            if root and not hasattr(root,"dependentlist"):
+                root.ListDependents(sentence)
 
             for word in root.dependentlist:
                 if self.positionmatchword.tokenid != word.tokenid and word.tokenid not in own_deps:
@@ -1655,6 +1694,9 @@ class Match:
                         #Take the first 1-kompl
                         dobj = word
                         self.matchedsentence.object = word
+                    elif lang=="ru" and word.pos == "V" and not word.IsThisFiniteVerb():
+                        #VENÄJÄSSÄ: Tarkistetaan, onko infiniittimuodolla oma objekti
+                        infobj = word.IsThisInfiniteVerbWithObject(sentence, lang, strict)
                     if word.IsSubject(lang):
                         nsubj = word
                         self.matchedsentence.subject = word
@@ -1663,10 +1705,20 @@ class Match:
             print(e)
             return 'Failed'
 
+        if not dobj and infobj:
+            #Jos ei löytynyt varsinaista objektia, mutta verbin dependenttinä oli infiniittimuoto, jolla oli objekti, ota se
+            dobj = infobj
+            self.matchedsentence.object = dobj
+
         #Test, which word the matched word precedes
         #if self.positionmatchword.finitehead.lemma == 'проводить':
         #    import ipdb; ipdb.set_trace()
         comps = self.MatchPrecedes({'verb':self.positionmatchword.finitehead, 'dobj':dobj, 'nsubj':nsubj})
+
+        for compname, thiscomp in comps.items():
+            #Jos ei subjektia tai objektia tai muuten vertailu epäonnistunut:
+            if thiscomp == 'failed':
+                return "failed"
 
         if self.prodrop == 'No':
             if not p2active:
@@ -1724,6 +1776,7 @@ class Match:
                 neg = 'yes'
             if self.matchedword.compoundfinitehead:
                 #Jos ksyeessä suomen apuverbi-/kielto-/?-muoto, tallenna semanttisessa mielessä pääverbin lemma ennemmin kuin apuverbin
+                #import ipdb;ipdb.set_trace()
                 headverb = self.matchedword.headword.lemma
                 headverbfeat = self.matchedword.headword.feat
                 if 'Negative=Yes' in self.matchedword.aux.feat:
@@ -1761,20 +1814,29 @@ class Match:
                     subjlength = self.CountSubjectLength(self.matchedsentence.words[lb], self.matchedword.finitehead)
                 else:
                     subjlength = self.CountSubjectLength(self.matchedsentence.subject, self.matchedword.finitehead)
+                objlength = self.CountJectLength('object')
+                subjlength2 = self.CountJectLength('subject')
             except AttributeError:
                 subjfeat = ""
                 subjlemma = ""
                 subjpos = ""
                 subjlength = ""
+                subjlength2 = ""
+                objlength = ""
+
+            #if  re.search("может|застав|проси",self.matchedsentence.printstring):
+            #    print(self.matchedsentence.sentence_id)
+            #    import ipdb;ipdb.set_trace()
 
             row =  {'tokenid':self.matchedword.tokenid, 'sentid':self.matchedsentence.sentence_id,'sent':self.matchedsentence.printstring,
                     'dfunct':'','headverb':headverb,'prodrop':self.prodrop,'etta_jos':self.TestSubOord(),
                     'headverbdep':self.matchedword.finitehead.deprel,'verbchain': auxlemma,'neg':neg,'firstlemma' : firstword.lemma, 'firstpos': firstword.pos, 'firsttoken':firstword.token,
-                    'phraselength':self.CountPhraseLength(),'headverbfeat':headverbfeat, 'subjfeat':subjfeat, 'subjlemma':subjlemma, 'objfeat':objfeat,'objlemma':objlemma,'objpos':objpos,'subjpos':subjpos,'subjlength':subjlength}
+                    'phraselength':self.CountPhraseLength(),'headverbfeat':headverbfeat, 'subjfeat':subjfeat, 'subjlemma':subjlemma, 'objfeat':objfeat,'objlemma':objlemma,'objpos':objpos,'subjpos':subjpos,
+                    'subjlength':subjlength,'objlength':objlength,'subjlength2':subjlength2}
         except AttributeError:
             print('No finite head for sent {}!'.format(self.matchedsentence.printstring))
             row =  {'tokenid':self.matchedword.tokenid, 'sentid':self.matchedsentence.sentence_id,'sent':self.matchedsentence.printstring,'prodrop':self.prodrop,
-                    'dfunct':'','headverb':'','etta_jos':self.TestSubOord(),'verbchain':'', 'headverbdep':'','neg':'','firstlemma':'','firsttoken':'','firstpos':'','phraselength':self.CountPhraseLength(),'headverbfeat':'', 'headverbfeat':headverbfeat, 'subjfeat':subjfeat, 'subjlemma':subjlemma, 'objfeat':objfeat,'objlemma':objlemma ,'objpos':objpos,'subjpos':subjpos,'subjlength':subjlength}
+                    'dfunct':'','objlength':'','headverb':'','etta_jos':self.TestSubOord(),'subjlength2':'','verbchain':'', 'headverbdep':'','neg':'','firstlemma':'','firsttoken':'','firstpos':'','phraselength':self.CountPhraseLength(),'headverbfeat':'', 'headverbfeat':headverbfeat, 'subjfeat':subjfeat, 'subjlemma':subjlemma, 'objfeat':objfeat,'objlemma':objlemma ,'objpos':objpos,'subjpos':subjpos,'subjlength':subjlength}
 
         row.update(additionalinfo)
         return row
@@ -1814,19 +1876,70 @@ class Match:
             import ipdb;ipdb.set_trace()
         return length
 
+    def CountJectLength(self, jecttype):
+        """Laske objektin tai subjektin pituus sanoissa vierekkäisten dependenttien perusteella"""
+        #if jecttype == 'subject':
+        #    import ipdb;ipdb.set_trace()
+
+
+        ject = getattr(self.matchedsentence, jecttype)
+        oids = [ject.tokenid]
+        olength = 1
+        try:
+            prev = self.matchedsentence.words[ject.tokenid-1]
+            while prev and prev.head in oids and prev.deprel.lower() not in ["punc", "punct"]:
+                olength += 1
+                #huomioidaan myös dependenttien dependentit
+                oids.append(prev.tokenid)
+                try:
+                    prev =  self.matchedsentence.words[prev.tokenid-1]
+                except KeyError:
+                    break
+        except KeyError:
+            pass
+
+        try:
+            oids = [ject.tokenid]
+            prev = self.matchedsentence.words[ject.tokenid+1]
+            while prev and prev.head in oids and prev.deprel.lower() not in ["punc", "punct"]:
+                olength += 1
+                #huomioidaan myös dependenttien dependentit
+                oids.append(prev.tokenid)
+                try:
+                    prev =  self.matchedsentence.words[prev.tokenid+1]
+                except KeyError:
+                    break
+        except KeyError:
+            pass
+
+        if ject.pos in ['M','PRON']:
+            olength = 1
+
+        return olength
+
     def CountSubjectLength(self, leftboundaryword, rightboundaryword):
+        #if self.matchedsentence.sentence_id == 470317:
+        #    import ipdb;ipdb.set_trace()
         subjlength = int(rightboundaryword.tokenid) - int(leftboundaryword.tokenid)
         for i in range(int(leftboundaryword.tokenid)+1,int(rightboundaryword.tokenid)):
             thisword = self.matchedsentence.words[i]
             if thisword.deprel.lower() in ["punc", "punct"]:
                 subjlength -= 1
-            elif thisword.deprel == "обст":
+            elif thisword.deprel in ["огранич", "обст", "1-компл", "2-компл","3-компл"]:
                 subjlength -= 1
                 thisword.ListDependents(self.matchedsentence)
                 if thisword.dependentlist:
                     for dep in thisword.dependentlist:
                         if dep.tokenid > leftboundaryword.tokenid & dep.tokenid < rightboundaryword.tokenid:
                             subjlength -= 1
+                        dep.ListDependents(self.matchedsentence)
+                        #Vielä dependentin dependentit: vrt. вчера она со мной примерно таким же образом делилась
+                        for subdep in dep.dependentlist:
+                            if subdep.tokenid > leftboundaryword.tokenid & subdep.tokenid < rightboundaryword.tokenid:
+                                subjlength -= 1
+            elif thisword.token in ("даже", "будто","разве"):
+                #import ipd;ipdb.set_trace()
+                subjlength -= 1
         return subjlength
 
 class MonoMatch(Match):
@@ -2496,6 +2609,14 @@ class Word:
                     elif dep.tokenid > self.phraseborder['right']:
                         self.phraseborder['right'] = dep.tokenid
 
+    def IsThisInfiniteVerbWithObject(self, sentence, lang, strict):
+        """Tutkitaan venäjän infinitiivimuotojen omia objekteja"""
+        self.ListDependents(sentence)
+        for dep in self.dependentlist:
+            if dep.IsObject(lang, sentence, strict):
+                return dep
+        return None
+
     def IsThisFiniteVerb(self):
         """Return true if the word object is by its feat a finite verb form
         - Suomen kieltoverbit?
@@ -2520,7 +2641,7 @@ class Word:
             else:
                 return False
         elif lang == 'ru':
-            if self.deprel == '1-компл' and self.pos not in ('Q','S','R','C') and self.feat != '-':
+            if self.deprel == '1-компл' and self.pos not in ('V','Q','S','R','C') and self.feat != '-':
                 #1. askel: deprel = 1-kompl
                 if strict:
                     if self.pos not in('V','Q','S','R','C','A') and self.ObjectCaseFilter(sentence):
