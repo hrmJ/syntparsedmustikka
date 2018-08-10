@@ -1,0 +1,130 @@
+2017-09-21 11:52:15,559 Inserting new 4486 references to db...
+2017-09-21 11:53:25,759 Started e6b_new
+2017-09-21 11:54:08,154 Finished e6b_new in 42.39523911476135 seconds
+2017-09-21 12:01:24,609 Inserting new 445 references to db...
+2017-09-21 12:01:32,206 Ups! Tyhjiä segmenttejä tms. havaittu ryhmässä e6b_new, tarkista esimerkiksi seuraava kohta:
+
+ 1	Jos	jos	SCONJ	_	_	6	mark	_	_
+2	ja	ja	CONJ	_	_	6	cc	_	_
+3	kun	kun	SCONJ	_	_	6	mark	_	_
+4	lyhyet	lyhyt	ADJ	_	Case=Nom|Degree=Pos|Number=Plur	5	amod	_	_
+5	korot	koro	NOUN	_	Case=Nom|Number=Plur	6	nsubj	_	_
+6	pysyvät	pysyä	VERB	_	Mood=Ind|Number=Plur|Person=3|Tense=Pres|VerbForm=Fin|Voice=Act	21	advcl	_	_
+7	nykyisen	nykyinen	ADJ	_	Case=Gen|Degree=Pos|Number=Sing	8	amod	_	_
+8	tilanteen	tilanne	NOUN	_	Case=Gen|Number=Sing	6	nmod	_	_
+9	takia	takia	ADP	_	AdpType=Post	8	case	_	_
+10	HYVIN	hyvin	ADV	_	_	11	advmod	_	_
+11	PITKÄÄN	pitkä	ADJ	_	Case=Ill|Degree=Pos|Number=Sing	18	amod	_	_
+12	(	(	PUNCT	_	_	14	punct	_	_
+13	=monta	=monta	ADJ	_	Case=Par|Degree=Pos|Number=Sing	14	amod	_	_
+14	vuotta	vuosi	NOUN	_	Case=Par|Number=Sing	18	nmod	_	_
+15	)	)	PUNCT	_	_	14	punct	_	_
+16	erittäin	erittäin	ADV	_	_	17	advmod	_	_
+17	matalalla	matala	ADJ	_	Case=Ade|Degree=Pos|Number=Sing	18	amod	_	_
+18	tasolla	taso	NOUN	_	Case=Ade|Number=Sing	6	nmod	_	_
+19	,	,	PUNCT	_	_	6	punct	_	_
+20	olet	olla	AUX	_	Mood=Ind|Number=Sing|Person=2|Tense=Pres|VerbForm=Fin|Voice=Act	21	aux	_	_
+21	saanut	saada	VERB	_	Case=Nom|Degree=Pos|Number=Sing|PartForm=Past|VerbForm=Part|Voice=Act	0	root	_	_
+22	säästöön	säästö	NOUN	_	Case=Ill|Number=Sing	21	nmod	_	_
+23	selvää	selvä	ADJ	_	Case=Par|Degree=Pos|Number=Sing	24	amod	_	_
+24	rahaa	raha	NOUN	_	Case=Par|Number=Sing	21	dobj	_	_
+25	!	!	PUNCT	_	_	21	punct	_	_
+ 
+
+ 
+2017-09-21 12:01:32,207 SKIPPING e6b_new because of inconsistencies
+2017-09-21 12:05:15,177 Ups! Tyhjiä segmenttejä tms. havaittu ryhmässä e6b_new, tarkista esimerkiksi seuraava kohta:
+
+ 1	Jos	jos	SCONJ	_	_	6	mark	_	_
+2	ja	ja	CONJ	_	_	6	cc	_	_
+3	kun	kun	SCONJ	_	_	6	mark	_	_
+4	lyhyet	lyhyt	ADJ	_	Case=Nom|Degree=Pos|Number=Plur	5	amod	_	_
+5	korot	koro	NOUN	_	Case=Nom|Number=Plur	6	nsubj	_	_
+6	pysyvät	pysyä	VERB	_	Mood=Ind|Number=Plur|Person=3|Tense=Pres|VerbForm=Fin|Voice=Act	21	advcl	_	_
+7	nykyisen	nykyinen	ADJ	_	Case=Gen|Degree=Pos|Number=Sing	8	amod	_	_
+8	tilanteen	tilanne	NOUN	_	Case=Gen|Number=Sing	6	nmod	_	_
+9	takia	takia	ADP	_	AdpType=Post	8	case	_	_
+10	HYVIN	hyvin	ADV	_	_	11	advmod	_	_
+11	PITKÄÄN	pitkä	ADJ	_	Case=Ill|Degree=Pos|Number=Sing	18	amod	_	_
+12	(	(	PUNCT	_	_	14	punct	_	_
+13	=monta	=monta	ADJ	_	Case=Par|Degree=Pos|Number=Sing	14	amod	_	_
+14	vuotta	vuosi	NOUN	_	Case=Par|Number=Sing	18	nmod	_	_
+15	)	)	PUNCT	_	_	14	punct	_	_
+16	erittäin	erittäin	ADV	_	_	17	advmod	_	_
+17	matalalla	matala	ADJ	_	Case=Ade|Degree=Pos|Number=Sing	18	amod	_	_
+18	tasolla	taso	NOUN	_	Case=Ade|Number=Sing	6	nmod	_	_
+19	,	,	PUNCT	_	_	6	punct	_	_
+20	olet	olla	AUX	_	Mood=Ind|Number=Sing|Person=2|Tense=Pres|VerbForm=Fin|Voice=Act	21	aux	_	_
+21	saanut	saada	VERB	_	Case=Nom|Degree=Pos|Number=Sing|PartForm=Past|VerbForm=Part|Voice=Act	0	root	_	_
+22	säästöön	säästö	NOUN	_	Case=Ill|Number=Sing	21	nmod	_	_
+23	selvää	selvä	ADJ	_	Case=Par|Degree=Pos|Number=Sing	24	amod	_	_
+24	rahaa	raha	NOUN	_	Case=Par|Number=Sing	21	dobj	_	_
+25	!	!	PUNCT	_	_	21	punct	_	_
+ 
+
+ 
+2017-09-21 12:05:15,178 SKIPPING e6b_new because of inconsistencies
+2017-09-21 12:05:54,975 Ups! Tyhjiä segmenttejä tms. havaittu ryhmässä e6b_new, tarkista esimerkiksi seuraava kohta:
+
+ 1	Jos	jos	SCONJ	_	_	6	mark	_	_
+2	ja	ja	CONJ	_	_	6	cc	_	_
+3	kun	kun	SCONJ	_	_	6	mark	_	_
+4	lyhyet	lyhyt	ADJ	_	Case=Nom|Degree=Pos|Number=Plur	5	amod	_	_
+5	korot	koro	NOUN	_	Case=Nom|Number=Plur	6	nsubj	_	_
+6	pysyvät	pysyä	VERB	_	Mood=Ind|Number=Plur|Person=3|Tense=Pres|VerbForm=Fin|Voice=Act	21	advcl	_	_
+7	nykyisen	nykyinen	ADJ	_	Case=Gen|Degree=Pos|Number=Sing	8	amod	_	_
+8	tilanteen	tilanne	NOUN	_	Case=Gen|Number=Sing	6	nmod	_	_
+9	takia	takia	ADP	_	AdpType=Post	8	case	_	_
+10	HYVIN	hyvin	ADV	_	_	11	advmod	_	_
+11	PITKÄÄN	pitkä	ADJ	_	Case=Ill|Degree=Pos|Number=Sing	18	amod	_	_
+12	(	(	PUNCT	_	_	14	punct	_	_
+13	=monta	=monta	ADJ	_	Case=Par|Degree=Pos|Number=Sing	14	amod	_	_
+14	vuotta	vuosi	NOUN	_	Case=Par|Number=Sing	18	nmod	_	_
+15	)	)	PUNCT	_	_	14	punct	_	_
+16	erittäin	erittäin	ADV	_	_	17	advmod	_	_
+17	matalalla	matala	ADJ	_	Case=Ade|Degree=Pos|Number=Sing	18	amod	_	_
+18	tasolla	taso	NOUN	_	Case=Ade|Number=Sing	6	nmod	_	_
+19	,	,	PUNCT	_	_	6	punct	_	_
+20	olet	olla	AUX	_	Mood=Ind|Number=Sing|Person=2|Tense=Pres|VerbForm=Fin|Voice=Act	21	aux	_	_
+21	saanut	saada	VERB	_	Case=Nom|Degree=Pos|Number=Sing|PartForm=Past|VerbForm=Part|Voice=Act	0	root	_	_
+22	säästöön	säästö	NOUN	_	Case=Ill|Number=Sing	21	nmod	_	_
+23	selvää	selvä	ADJ	_	Case=Par|Degree=Pos|Number=Sing	24	amod	_	_
+24	rahaa	raha	NOUN	_	Case=Par|Number=Sing	21	dobj	_	_
+25	!	!	PUNCT	_	_	21	punct	_	_
+ 
+
+ 
+2017-09-21 12:05:54,976 SKIPPING e6b_new because of inconsistencies
+2017-09-21 12:06:42,573 Ups! Tyhjiä segmenttejä tms. havaittu ryhmässä e6b_new, tarkista esimerkiksi seuraava kohta:
+
+ 1	Jos	jos	SCONJ	_	_	6	mark	_	_
+2	ja	ja	CONJ	_	_	6	cc	_	_
+3	kun	kun	SCONJ	_	_	6	mark	_	_
+4	lyhyet	lyhyt	ADJ	_	Case=Nom|Degree=Pos|Number=Plur	5	amod	_	_
+5	korot	koro	NOUN	_	Case=Nom|Number=Plur	6	nsubj	_	_
+6	pysyvät	pysyä	VERB	_	Mood=Ind|Number=Plur|Person=3|Tense=Pres|VerbForm=Fin|Voice=Act	21	advcl	_	_
+7	nykyisen	nykyinen	ADJ	_	Case=Gen|Degree=Pos|Number=Sing	8	amod	_	_
+8	tilanteen	tilanne	NOUN	_	Case=Gen|Number=Sing	6	nmod	_	_
+9	takia	takia	ADP	_	AdpType=Post	8	case	_	_
+10	HYVIN	hyvin	ADV	_	_	11	advmod	_	_
+11	PITKÄÄN	pitkä	ADJ	_	Case=Ill|Degree=Pos|Number=Sing	18	amod	_	_
+12	(	(	PUNCT	_	_	14	punct	_	_
+13	=monta	=monta	ADJ	_	Case=Par|Degree=Pos|Number=Sing	14	amod	_	_
+14	vuotta	vuosi	NOUN	_	Case=Par|Number=Sing	18	nmod	_	_
+15	)	)	PUNCT	_	_	14	punct	_	_
+16	erittäin	erittäin	ADV	_	_	17	advmod	_	_
+17	matalalla	matala	ADJ	_	Case=Ade|Degree=Pos|Number=Sing	18	amod	_	_
+18	tasolla	taso	NOUN	_	Case=Ade|Number=Sing	6	nmod	_	_
+19	,	,	PUNCT	_	_	6	punct	_	_
+20	olet	olla	AUX	_	Mood=Ind|Number=Sing|Person=2|Tense=Pres|VerbForm=Fin|Voice=Act	21	aux	_	_
+21	saanut	saada	VERB	_	Case=Nom|Degree=Pos|Number=Sing|PartForm=Past|VerbForm=Part|Voice=Act	0	root	_	_
+22	säästöön	säästö	NOUN	_	Case=Ill|Number=Sing	21	nmod	_	_
+23	selvää	selvä	ADJ	_	Case=Par|Degree=Pos|Number=Sing	24	amod	_	_
+24	rahaa	raha	NOUN	_	Case=Par|Number=Sing	21	dobj	_	_
+25	!	!	PUNCT	_	_	21	punct	_	_
+ 
+
+ 
+2017-09-21 12:06:42,574 SKIPPING e6b_new because of inconsistencies
+2017-09-21 12:45:32,584 Started e6b_new
+2017-09-21 12:45:54,706 Finished e6b_new in 22.121211767196655 seconds

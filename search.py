@@ -43,8 +43,7 @@ class Search:
     currentsearch = None
     lengthmeter = None
     def __init__(self,queried_db='',askname=False, pseudo=False, interactive=False, con = None):
-        """Initialize a search object. 
-        ----------------------------------------
+        """Initialize a search object.  ----------------------------------------
         attributes:
         searchtype = this helps to determine search-specific conditions
         matches = The matches will be saved as lists in a dict with align_ids as keys.
@@ -1828,14 +1827,14 @@ class Match:
             #    print(self.matchedsentence.sentence_id)
             #    import ipdb;ipdb.set_trace()
 
-            row =  {'tokenid':self.matchedword.tokenid, 'sentid':self.matchedsentence.sentence_id,'sent':self.matchedsentence.printstring,
+            row =  {'posfeatlist':self.matchedsentence.ListPosListFeat(),'tokenid':self.matchedword.tokenid, 'sentid':self.matchedsentence.sentence_id,'sent':self.matchedsentence.printstring,
                     'dfunct':'','headverb':headverb,'prodrop':self.prodrop,'etta_jos':self.TestSubOord(),
                     'headverbdep':self.matchedword.finitehead.deprel,'verbchain': auxlemma,'neg':neg,'firstlemma' : firstword.lemma, 'firstpos': firstword.pos, 'firsttoken':firstword.token,
                     'phraselength':self.CountPhraseLength(),'headverbfeat':headverbfeat, 'subjfeat':subjfeat, 'subjlemma':subjlemma, 'objfeat':objfeat,'objlemma':objlemma,'objpos':objpos,'subjpos':subjpos,
                     'subjlength':subjlength,'objlength':objlength,'subjlength2':subjlength2}
         except AttributeError:
             print('No finite head for sent {}!'.format(self.matchedsentence.printstring))
-            row =  {'tokenid':self.matchedword.tokenid, 'sentid':self.matchedsentence.sentence_id,'sent':self.matchedsentence.printstring,'prodrop':self.prodrop,
+            row =  {'posfeatlist':'','tokenid':self.matchedword.tokenid, 'sentid':self.matchedsentence.sentence_id,'sent':self.matchedsentence.printstring,'prodrop':self.prodrop,
                     'dfunct':'','objlength':'','headverb':'','etta_jos':self.TestSubOord(),'subjlength2':'','verbchain':'', 'headverbdep':'','neg':'','firstlemma':'','firsttoken':'','firstpos':'','phraselength':self.CountPhraseLength(),'headverbfeat':'', 'headverbfeat':headverbfeat, 'subjfeat':subjfeat, 'subjlemma':subjlemma, 'objfeat':objfeat,'objlemma':objlemma ,'objpos':objpos,'subjpos':subjpos,'subjlength':subjlength}
 
         row.update(additionalinfo)
@@ -2248,6 +2247,12 @@ class Sentence:
             if word.IsThisFiniteVerb():
                 self.finiteverbs.append(word)
                 self.finitelemmas.append(word.lemma)
+
+    def ListPosListFeat(self):
+        fstring = ""
+        for wkey, w in self.words.items():
+            fstring += "[{}>>{}]".format(w.pos, w.feat)
+        return fstring
 
 
 

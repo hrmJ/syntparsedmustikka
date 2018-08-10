@@ -51,6 +51,7 @@ class InsData():
     def PrepareConllToDb(self):
         self.segments = TrimList(re.split(TextPair.splitpattern,self.conllinput))
         if len(self.segments)!=len(self.reflist):
+            print("Ongelmia...")
             try:
                 logging.info("Ups! Tyhjiä segmenttejä tms. havaittu ryhmässä {}, tarkista esimerkiksi seuraava kohta:\n\n {} \n\n ".format(self.groupname, self.segments[self.segments.index('')-1]))
             except:
